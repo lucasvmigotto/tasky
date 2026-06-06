@@ -67,3 +67,48 @@ docker compose up -d
 | DELETE | `/api/v1/activities/{id}` | Delete activity |
 | POST | `/api/v1/activities/{childId}/dependencies` | Add parent dependency |
 | DELETE | `/api/v1/activities/{childId}/dependencies/{parentId}` | Remove dependency |
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `POSTGRES_DB` | `tasky` | Database name |
+| `POSTGRES_USER` | `tasky` | Database user |
+| `POSTGRES_PASSWORD` | — | Database password |
+| `JWT_SECRET` | — | Base64-encoded 256+ bit key for JWT signing |
+| `JWT_EXPIRATION_HOURS` | `24` | JWT token lifetime |
+| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
+| `APP_CORS_ALLOWED_ORIGINS` | `*` | Allowed CORS origins |
+
+## Docker Hardened Images
+
+The production image uses hardened base images:
+
+| Stage | Image |
+|---|---|
+| Builder | `dhi.io/eclipse-temurin:21-debian13-dev` |
+| Final | `dhi.io/amazoncorretto:21-debian13-fips` |
+
+- **Builder** — Eclipse Temurin JDK 21 on Debian 13 with dev tooling for Gradle
+- **Final runtime** — Amazon Corretto JRE 21 on Debian 13 with FIPS mode enabled. No shell, no package manager
+- **FIPS compliance** — JVM runs in FIPS-approved mode. JJWT HS256 algorithm is FIPS-compatible
+
+> Authenticate to `dhi.io` before building: `docker login dhi.io`
+
+## Testing
+
+```bash
+./gradlew test
+```
+
+Tests use Testcontainers for PostgreSQL. No external database required.
+
+## Tech Stack
+
+- **Java 21 LTS** with Gradle
+- **Spring Boot 4.0.6** (Web, Data JPA, Security, Validation, Actuator)
+- **PostgreSQL 16** with Flyway migrations
+- **JWT** (JJWT) for stateless auth
+- **Google OAuth 2.0** — zero credential storage
+- **springdoc-openapi** — auto-generated API docs
+- **Testcontainers** — integration testing
