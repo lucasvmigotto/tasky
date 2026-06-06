@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    show-sql: false
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    io.tasky.api: INFO
