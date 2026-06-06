@@ -1,0 +1,24 @@
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://accounts.google.com
+          jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+
+logging:
+  level:
+    io.tasky.api: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+
+tasky:
+  jwt:
+    secret: dev-secret-key-that-is-at-least-256-bits-long-for-hs256-algorithm
+    expiration-hours: 168
