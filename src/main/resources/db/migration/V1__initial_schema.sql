@@ -119,3 +119,40 @@ CREATE TABLE labels (
     CONSTRAINT uq_labels_org_slug UNIQUE (organization_id, slug)
 );
 CREATE INDEX idx_labels_organization_id ON labels(organization_id);
+
+CREATE TABLE activities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    weight SMALLINT NOT NULL DEFAULT 1 CHECK (weight IN (1, 2, 3, 5, 8, 13)),
+    start_datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_by UUID NOT NULL REFERENCES organization_memberships(id),
+    assigned_to UUID NOT NULL REFERENCES organization_memberships(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT chk_activities_datetime CHECK (start_datetime < end_datetime)
+);
+CREATE INDEX idx_activities_project_id ON activities(project_id);
+CREATE INDEX idx_activities_created_by ON activities(created_by);
+CREATE INDEX idx_activities_assigned_to ON activities(assigned_to);
+CREATE INDEX idx_activities_start_datetime ON activities(start_datetime);
+CREATE INDEX idx_activities_end_datetime ON activities(end_datetime);
+
+CREATE TABLE activity_labels (
+    activity_id UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+    label_id UUID NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (activity_id, label_id)
+);
+CREATE INDEX idx_activity_labels_label_id ON activity_labels(label_id);
+
+CREATE TABLE activity_dependencies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_activity_id UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+    child_activity_id UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+    CONSTRAINT uq_activity_dependencies UNIQUE (parent_activity_id, child_activity_id),
+    CONSTRAINT chk_no_self_dependency CHECK (parent_activity_id <> child_activity_id)
+);
+CREATE INDEX idx_activity_dependencies_parent ON activity_dependencies(parent_activity_id);
+CREATE INDEX idx_activity_dependencies_child ON activity_dependencies(child_activity_id);
