@@ -71,3 +71,51 @@ CREATE TABLE leader_teams (
     PRIMARY KEY (membership_id, team_id)
 );
 CREATE INDEX idx_leader_teams_team_id ON leader_teams(team_id);
+
+CREATE TABLE projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    manager_membership_id UUID NOT NULL REFERENCES organization_memberships(id),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT uq_projects_department_name UNIQUE (department_id, name)
+);
+CREATE INDEX idx_projects_department_id ON projects(department_id);
+CREATE INDEX idx_projects_manager_membership_id ON projects(manager_membership_id);
+
+CREATE TABLE project_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    membership_id UUID NOT NULL REFERENCES organization_memberships(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT uq_project_assignments UNIQUE (project_id, membership_id)
+);
+CREATE INDEX idx_project_assignments_project_id ON project_assignments(project_id);
+CREATE INDEX idx_project_assignments_membership_id ON project_assignments(membership_id);
+
+CREATE TABLE cross_department_project_access (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    granted_by UUID NOT NULL REFERENCES organization_memberships(id),
+    granted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT uq_cross_dept_access UNIQUE (project_id, department_id)
+);
+CREATE INDEX idx_cross_dept_access_project_id ON cross_department_project_access(project_id);
+CREATE INDEX idx_cross_dept_access_department_id ON cross_department_project_access(department_id);
+
+CREATE TABLE labels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    slug VARCHAR(50) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    is_system BOOLEAN NOT NULL DEFAULT false,
+    created_by UUID REFERENCES organization_memberships(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT uq_labels_org_slug UNIQUE (organization_id, slug)
+);
+CREATE INDEX idx_labels_organization_id ON labels(organization_id);
