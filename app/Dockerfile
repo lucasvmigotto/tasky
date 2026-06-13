@@ -20,7 +20,6 @@ RUN --mount=type=bind,source=package.json,target=package.json \
     --mount=type=bind,source=tsconfig.node.json,target=tsconfig.node.json \
     --mount=type=bind,source=vite-env.d.ts,target=vite-env.d.ts \
     --mount=type=bind,source=components.json,target=components.json \
-    --mount=type=bind,source=package.json,target=package.json \
     bun install --frozen-lock-file \
     && bun run build
 
