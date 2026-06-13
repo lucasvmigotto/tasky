@@ -1,8 +1,8 @@
 ### Gradle ###
 .gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+api/build/
+!**/api/src/main/**/build/
+!**/api/src/test/**/build/
 
 ### IDE ###
 .idea/
@@ -25,6 +25,9 @@ Desktop.ini
 ### Environment ###
 .env
 !.env.example
+app/.env
+app/.env.local
+app/.env.*.local
 
 ### Java ###
 *.class
@@ -38,6 +41,13 @@ Desktop.ini
 *.pid
 hs_err_pid*
 *.hprof
+
+### Bun / Frontend ###
+app/node_modules/
+app/dist/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 ### Devcontainer JDK (local JDK) ###
 .devcontainer/jdk/
