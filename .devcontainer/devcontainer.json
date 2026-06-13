@@ -3,18 +3,28 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "forwardPorts": [8080, 5432],
+  "forwardPorts": [8080, 5173, 5432],
   "portsAttributes": {
     "8080": {
-      "label": "Application",
+      "label": "API (Java)",
       "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "App (Vite)",
+      "onAutoForward": "openBrowser"
     },
     "5432": {
       "label": "PostgreSQL",
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "./gradlew build --no-daemon",
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/.bun/bin"
+  },
+  "postCreateCommand": {
+    "gradleInstall": "./gradlew :api:build --no-daemon",
+    "bunInstall": "bun install --cwd app/"
+  },
   "remoteUser": "vscode",
   "customizations": {
     "vscode": {
@@ -23,7 +33,8 @@
         "vscjava.vscode-gradle",
         "bierner.markdown-preview-github-styles",
         "mtxr.sqltools",
-        "mtxr.sqltools-driver-pg"
+        "mtxr.sqltools-driver-pg",
+        "oven.bun-vscode"
       ],
       "settings": {
         "editor.formatOnSave": true,
