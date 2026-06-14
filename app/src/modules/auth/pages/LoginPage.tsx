@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { Clock, ArrowRight, LogIn } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
-import { getDemoAuth } from '@/core/auth/demoAuth'
 import { getConfig } from '@/core/config/runtimeConfig'
 import { ROUTES } from '@/core/config/routes'
 
@@ -10,13 +9,10 @@ const isDemoMode = getConfig().demoMode === 'true'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const login = useAuthStore((s) => s.login)
-  const setDemoMode = useAuthStore((s) => s.setDemoMode)
+  const loginWithDemo = useAuthStore((s) => s.loginWithDemo)
 
-  function handleDemoLogin() {
-    const demo = getDemoAuth()
-    setDemoMode()
-    login(demo.token, demo.user, demo.organizations)
+  async function handleDemoLogin() {
+    await loginWithDemo()
     navigate(ROUTES.DASHBOARD, { replace: true })
   }
 

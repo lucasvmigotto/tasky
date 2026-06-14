@@ -1,70 +1,133 @@
 import { create } from 'zustand'
+import { setAccessToken, getAccessToken, apiClient } from '@/core/api/apiClient'
+import { setRefreshHandler } from '@/core/api/interceptors'
+import { getConfig } from '@/core/config/runtimeConfig'
 import type { AuthState, UserInfo, OrgInfo } from './authTypes'
+import type { Role } from './permissions'
+import type { AuthResponse } from '@/core/api/types'
 
-export interface AuthStore extends AuthState {
-  login: (token: string, user: UserInfo, organizations: OrgInfo[]) => void
-  logout: () => void
+type AuthActions = {
+  loginWithGoogle: (idToken: string) => Promise<void>
+  loginWithDemo: () => Promise<void>
+  refreshToken: () => Promise<string | null>
   setActiveOrg: (org: OrgInfo) => void
-  setDemoMode: () => void
-  restore: () => void
+  logout: () => void
+  restore: () => Promise<void>
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
-  token: null,
-  user: null,
-  organizations: [],
-  activeOrg: null,
-  isAuthenticated: false,
-  isLoading: true,
-  isDemo: false,
-
-  login: (token, user, organizations) => {
-    const activeOrg = organizations[0] || null
-    localStorage.setItem('tasky_token', token)
-    localStorage.setItem('tasky_user', JSON.stringify(user))
-    localStorage.setItem('tasky_orgs', JSON.stringify(organizations))
-    localStorage.setItem('tasky_active_org', JSON.stringify(activeOrg))
-    set({ token, user, organizations, activeOrg, isAuthenticated: true, isLoading: false })
-  },
-
-  logout: () => {
-    localStorage.removeItem('tasky_token')
-    localStorage.removeItem('tasky_user')
-    localStorage.removeItem('tasky_orgs')
-    localStorage.removeItem('tasky_active_org')
+export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
+  const handleAuthResponse = (data: AuthResponse) => {
+    setAccessToken(data.token)
+    const orgs: OrgInfo[] = data.organizations.map((o) => ({
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      role: o.role as Role,
+    }))
     set({
-      token: null,
-      user: null,
-      organizations: [],
-      activeOrg: null,
-      isAuthenticated: false,
+      token: data.token,
+      user: data.user as UserInfo,
+      organizations: orgs,
+      activeOrg: orgs.length > 0 ? orgs[0] : null,
+      isAuthenticated: true,
       isLoading: false,
       isDemo: false,
     })
-  },
+  }
 
-  setActiveOrg: (org) => {
-    localStorage.setItem('tasky_active_org', JSON.stringify(org))
-    set({ activeOrg: org })
-  },
-
-  setDemoMode: () => {
-    set({ isAuthenticated: true, isLoading: false, isDemo: true })
-  },
-
-  restore: () => {
+  setRefreshHandler(async () => {
     try {
-      const token = localStorage.getItem('tasky_token')
-      const user = JSON.parse(localStorage.getItem('tasky_user') || 'null')
-      const orgs = JSON.parse(localStorage.getItem('tasky_orgs') || '[]')
-      const activeOrg = JSON.parse(localStorage.getItem('tasky_active_org') || 'null')
-      if (token && user) {
-        set({ token, user, organizations: orgs, activeOrg, isAuthenticated: true, isLoading: false })
+      const data = await apiClient.post<{ token: string }>('/auth/refresh')
+      setAccessToken(data.token)
+      set({ token: data.token })
+      return data.token
+    } catch {
+      get().logout()
+      return null
+    }
+  })
+
+  return {
+    token: null,
+    user: null,
+    organizations: [],
+    activeOrg: null,
+    isAuthenticated: false,
+    isLoading: true,
+    isDemo: false,
+
+    loginWithGoogle: async (idToken: string) => {
+      set({ isLoading: true })
+      try {
+        const data = await apiClient.post<AuthResponse>('/auth/google', { idToken })
+        handleAuthResponse(data)
+      } catch (err) {
+        set({ isLoading: false })
+        throw err
+      }
+    },
+
+    loginWithDemo: async () => {
+      set({ isLoading: true })
+      const { getDemoAuth } = await import('./demoAuth')
+      const demo = getDemoAuth()
+      set({
+        token: demo.token,
+        user: demo.user,
+        organizations: demo.organizations,
+        activeOrg: demo.organizations[0] || null,
+        isAuthenticated: true,
+        isLoading: false,
+        isDemo: true,
+      })
+    },
+
+    refreshToken: async () => {
+      try {
+        const data = await apiClient.post<{ token: string }>('/auth/refresh')
+        setAccessToken(data.token)
+        set({ token: data.token, isAuthenticated: true, isLoading: false })
+        return data.token
+      } catch {
+        set({ isLoading: false })
+        get().logout()
+        return null
+      }
+    },
+
+    setActiveOrg: (org: OrgInfo) => {
+      set({ activeOrg: org })
+    },
+
+    logout: () => {
+      setAccessToken(null)
+      set({
+        token: null,
+        user: null,
+        organizations: [],
+        activeOrg: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isDemo: false,
+      })
+    },
+
+    restore: async () => {
+      const config = getConfig()
+      if (config.demoMode === 'true') {
+        await get().loginWithDemo()
+        return
+      }
+      const token = getAccessToken()
+      if (token) {
+        try {
+          await get().refreshToken()
+        } catch {
+          set({ isLoading: false })
+        }
       } else {
         set({ isLoading: false })
       }
-    } catch {
-      set({ isLoading: false })
-    }
-  },
-}))
+    },
+  }
+})
