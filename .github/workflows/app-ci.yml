@@ -6,13 +6,16 @@ on:
     paths:
       - "app/**"
 
+permissions:
+  contents: write
+
 jobs:
-  lint-and-tag:
+  lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -36,3 +39,86 @@ jobs:
         run: |
           git tag app-${{ steps.version.outputs.version }}
           git push origin app-${{ steps.version.outputs.version }}
+
+  build-and-push:
+    needs: lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=$(jq -r '.version' app/package.json)" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub Container registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
+
+      - name: Log in to Docker Hardened Images Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: dhi.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
+
+      - name: Log in to GitHub Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: |
+            ${{ github.repository }}-app
+            ghcr.io/${{ github.repository }}-app
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: app/
+          file: app/Dockerfile
+          push: true
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ github.repository }}-app:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}-app:${{ steps.version.outputs.version }}
+            ${{ github.repository }}-app:latest
+            ghcr.io/${{ github.repository }}-app:latest
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-app
+          subject-digest: ${{ steps.push.outputs.digest }}
+
+  release-artifact:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=$(jq -r '.version' app/package.json)" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.version.outputs.version }}
+          git archive --format=zip -o "source-${V}.zip" HEAD app/
+          gh release create "app-$V" --title "app-v$V" --notes "Release app-v$V" "source-${V}.zip"

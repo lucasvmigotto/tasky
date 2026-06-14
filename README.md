@@ -543,7 +543,7 @@ Push to main (app/ changes)
 |---|---|
 | `PAT_TOKEN` | CI workflows (push tags that trigger CD) |
 | `DOCKER_HUB_PAT` | CD workflows (push images, pull `dhi.io/`) |
-| `DOCKER_HUB_USER` | CD workflows (Docker Hub username) |
+| `DOCKER_HUB_USERNAME` | CD workflows (Docker Hub username) |
 
 ### CI Pipeline Details
 
