@@ -1,4 +1,4 @@
-FROM dhi.io/eclipse-temurin:21-debian13-dev AS builder
+FROM dhi.io/eclipse-temurin:21-jdk-debian13-dev AS builder
 
 WORKDIR /app
 
@@ -8,9 +8,9 @@ RUN --mount=type=bind,source=gradlew,target=gradlew \
     --mount=type=bind,source=gradle,target=gradle \
     --mount=type=bind,source=api/build.gradle,target=api/build.gradle \
     --mount=type=bind,source=api/src,target=api/src \
-    && ./gradlew :api:build --no-daemon -x test
+    ./gradlew :api:build --no-daemon -x test
 
-FROM dhi.io/amazoncorretto:21-debian13-fips
+FROM dhi.io/eclipse-temurin:21-debian13
 
 WORKDIR /app
 
