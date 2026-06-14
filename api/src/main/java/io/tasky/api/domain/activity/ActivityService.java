@@ -190,4 +190,14 @@ public class ActivityService {
         }
         return totalMinutes;
     }
+
+    public List<Activity> getActivitiesByDateRange(Instant from, Instant to, UUID assignedTo, UUID projectId) {
+        var activities = activityRepository.findAll();
+        var stream = activities.stream();
+        if (from != null) stream = stream.filter(a -> !a.getEndDatetime().isBefore(from));
+        if (to != null) stream = stream.filter(a -> !a.getStartDatetime().isAfter(to));
+        if (assignedTo != null) stream = stream.filter(a -> a.getAssignedTo().getId().equals(assignedTo));
+        if (projectId != null) stream = stream.filter(a -> a.getProject().getId().equals(projectId));
+        return stream.toList();
+    }
 }

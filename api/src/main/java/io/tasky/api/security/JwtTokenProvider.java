@@ -27,8 +27,16 @@ public class JwtTokenProvider {
     }
 
     public String createToken(UUID userId, String email, UUID orgId, Role role) {
+        return createToken(userId, email, orgId, role, expirationHours);
+    }
+
+    public String createRefreshToken(UUID userId, String email, UUID orgId, Role role) {
+        return createToken(userId, email, orgId, role, expirationHours * 7);
+    }
+
+    private String createToken(UUID userId, String email, UUID orgId, Role role, long hours) {
         Instant now = Instant.now();
-        Instant expiration = now.plusSeconds(expirationHours * 3600);
+        Instant expiration = now.plusSeconds(hours * 3600);
 
         return Jwts.builder()
                 .subject(userId.toString())
@@ -52,6 +60,18 @@ public class JwtTokenProvider {
     public boolean validateToken(String token) {
         try {
             parseToken(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public boolean validateTokenIgnoringExpiry(String token) {
+        try {
+            Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             return false;

@@ -1,22 +1,18 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar as CalendarIcon,
-  Circle,
-  Clock,
-  Target,
-  Users,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Circle, Clock, Target, Users, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Button } from '@/shared/components/ui/Button'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { EmptyState } from '@/shared/components/ui/EmptyState'
 import { cn } from '@/shared/lib/cn'
 import { getMonthName } from '@/shared/lib/dates'
-import { demoCalendarEvents, type DemoCalendarEvent } from '@/modules/calendar/data/calendar.mock'
+import { useAuthStore } from '@/core/auth/authStore'
+import { useActivityQuery } from '@/core/api/hooks'
+import type { UUID } from '@/core/api/types'
 
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1)
@@ -44,19 +40,30 @@ function getFirstDayOfMonth(date: Date): number {
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 
-const TYPE_ICONS: Record<DemoCalendarEvent['type'], typeof Circle> = {
+type CalendarEventType = 'activity' | 'meeting' | 'deadline'
+
+interface CalendarEvent {
+  id: string
+  title: string
+  projectId: string
+  startDatetime: string
+  endDatetime: string
+  type: CalendarEventType
+}
+
+const TYPE_ICONS: Record<CalendarEventType, typeof Circle> = {
   activity: Clock,
   meeting: Users,
   deadline: Target,
 }
 
-const TYPE_COLORS: Record<DemoCalendarEvent['type'], string> = {
+const TYPE_COLORS: Record<CalendarEventType, string> = {
   activity: 'border-l-blue-500 bg-blue-500/10 text-blue-400',
   meeting: 'border-l-emerald-500 bg-emerald-500/10 text-emerald-400',
   deadline: 'border-l-amber-500 bg-amber-500/10 text-amber-400',
 }
 
-const TYPE_BADGE: Record<DemoCalendarEvent['type'], 'info' | 'success' | 'warning'> = {
+const TYPE_BADGE: Record<CalendarEventType, 'info' | 'success' | 'warning'> = {
   activity: 'info',
   meeting: 'success',
   deadline: 'warning',
@@ -74,7 +81,7 @@ function isToday(d: Date): boolean {
   return isSameDay(d, new Date())
 }
 
-function getEventsForDay(events: DemoCalendarEvent[], day: Date): DemoCalendarEvent[] {
+function getEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
   return events.filter((e) => {
     const start = new Date(e.startDatetime)
     return isSameDay(start, day)
@@ -83,12 +90,33 @@ function getEventsForDay(events: DemoCalendarEvent[], day: Date): DemoCalendarEv
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(() => new Date())
-  const [typeFilter, setTypeFilter] = useState<DemoCalendarEvent['type'] | 'all'>('all')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
+
+  const monthStart = useMemo(() => startOfMonth(currentDate), [currentDate])
+  const monthEnd = useMemo(() => endOfMonth(currentDate), [currentDate])
+
+  const { data: activities, isLoading } = useActivityQuery(
+    orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString() } : null
+  )
+
+  const events = useMemo(() => {
+    if (!activities) return []
+    return activities.map((a) => ({
+      id: a.id,
+      title: a.title,
+      projectId: a.projectId,
+      startDatetime: a.startDatetime,
+      endDatetime: a.endDatetime,
+      type: 'activity' as const,
+    }))
+  }, [activities])
 
   const filteredEvents = useMemo(() => {
-    if (typeFilter === 'all') return demoCalendarEvents
-    return demoCalendarEvents.filter((e) => e.type === typeFilter)
-  }, [typeFilter])
+    if (typeFilter === 'all') return events
+    return events.filter((e) => e.type === typeFilter)
+  }, [events, typeFilter])
 
   const calendarDays = useMemo(() => {
     const daysInMonth = getDaysInMonth(currentDate)
@@ -189,13 +217,14 @@ export default function CalendarPage() {
                   </div>
                   <div className="flex flex-col gap-0.5">
                     {dayEvents.slice(0, 3).map((event) => {
-                      const Icon = TYPE_ICONS[event.type]
+                      const et = event.type as CalendarEventType
+                      const Icon = TYPE_ICONS[et]
                       return (
                         <div
                           key={event.id}
                           className={cn(
                             'flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px] font-medium',
-                            TYPE_COLORS[event.type],
+                            TYPE_COLORS[et],
                           )}
                           title={event.title}
                         >
@@ -227,7 +256,8 @@ export default function CalendarPage() {
               </p>
             ) : (
               filteredEvents.map((event) => {
-                const Icon = TYPE_ICONS[event.type]
+                const et = event.type as CalendarEventType
+                const Icon = TYPE_ICONS[et]
                 const start = new Date(event.startDatetime)
                 const end = new Date(event.endDatetime)
                 const isAllDay = start.getTime() === end.getTime()
@@ -246,10 +276,10 @@ export default function CalendarPage() {
                       </span>
                     </div>
                     <div className="flex flex-1 items-center gap-3">
-                      <Icon className={cn('size-4', TYPE_COLORS[event.type].split(' ')[2])} />
+                      <Icon className={cn('size-4', TYPE_COLORS[et].split(' ')[2])} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                        <p className="text-xs text-muted-foreground">{event.projectName}</p>
+                        <p className="text-xs text-muted-foreground">{event.type === 'activity' ? event.projectId : ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -258,7 +288,7 @@ export default function CalendarPage() {
                           {start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       )}
-                      <Badge variant={TYPE_BADGE[event.type]} className="text-[10px] px-1.5 py-0">
+                      <Badge variant={TYPE_BADGE[et]} className="text-[10px] px-1.5 py-0">
                         {event.type === 'activity' ? 'Atividade' : event.type === 'meeting' ? 'Reunião' : 'Prazo'}
                       </Badge>
                     </div>
