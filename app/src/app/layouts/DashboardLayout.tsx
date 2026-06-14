@@ -176,10 +176,10 @@ export default function DashboardLayout() {
 
   const topbarUser: TopbarUser | undefined = user
     ? {
-        name: user.displayName,
+        name: user.displayName ?? '',
         email: user.email,
         avatarUrl: user.avatarUrl ?? undefined,
-        initials: getInitials(user.displayName),
+        initials: getInitials(user.displayName ?? ''),
       }
     : undefined
 
