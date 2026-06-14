@@ -1,0 +1,58 @@
+name: App CD
+
+on:
+  push:
+    tags:
+      - "app-*"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#app-}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: app/
+          file: app/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/tasky/app:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/tasky/app:latest
+            ${{ vars.DOCKER_HUB_USERNAME }}/tasky-app:${{ steps.version.outputs.version }}
+            ${{ vars.DOCKER_HUB_USERNAME }}/tasky-app:latest
+
+      - name: Build dist
+        run: bun run build
+        working-directory: app/
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.version.outputs.version }}
+          mkdir -p release-artifacts
+          zip -r "release-artifacts/dist-${V}.zip" app/dist
+          git archive --format=zip -o "release-artifacts/source-${V}.zip" HEAD app/
+          gh release create "app-$V" \
+            --title "app-v$V" \
+            --notes "Release app-v$V" \
+            release-artifacts/*
