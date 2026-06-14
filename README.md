@@ -1,9 +1,10 @@
-# TaskY
+# TaskY ✦
 
-Multi-tenant Time Activities API. Built with Java 21, Spring Boot 4.0.6, PostgreSQL 16.
+Multi-tenant Time Activities platform. Monorepo with Java API backend and React frontend.
 
 ## Architecture
 
+### Backend
 ```
 Organization (tenant boundary)
   └── Department
@@ -14,101 +15,179 @@ Organization (tenant boundary)
 
 **Roles (strict hierarchy):** `admin` > `manager` > `leader` > `employee`
 
+### Frontend
+```
+Client (Browser) → Nginx (reverse proxy)
+  ├── /api/* → Java API (api:8080)
+  └── /*     → React SPA (static files)
+```
+
+### Project Structure
+
+```
+.
+├── api/                           # Java backend
+│   ├── src/main/java/io/tasky/api/
+│   ├── build.gradle
+│   └── Dockerfile
+├── app/                           # React frontend
+│   ├── src/
+│   ├── package.json
+│   ├── Dockerfile
+│   └── nginx.conf
+├── .devcontainer/                 # Java 21 + Bun
+├── docker-compose.yml             # api + app + db
+└── .github/workflows/ci.yml       # CI/CD pipeline
+```
+
 ## Quick Start
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- Access to `dhi.io` registry authenticated via `docker login dhi.io`
-- A Google OAuth 2.0 Client ID (for authentication)
+- Docker & Compose
+- Access to `dhi.io` registry: `docker login dhi.io`
+- A Google OAuth 2.0 Client ID
 
-### Setup
+### Full Stack (Docker)
 
 ```bash
-# 1. Configure environment
 cp .env.example .env
-# Edit .env with your Google OAuth credentials and a JWT secret
-
-# 2. Start the stack
+# Edit .env with your credentials
 docker compose up -d
 
-# 3. The API is available at http://localhost:8080
-#    Swagger UI: http://localhost:8080/swagger-ui.html
+# API:    http://localhost:8080
+# App:    http://localhost:5173
+# Swagger: http://localhost:8080/swagger-ui.html
 ```
 
 ### Development (without Docker)
 
 ```bash
-# Requires: Java 21, PostgreSQL 16 running locally
-./gradlew bootRun --args='--spring.profiles.active=dev'
+# Backend — requires Java 21 + PostgreSQL 16
+cd api && ./gradlew bootRun --args='--spring.profiles.active=dev'
+
+# Frontend — requires Bun
+cd app && bun install && bun run dev
 ```
 
 ## API Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/v1/auth/google` | Login with Google ID token |
-| POST | `/api/v1/organizations` | Create organization |
-| POST | `/api/v1/organizations/{orgId}/departments` | Create department (admin) |
-| GET | `/api/v1/organizations/{orgId}/departments` | List departments |
-| POST | `/api/v1/departments/{deptId}/teams` | Create team (admin/manager) |
-| GET | `/api/v1/departments/{deptId}/teams` | List teams |
-| POST | `/api/v1/organizations/{orgId}/memberships/invite` | Invite user |
-| GET | `/api/v1/organizations/{orgId}/memberships` | List memberships |
-| PUT | `/api/v1/organizations/{orgId}/memberships/{id}/settings` | Update settings |
-| POST | `/api/v1/departments/{deptId}/projects` | Create project (admin/manager) |
-| GET | `/api/v1/organizations/{orgId}/projects` | List projects |
-| POST | `/api/v1/organizations/{orgId}/labels` | Create label (manager/leader) |
-| GET | `/api/v1/organizations/{orgId}/labels` | List labels |
-| DELETE | `/api/v1/labels/{id}` | Delete custom label |
-| POST | `/api/v1/projects/{projectId}/activities` | Create activity |
-| GET | `/api/v1/projects/{projectId}/activities` | List activities |
-| GET | `/api/v1/activities/{id}` | Get activity |
-| DELETE | `/api/v1/activities/{id}` | Delete activity |
-| POST | `/api/v1/activities/{childId}/dependencies` | Add parent dependency |
-| DELETE | `/api/v1/activities/{childId}/dependencies/{parentId}` | Remove dependency |
+All endpoints are prefixed with `/api/v1` and proxied through Nginx.
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| POST | `/auth/google` | Login with Google ID token | — |
+| POST | `/organizations` | Create organization | — |
+| POST | `/organizations/{orgId}/departments` | Create department | admin |
+| GET | `/organizations/{orgId}/departments` | List departments | authenticated |
+| POST | `/departments/{deptId}/teams` | Create team | admin, manager |
+| GET | `/departments/{deptId}/teams` | List teams | authenticated |
+| POST | `/organizations/{orgId}/memberships/invite` | Invite user | varies by role |
+| GET | `/organizations/{orgId}/memberships` | List memberships | authenticated |
+| PUT | `/organizations/{orgId}/memberships/{membershipId}/settings` | Update settings | self |
+| POST | `/departments/{deptId}/projects` | Create project | admin, manager |
+| GET | `/organizations/{orgId}/projects` | List projects | authenticated |
+| POST | `/organizations/{orgId}/labels` | Create custom label | manager, leader |
+| GET | `/organizations/{orgId}/labels` | List labels | authenticated |
+| DELETE | `/organizations/{orgId}/labels/{labelId}` | Delete custom label | manager, leader |
+| POST | `/projects/{projectId}/activities` | Create activity | varies by role |
+| GET | `/projects/{projectId}/activities` | List project activities | authenticated |
+| GET | `/activities/{activityId}` | Get activity | authenticated |
+| DELETE | `/activities/{activityId}` | Delete activity | creator, admin |
+| POST | `/activities/{childId}/dependencies` | Add parent dependency | authenticated |
+| DELETE | `/activities/{childId}/dependencies/{parentId}` | Remove dependency | authenticated |
 
 ## Configuration
+
+### Backend
 
 | Variable | Default | Description |
 |---|---|---|
 | `POSTGRES_DB` | `tasky` | Database name |
 | `POSTGRES_USER` | `tasky` | Database user |
 | `POSTGRES_PASSWORD` | — | Database password |
-| `JWT_SECRET` | — | Base64-encoded 256+ bit key for JWT signing |
-| `JWT_EXPIRATION_HOURS` | `24` | JWT token lifetime |
+| `JWT_SECRET` | — | Base64-encoded 256+ bit key |
+| `JWT_EXPIRATION_HOURS` | `24` | Token lifetime |
 | `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `APP_CORS_ALLOWED_ORIGINS` | `*` | Allowed CORS origins |
 
-## Docker Hardened Images
+### Frontend
 
-The production image uses hardened base images:
+| Variable | Default | Description |
+|---|---|---|
+| `API_UPSTREAM` | `http://api:8080` | Backend upstream URL (Nginx envsubst) |
+| `VITE_DEMO_MODE` | `true` | Enable demo mode with mock data |
 
-| Stage | Image |
+## Docker Images
+
+Images are built from hardened `dhi.io/` base images and pushed to both registries.
+
+### API
+
+| Registry | Image |
 |---|---|
-| Builder | `dhi.io/eclipse-temurin:21-debian13-dev` |
-| Final | `dhi.io/amazoncorretto:21-debian13-fips` |
+| Docker Hub | `lucasvmigotto/tasky-api` |
+| GHCR | `ghcr.io/<owner>/tasky/api` |
 
-- **Builder** — Eclipse Temurin JDK 21 on Debian 13 with dev tooling for Gradle
-- **Final runtime** — Amazon Corretto JRE 21 on Debian 13 with FIPS mode enabled. No shell, no package manager
-- **FIPS compliance** — JVM runs in FIPS-approved mode. JJWT HS256 algorithm is FIPS-compatible
+**Builder:** `dhi.io/eclipse-temurin:21-debian13-dev` — JDK 21 with Gradle tooling  
+**Runtime:** `dhi.io/amazoncorretto:21-debian13-fips` — FIPS-compliant JRE, no shell
+
+### App
+
+| Registry | Image |
+|---|---|
+| Docker Hub | `lucasvmigotto/tasky-app` |
+| GHCR | `ghcr.io/<owner>/tasky/app` |
+
+**Builder:** `dhi.io/bun:1-debian13-dev` — Bun runtime for build  
+**Runtime:** `dhi.io/nginx:1.31-debian13` — hardened Nginx serving static files
 
 > Authenticate to `dhi.io` before building: `docker login dhi.io`
+
+## CI/CD
+
+On every push to `main`, the pipeline:
+
+1. Runs backend tests (`./gradlew :api:test`)
+2. Runs frontend lint (`bun run lint`)
+3. Reads versions from `api/build.gradle` and `app/package.json`
+4. Creates Git tag(s) — single tag if versions match, prefixed (`api-` / `app-`) if different
+5. Logs in to GHCR and Docker Hub
+6. Builds and pushes both Docker images with version + latest tags
+7. Creates a GitHub Release with zipped artifacts (`.jar` + `dist/`)
+
+The release title uses a `v` prefix (e.g. `v1.0.0`) while the tag remains without.
 
 ## Testing
 
 ```bash
-./gradlew test
-```
+# Backend (Testcontainers for PostgreSQL)
+./gradlew :api:test
 
-Tests use Testcontainers for PostgreSQL. No external database required.
+# Frontend
+cd app && bun run lint
+```
 
 ## Tech Stack
 
+### Backend (`api/`)
 - **Java 21 LTS** with Gradle
 - **Spring Boot 4.0.6** (Web, Data JPA, Security, Validation, Actuator)
 - **PostgreSQL 16** with Flyway migrations
-- **JWT** (JJWT) for stateless auth
+- **JJWT** — stateless JWT auth
 - **Google OAuth 2.0** — zero credential storage
 - **springdoc-openapi** — auto-generated API docs
 - **Testcontainers** — integration testing
+- **dhi.io hardened images** — Eclipse Temurin + Amazon Corretto FIPS
+
+### Frontend (`app/`)
+- **React 19** with TypeScript
+- **Vite 6** — dev server + build
+- **Tailwind CSS 4** with Radix UI primitives
+- **TanStack React Query** — server state
+- **Zustand** — client state
+- **React Router 7** — routing
+- **Recharts** — dashboards
+- **Bun** — package manager + runtime
+- **Nginx** — reverse proxy with envsubst template
+- **dhi.io hardened images** — Bun builder + Nginx runtime
