@@ -19,29 +19,39 @@ export function hasMinRole(userRole: Role, requiredRole: Role): boolean {
 }
 
 export function canManageOrganization(role: Role): boolean {
-  return hasMinRole(role, 'admin')
+  return role === 'admin'
 }
 
 export function canManageDepartment(role: Role): boolean {
-  return hasMinRole(role, 'manager')
+  return role === 'admin' || role === 'manager'
 }
 
 export function canCreateProject(role: Role): boolean {
-  return hasMinRole(role, 'manager')
+  return role === 'admin' || role === 'manager'
 }
 
-export function canInviteMembers(role: Role): boolean {
-  return hasMinRole(role, 'admin')
+export function canInviteRole(inviterRole: Role, targetRole: Role): boolean {
+  if (inviterRole === 'admin') return true
+  if (inviterRole === 'manager') return targetRole !== 'admin'
+  if (inviterRole === 'leader') return targetRole === 'employee' || targetRole === 'leader'
+  return false
+}
+
+export function canCreateActivityFor(creatorRole: Role, targetRole: Role): boolean {
+  if (creatorRole === 'admin') return targetRole !== 'admin'
+  if (creatorRole === 'manager') return targetRole === 'leader' || targetRole === 'employee'
+  if (creatorRole === 'leader') return targetRole === 'employee'
+  return false
 }
 
 export function canManageLabels(role: Role): boolean {
-  return hasMinRole(role, 'leader')
+  return role === 'admin' || role === 'manager' || role === 'leader'
 }
 
 export function canViewAdmin(role: Role): boolean {
-  return hasMinRole(role, 'manager')
+  return role === 'admin' || role === 'manager'
 }
 
 export function canEditActivity(role: Role): boolean {
-  return hasMinRole(role, 'leader')
+  return role === 'admin' || role === 'manager' || role === 'leader'
 }
