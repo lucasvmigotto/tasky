@@ -15,9 +15,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -63,6 +66,19 @@ public class ActivityController {
             @AuthenticationPrincipal SecurityUser user) {
         Activity activity = activityService.getActivity(activityId);
         return ResponseEntity.ok(toResponse(activity));
+    }
+
+    @GetMapping("/activities")
+    public ResponseEntity<List<ActivityResponse>> query(
+            @RequestParam("from") Optional<Instant> from,
+            @RequestParam("to") Optional<Instant> to,
+            @RequestParam("assignedTo") Optional<UUID> assignedTo,
+            @RequestParam("projectId") Optional<UUID> projectId,
+            @AuthenticationPrincipal SecurityUser user) {
+        List<Activity> activities = activityService.getActivitiesByDateRange(
+                from.orElse(null), to.orElse(null),
+                assignedTo.orElse(null), projectId.orElse(null));
+        return ResponseEntity.ok(activities.stream().map(this::toResponse).toList());
     }
 
     @DeleteMapping("/activities/{activityId}")
