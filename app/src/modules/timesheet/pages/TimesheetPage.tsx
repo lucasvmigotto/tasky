@@ -34,8 +34,11 @@ import {
 } from '@/shared/components/ui/Dialog'
 import { cn } from '@/shared/lib/cn'
 import { useHoursMask } from '@/shared/hooks/useHoursMask'
-import { demoTimesheetEntries, type TimesheetEntry } from '@/modules/timesheet/data/timesheet.mock'
-import { demoProjects } from '@/modules/projects/data/projects.mock'
+import { useAuthStore } from '@/core/auth/authStore'
+import { useActivityQuery, useProjects } from '@/core/api/hooks'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { EmptyState } from '@/shared/components/ui/EmptyState'
+import type { UUID } from '@/core/api/types'
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 const FULL_DAY_NAMES = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
@@ -125,9 +128,45 @@ function HHMMToDecimal(value: string): number {
 
 export default function TimesheetPage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()))
-  const [entries, setEntries] = useState<TimesheetEntry[]>(demoTimesheetEntries)
   const [showAddRow, setShowAddRow] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState('')
+  const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
+
+  const weekEnd = useMemo(() => {
+    const end = new Date(currentWeekStart)
+    end.setDate(end.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
+    return end
+  }, [currentWeekStart])
+
+  const { data: activities } = useActivityQuery(
+    orgId ? { from: currentWeekStart.toISOString(), to: weekEnd.toISOString() } : null
+  )
+  const { data: projects } = useProjects(orgId as UUID)
+
+  const [entries, setEntries] = useState<any[]>([])
+  const [initialized, setInitialized] = useState(false)
+
+  // Sync activities to entries on load
+  if (activities && !initialized) {
+    const newEntries = activities
+      .filter((a) => {
+        const d = new Date(a.startDatetime)
+        return d >= currentWeekStart && d <= weekEnd
+      })
+      .map((a) => ({
+        id: a.id,
+        projectId: a.projectId,
+        date: new Date(a.startDatetime).toISOString().split('T')[0],
+        hours: parseFloat(((new Date(a.endDatetime).getTime() - new Date(a.startDatetime).getTime()) / 3600000).toFixed(2)),
+        description: a.title,
+        startTime: new Date(a.startDatetime).toLocaleTimeString(),
+        endTime: new Date(a.endDatetime).toLocaleTimeString(),
+      }))
+    setEntries(newEntries)
+    setInitialized(true)
+  }
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -151,19 +190,23 @@ export default function TimesheetPage() {
   const projectList = useMemo(() => {
     const ids = [...new Set(entries.map((e) => e.projectId))]
     return ids.map((id) => {
-      const p = demoProjects.find((proj) => proj.id === id)
+      const p = projects?.find((proj) => proj.id === id)
       return { id, name: p?.name ?? 'Desconhecido' }
     })
-  }, [entries])
+  }, [entries, projects])
 
-  const projectOptions = useMemo(() => {
-    const existingIds = new Set(projectList.map((p) => p.id))
-    return demoProjects
+  const allProjects = useMemo(() => {
+    const existingIds = new Set(entries.map((e) => e.projectId))
+    return (projects ?? [])
       .filter((p) => !existingIds.has(p.id))
       .map((p) => ({ value: p.id, label: p.name }))
   }, [projectList])
 
-  function getEntries(projectId: string, date: string): TimesheetEntry[] {
+  const projectOptions = useMemo(() => {
+    return (projects ?? []).map((p) => ({ value: p.id, label: p.name }))
+  }, [projects])
+
+  function getEntries(projectId: string, date: string): any[] {
     return entries.filter((e) => e.projectId === projectId && e.date === date)
   }
 
@@ -202,7 +245,7 @@ export default function TimesheetPage() {
   function addEntry() {
     const hours = hoursMask.getDecimal()
     if (hours <= 0) return
-    const newEntry: TimesheetEntry = {
+    const newEntry: any = {
       id: `e-${Date.now()}`,
       projectId: modalProjectId,
       date: modalDate,
@@ -222,7 +265,7 @@ export default function TimesheetPage() {
 
   function addProjectRow() {
     if (!selectedProjectId) return
-    const project = demoProjects.find((p) => p.id === selectedProjectId)
+    const project = projects?.find((p) => p.id === selectedProjectId)
     if (!project) return
     setEntries((prev) => [
       ...prev,

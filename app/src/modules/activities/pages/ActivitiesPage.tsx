@@ -1,23 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import {
-  Plus,
-  List,
-  Columns3,
-  Clock,
-  User,
-  MoreHorizontal,
-} from 'lucide-react'
+import { Plus, List, Columns3, Clock, User, Loader2 } from 'lucide-react'
 import { ROUTES, buildRoute } from '@/core/config/routes'
-import type { Activity, FibonacciWeight } from '@/core/types/models'
 import { useAuthStore } from '@/core/auth/authStore'
+import { useActivities, useProjects, useMemberships, useLabels, useCreateActivity } from '@/core/api/hooks'
+import type { ActivityResponse, FibonacciWeight, UUID } from '@/core/api/types'
+import { isValidFibonacciWeight, FIBONACCI_WEIGHTS } from '@/core/api/types'
+import { canCreateActivityFor } from '@/core/auth/permissions'
 import { Button } from '@/shared/components/ui/Button'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Input } from '@/shared/components/ui/Input'
 import { Select } from '@/shared/components/ui/Select'
 import { Textarea } from '@/shared/components/ui/Textarea'
 import { DataTable } from '@/shared/components/ui/DataTable'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { EmptyState } from '@/shared/components/ui/EmptyState'
 import {
   Dialog,
   DialogTrigger,
@@ -29,10 +27,7 @@ import {
 } from '@/shared/components/ui/Dialog'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { formatDateTime } from '@/shared/lib/formatters'
-import { demoActivities } from '@/modules/activities/data/activities.mock'
-import { demoProjects } from '@/modules/projects/data/projects.mock'
-import { demoMembers } from '@/modules/admin/data/members.mock'
-import { demoLabels } from '@/modules/admin/data/labels.mock'
+import { toast } from 'sonner'
 
 const WEIGHT_VALUES: FibonacciWeight[] = [1, 2, 3, 5, 8, 13]
 
@@ -46,548 +41,241 @@ const weightConfig: Record<number, { label: string; badge: string }> = {
 }
 
 type ViewMode = 'list' | 'kanban'
-type ActivityStatus = 'todo' | 'in_progress' | 'done'
 
-function getActivityStatus(activity: Activity): ActivityStatus {
-  const now = new Date()
-  const start = new Date(activity.startDatetime)
-  const end = new Date(activity.endDatetime)
-  if (end < now) return 'done'
-  if (start <= now && end >= now) return 'in_progress'
-  return 'todo'
-}
-
-function getProjectName(projectId: string): string {
-  return demoProjects.find((p) => p.id === projectId)?.name ?? 'Desconhecido'
-}
-
-function getMemberName(membershipId: string): string {
-  return demoMembers.find((m) => m.id === membershipId)?.username ?? 'Desconhecido'
-}
-
-function getMemberInitials(membershipId: string): string {
-  const name = getMemberName(membershipId)
-  return name
-    .split(/[._\s]/)
-    .map((s) => s[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-function getLabels(activity: Activity) {
-  return demoLabels.filter((l) => activity.labelIds.includes(l.id))
-}
-
-function getDependencyCount(activityId: string, activities: Activity[]): number {
-  return activities.filter((a) => a.parentIds.includes(activityId)).length
-}
-
-function formatDateRange(start: string, end: string): string {
-  return `${formatDateTime(start)} - ${formatDateTime(end)}`
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { transition: { staggerChildren: 0.08 } },
 }
 
 export default function ActivitiesPage() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const user = useAuthStore((s) => s.user)
+  const role = useAuthStore((s) => s.activeOrg?.role) ?? 'employee'
+  const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
 
   const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [projectFilter, setProjectFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [filterProject, setFilterProject] = useState('')
-  const [filterAssignee, setFilterAssignee] = useState('')
-  const [filterWeight, setFilterWeight] = useState('')
-  const [filterLabel, setFilterLabel] = useState('')
-  const [activities, setActivities] = useState<Activity[]>(demoActivities)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [formTitle, setFormTitle] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formWeight, setFormWeight] = useState<FibonacciWeight>(3)
-  const [formProject, setFormProject] = useState('')
-  const [formStart, setFormStart] = useState('')
-  const [formEnd, setFormEnd] = useState('')
-  const [formAssignee, setFormAssignee] = useState('')
-  const [formLabels, setFormLabels] = useState<string[]>([])
-  const [formParents, setFormParents] = useState<string[]>([])
+  const { data: projects } = useProjects(orgId as UUID)
+  const { data: members } = useMemberships(orgId as UUID)
+  const { data: labels } = useLabels(orgId as UUID)
+  const createActivity = useCreateActivity()
 
-  const filteredActivities = useMemo(() => {
-    return activities.filter((a) => {
-      if (search && !a.title.toLowerCase().includes(search.toLowerCase())) return false
-      if (filterProject && a.projectId !== filterProject) return false
-      if (filterAssignee && a.assignedTo !== filterAssignee) return false
-      if (filterWeight && a.weight.toString() !== filterWeight) return false
-      if (filterLabel && !a.labelIds.includes(filterLabel)) return false
-      return true
-    })
-  }, [activities, search, filterProject, filterAssignee, filterWeight, filterLabel])
+  const [selectedProject, setSelectedProject] = useState(projects?.[0]?.id ?? '')
+  const { data: activities, isLoading, error } = useActivities(selectedProject as UUID)
 
-  const kanbanData = useMemo(() => {
-    const todo: Activity[] = []
-    const inProgress: Activity[] = []
-    const done: Activity[] = []
-    for (const a of filteredActivities) {
-      const status = getActivityStatus(a)
-      if (status === 'todo') todo.push(a)
-      else if (status === 'in_progress') inProgress.push(a)
-      else done.push(a)
+  const filtered = useMemo(() => {
+    if (!activities) return []
+    let list = activities
+    if (search) {
+      const q = search.toLowerCase()
+      list = list.filter((a) => a.title.toLowerCase().includes(q))
     }
-    return { todo, inProgress, done }
-  }, [filteredActivities])
+    return list
+  }, [activities, search])
 
-  function handleCreate() {
-    const newActivity: Activity = {
-      id: `act-${Date.now()}`,
-      projectId: formProject || demoProjects[0].id,
-      title: formTitle,
-      description: formDescription || null,
-      weight: formWeight,
-      startDatetime: formStart || new Date().toISOString(),
-      endDatetime: formEnd || new Date(Date.now() + 86400000).toISOString(),
-      createdBy: user?.id || 'memb-001',
-      assignedTo: formAssignee || demoMembers[0].id,
-      labelIds: formLabels,
-      parentIds: formParents,
-      createdAt: new Date().toISOString(),
+  const getLabelName = (id: string) => labels?.find((l) => l.id === id)?.displayName ?? id
+  const getMemberName = (id: string) => members?.find((m) => m.id === id)?.username ?? id
+  const getProjectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? id
+
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newWeight, setNewWeight] = useState<FibonacciWeight>(1)
+  const [newStart, setNewStart] = useState('')
+  const [newEnd, setNewEnd] = useState('')
+  const [newAssignee, setNewAssignee] = useState('')
+  const [newLabels, setNewLabels] = useState<string[]>([])
+
+  const handleCreate = async () => {
+    if (!newTitle.trim() || !newStart || !newEnd || !newAssignee || !selectedProject) return
+    if (new Date(newStart) >= new Date(newEnd)) {
+      toast.error('Start datetime must be before end datetime')
+      return
     }
-    setActivities((prev) => [newActivity, ...prev])
-    setCreateOpen(false)
-    setFormTitle('')
-    setFormDescription('')
-    setFormWeight(3)
-    setFormProject('')
-    setFormStart('')
-    setFormEnd('')
-    setFormAssignee('')
-    setFormLabels([])
-    setFormParents([])
+    try {
+      await createActivity.mutateAsync({
+        projectId: selectedProject as UUID,
+        data: {
+          title: newTitle.trim(),
+          description: newDesc.trim() || undefined,
+          weight: newWeight,
+          startDatetime: new Date(newStart).toISOString(),
+          endDatetime: new Date(newEnd).toISOString(),
+          assignedToMembershipId: newAssignee as UUID,
+          labelIds: newLabels.length > 0 ? newLabels as UUID[] : undefined,
+        },
+      })
+      toast.success('Activity created')
+      setNewTitle('')
+      setNewDesc('')
+      setNewWeight(1)
+      setNewStart('')
+      setNewEnd('')
+      setNewAssignee('')
+      setNewLabels([])
+      setIsDialogOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to create activity')
+    }
   }
 
-  function toggleLabel(labelId: string) {
-    setFormLabels((prev) =>
-      prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId],
-    )
+  const isSelf = (membershipId: string) => {
+    const m = members?.find((m) => m.id === membershipId)
+    return m?.userId === user?.id
   }
 
-  function toggleParent(activityId: string) {
-    setFormParents((prev) =>
-      prev.includes(activityId) ? prev.filter((id) => id !== activityId) : [...prev, activityId],
-    )
-  }
-
-  const columns = useMemo(
-    () => [
-      {
-        key: 'title',
-        header: 'Título',
-        render: (row: Activity) => (
-          <span
-            className="cursor-pointer font-medium text-foreground hover:text-primary transition-colors"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: row.id }))
-            }}
-          >
-            {row.title}
-          </span>
-        ),
-      },
-      {
-        key: 'project',
-        header: 'Projeto',
-        render: (row: Activity) => (
-          <Badge variant="secondary" className="text-xs">
-            {getProjectName(row.projectId)}
-          </Badge>
-        ),
-      },
-      {
-        key: 'weight',
-        header: 'Peso',
-        render: (row: Activity) => {
-          const cfg = weightConfig[row.weight]
-          return (
-            <span
-              className={`inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cfg?.badge}`}
-            >
-              {cfg?.label ?? row.weight}
-            </span>
-          )
-        },
-      },
-      {
-        key: 'assignedTo',
-        header: 'Responsável',
-        render: (row: Activity) => (
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <User className="size-3.5" />
-            {getMemberName(row.assignedTo)}
-          </span>
-        ),
-      },
-      {
-        key: 'dates',
-        header: 'Início / Fim',
-        render: (row: Activity) => (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="size-3.5 shrink-0" />
-            <span className="truncate max-w-[180px]">{formatDateRange(row.startDatetime, row.endDatetime)}</span>
-          </span>
-        ),
-      },
-      {
-        key: 'labels',
-        header: 'Etiquetas',
-        render: (row: Activity) => {
-          const labels = getLabels(row)
-          return (
-            <div className="flex flex-wrap gap-1">
-              {labels.slice(0, 2).map((l) => (
-                <Badge key={l.id} variant="outline" className="text-xs">
-                  {l.displayName}
-                </Badge>
-              ))}
-              {labels.length > 2 && (
-                <Badge variant="secondary" className="text-xs">
-                  +{labels.length - 2}
-                </Badge>
-              )}
-            </div>
-          )
-        },
-      },
-      {
-        key: 'deps',
-        header: 'Dep.',
-        render: (row: Activity) => {
-          const count = getDependencyCount(row.id, demoActivities)
-          return count > 0 ? (
-            <span className="text-xs text-muted-foreground">{count} bloqueia(m)</span>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )
-        },
-      },
-      {
-        key: 'actions',
-        header: '',
-        className: 'w-12',
-        render: (row: Activity) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: row.id }))
-            }}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        ),
-      },
-    ],
-    [navigate],
-  )
-
-  function renderKanbanCard(activity: Activity) {
-    const cfg = weightConfig[activity.weight]
-    const labels = getLabels(activity)
+  if (isLoading) {
     return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2 }}
-        className="group cursor-pointer rounded-lg border border-border bg-card p-3 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
-        onClick={() => navigate(buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: activity.id }))}
-      >
-        <div className="mb-2 flex items-start justify-between gap-2">
-          <span className="text-sm font-medium text-card-foreground leading-snug line-clamp-2">
-            {activity.title}
-          </span>
-          <span
-            className={`shrink-0 inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold leading-none ${cfg?.badge}`}
-          >
-            {cfg?.label}
-          </span>
-        </div>
-        <div className="mb-2 flex items-center gap-1.5">
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 leading-none">
-            {getProjectName(activity.projectId)}
-          </Badge>
-        </div>
-        {labels.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1">
-            {labels.map((l) => (
-              <Badge key={l.id} variant="outline" className="text-[10px] px-1.5 py-0 leading-none">
-                {l.displayName}
-              </Badge>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <User className="size-3" />
-            {getMemberName(activity.assignedTo)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock className="size-3" />
-            {formatDateTime(activity.startDatetime)}
-          </span>
-        </div>
-      </motion.div>
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     )
   }
 
-  function renderKanbanColumn(title: string, statusColor: string, activities: Activity[]) {
-    const statusLabel =
-      title === 'A Fazer'
-        ? 'todo'
-        : title === 'Em Andamento'
-          ? 'in_progress'
-          : 'done'
-
+  if (error) {
     return (
-      <div className="flex flex-col gap-3">
-        <div className="mb-1 flex items-center gap-2">
-          <div className={`h-2.5 w-2.5 rounded-full ${statusColor}`} />
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {activities.length}
-          </span>
-        </div>
-        <AnimatePresence mode="popLayout">
-          {activities.length === 0 ? (
-            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
-              Nenhuma atividade
-            </div>
-          ) : (
-            activities.map((a) => <div key={a.id}>{renderKanbanCard(a)}</div>)
-          )}
-        </AnimatePresence>
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Activities" description="View and manage activities" />
+        <EmptyState icon={Clock} title="Failed to load activities" description={error.message} />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Atividades" description="Gerencie as atividades do seu time">
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="size-4" />
-              Nova Atividade
+    <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
+      <PageHeader title="Activities" description="Track your work activities">
+        <div className="flex items-center gap-2">
+          <Select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            placeholder="All projects"
+            options={[
+              { value: 'all', label: 'All Projects' },
+              ...(projects?.map((p) => ({ value: p.id, label: p.name })) ?? []),
+            ]}
+          />
+          <Input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-40"
+          />
+          <div className="flex rounded-lg border bg-card p-0.5">
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="size-8"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="size-4" />
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Criar Atividade</DialogTitle>
-              <DialogDescription>Preencha os dados para criar uma nova atividade</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-4 py-4">
-              <Input
-                label="Título"
-                placeholder="Digite o título da atividade"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-              />
-              <Textarea
-                label="Descrição"
-                placeholder="Descreva a atividade"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Select
-                  label="Peso"
-                  value={formWeight.toString()}
-                  onChange={(e) => setFormWeight(Number(e.target.value) as FibonacciWeight)}
-                  options={WEIGHT_VALUES.map((w) => ({ value: w.toString(), label: w.toString() }))}
-                />
-                <Select
-                  label="Projeto"
-                  value={formProject}
-                  onChange={(e) => setFormProject(e.target.value)}
-                  options={demoProjects.map((p) => ({ value: p.id, label: p.name }))}
-                  placeholder="Selecione o projeto"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Início"
-                  type="datetime-local"
-                  value={formStart}
-                  onChange={(e) => setFormStart(e.target.value)}
-                />
-                <Input
-                  label="Fim"
-                  type="datetime-local"
-                  value={formEnd}
-                  onChange={(e) => setFormEnd(e.target.value)}
-                />
-              </div>
-              <Select
-                label="Responsável"
-                value={formAssignee}
-                onChange={(e) => setFormAssignee(e.target.value)}
-                options={demoMembers.map((m) => ({ value: m.id, label: m.username }))}
-                placeholder="Selecione o responsável"
-              />
-              <div>
-                <span className="mb-1.5 block text-sm font-medium text-foreground">Etiquetas</span>
-                <div className="flex flex-wrap gap-2">
-                  {demoLabels.map((l) => {
-                    const selected = formLabels.includes(l.id)
-                    return (
-                      <button
-                        key={l.id}
-                        type="button"
-                        onClick={() => toggleLabel(l.id)}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          selected
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border bg-background text-muted-foreground hover:border-muted-foreground'
-                        }`}
-                      >
-                        {l.displayName}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-              {activities.length > 0 && (
-                <div>
-                  <span className="mb-1.5 block text-sm font-medium text-foreground">Dependências</span>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                    {activities.map((a) => {
-                      const selected = formParents.includes(a.id)
-                      return (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => toggleParent(a.id)}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                            selected
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-background text-muted-foreground hover:border-muted-foreground'
-                          }`}
-                        >
-                          {a.title}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                Cancelar
+            <Button
+              variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="size-8"
+              onClick={() => setViewMode('kanban')}
+            >
+              <Columns3 className="size-4" />
+            </Button>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-1.5 size-4" />
+                New Activity
               </Button>
-              <Button onClick={handleCreate} disabled={!formTitle}>
-                Criar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>New Activity</DialogTitle>
+                <DialogDescription>Create a new time activity.</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-4">
+                <Select
+                  label="Project"
+                  value={selectedProject}
+                  onChange={(e) => { setSelectedProject(e.target.value); setNewAssignee('') }}
+                  options={projects?.map((p) => ({ value: p.id, label: p.name })) ?? []}
+                />
+                <Input label="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="What are you working on?" />
+                <Textarea label="Description" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Optional details..." />
+                <Select
+                  label="Weight"
+                  value={newWeight.toString()}
+                  onChange={(e) => setNewWeight(Number(e.target.value) as FibonacciWeight)}
+                  options={WEIGHT_VALUES.map((w) => ({ value: w.toString(), label: `Level ${w}` }))}
+                />
+                <Input label="Start" type="datetime-local" value={newStart} onChange={(e) => setNewStart(e.target.value)} />
+                <Input label="End" type="datetime-local" value={newEnd} onChange={(e) => setNewEnd(e.target.value)} />
+                <Select
+                  label="Assignee"
+                  value={newAssignee}
+                  onChange={(e) => setNewAssignee(e.target.value)}
+                  placeholder="Select assignee"
+                  options={
+                    members
+                      ?.filter((m) => isSelf(m.id) || canCreateActivityFor(role, m.role))
+                      .map((m) => ({ value: m.id, label: `${m.username} (${m.role})` })) ?? []
+                  }
+                />
+                <Select
+                  label="Labels"
+                  value={newLabels[0] ?? ''}
+                  onChange={(e) => setNewLabels(e.target.value ? [e.target.value] : [])}
+                  placeholder="Select label"
+                  options={labels?.map((l) => ({ value: l.id, label: l.displayName })) ?? []}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreate} disabled={!newTitle.trim() || !newStart || !newEnd || !newAssignee || createActivity.isPending}>
+                  {createActivity.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </PageHeader>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center gap-1 rounded-md bg-muted p-0.5">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              viewMode === 'list'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <List className="size-3.5" />
-            Lista
-          </button>
-          <button
-            onClick={() => setViewMode('kanban')}
-            className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              viewMode === 'kanban'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Columns3 className="size-3.5" />
-            Kanban
-          </button>
-        </div>
-        <div className="h-5 w-px bg-border" />
-        <Input
-          placeholder="Buscar por título..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-9 max-w-[220px] text-sm"
-        />
-        <Select
-          value={filterProject}
-          onChange={(e) => setFilterProject(e.target.value)}
-          options={[
-            { value: '', label: 'Todos projetos' },
-            ...demoProjects.map((p) => ({ value: p.id, label: p.name })),
-          ]}
-          className="h-9 max-w-[160px] text-sm"
-        />
-        <Select
-          value={filterAssignee}
-          onChange={(e) => setFilterAssignee(e.target.value)}
-          options={[
-            { value: '', label: 'Todos responsáveis' },
-            ...demoMembers.map((m) => ({ value: m.id, label: m.username })),
-          ]}
-          className="h-9 max-w-[170px] text-sm"
-        />
-        <Select
-          value={filterWeight}
-          onChange={(e) => setFilterWeight(e.target.value)}
-          options={[
-            { value: '', label: 'Todos pesos' },
-            ...WEIGHT_VALUES.map((w) => ({ value: w.toString(), label: w.toString() })),
-          ]}
-          className="h-9 max-w-[130px] text-sm"
-        />
-        {filterProject || filterAssignee || filterWeight || filterLabel || search ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 text-xs"
-            onClick={() => {
-              setSearch('')
-              setFilterProject('')
-              setFilterAssignee('')
-              setFilterWeight('')
-              setFilterLabel('')
-            }}
-          >
-            Limpar filtros
-          </Button>
-        ) : null}
-      </div>
-
-      {viewMode === 'list' ? (
-        <DataTable
-          columns={columns}
-          rows={filteredActivities}
-          keyExtractor={(row) => row.id}
-          emptyTitle="Nenhuma atividade encontrada"
-          emptyDescription="Tente ajustar os filtros ou crie uma nova atividade"
-          onRowClick={(row) =>
-            navigate(buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: row.id }))
-          }
-        />
+      {filtered.length === 0 ? (
+        <EmptyState icon={Clock} title="No activities found" description="Create your first activity to start tracking time." actionLabel="New Activity" onAction={() => setIsDialogOpen(true)} />
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {renderKanbanColumn('A Fazer', 'bg-muted-foreground', kanbanData.todo)}
-          {renderKanbanColumn('Em Andamento', 'bg-primary', kanbanData.inProgress)}
-          {renderKanbanColumn('Concluído', 'bg-success', kanbanData.done)}
-        </div>
+        <DataTable
+          columns={[
+            { key: 'title', header: 'Title', render: (row: any) => (
+              <div>
+                <button className="font-medium hover:text-primary" onClick={() => navigate(buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: row.id }))}>{row.title}</button>
+                <div className="text-xs text-muted-foreground">{getProjectName(row.projectId)}</div>
+              </div>
+            )},
+            { key: 'weight', header: 'W', render: (row: any) => (
+              <span className={`inline-flex size-7 items-center justify-center rounded-md border text-xs font-medium ${weightConfig[row.weight as number]?.badge}`}>{row.weight}</span>
+            )},
+            { key: 'assignedTo', header: 'Assignee', render: (row: any) => (
+              <span className="flex items-center gap-1 text-sm"><User className="size-3.5 text-muted-foreground" />{getMemberName(row.assignedTo)}</span>
+            )},
+            { key: 'startDatetime', header: 'Start', render: (row: any) => formatDateTime(row.startDatetime) },
+            { key: 'endDatetime', header: 'End', render: (row: any) => formatDateTime(row.endDatetime) },
+            { key: 'labelIds', header: 'Labels', render: (row: any) => (
+              <div className="flex gap-1">
+                {(row.labelIds as string[]).slice(0, 2).map((id: string) => (
+                  <Badge key={id} variant="secondary">{getLabelName(id)}</Badge>
+                ))}
+              </div>
+            )},
+          ]}
+          rows={filtered}
+          keyExtractor={(row: any) => row.id}
+          onRowClick={(row: any) => navigate(buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: row.id }))}
+          emptyTitle="No activities yet."
+        />
       )}
-    </div>
+    </motion.div>
   )
 }
