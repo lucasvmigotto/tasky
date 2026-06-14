@@ -1,0 +1,35 @@
+name: App CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+
+permissions:
+  contents: write
+
+jobs:
+  lint-and-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: app/
+
+      - name: Run lint
+        run: bun run lint
+        working-directory: app/
+
+      - name: Extract version
+        id: version
+        run: echo "version=$(jq -r '.version' app/package.json)" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git tag app-${{ steps.version.outputs.version }}
+          git push origin app-${{ steps.version.outputs.version }}
