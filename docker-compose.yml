@@ -34,7 +34,7 @@ services:
       NGINX_ENVSUBST_FILTER: API_UPSTREAM
       API_UPSTREAM: http://api:8080
       VITE_API_URL: http://api:8080
-      VITE_DEMO_MODE: "true"
+      VITE_DEMO_MODE: "false"
     depends_on:
       - api
     restart: unless-stopped

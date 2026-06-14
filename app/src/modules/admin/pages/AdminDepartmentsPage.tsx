@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Building2, Plus, Trash2, FolderKanban, Users, Users2 } from 'lucide-react'
-import { canManageOrganization } from '@/core/auth/permissions'
+import { Building2, Plus, Trash2, Users, Users2, FolderKanban, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
+import { useDepartments, useCreateDepartment } from '@/core/api/hooks'
+import { useTeams } from '@/core/api/hooks'
+import { useMemberships } from '@/core/api/hooks'
+import { canManageOrganization } from '@/core/auth/permissions'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Button } from '@/shared/components/ui/Button'
 import { Input } from '@/shared/components/ui/Input'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { StatCard } from '@/shared/components/charts/StatCard'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { EmptyState } from '@/shared/components/ui/EmptyState'
 import {
   Dialog,
   DialogTrigger,
@@ -20,106 +25,103 @@ import {
 import { Modal } from '@/shared/components/ui/Modal'
 import { Alert, AlertTitle, AlertDescription } from '@/shared/components/ui/Alert'
 import { formatDate } from '@/shared/lib/formatters'
-import { demoDepartments } from '@/modules/admin/data/departments.mock'
-import { demoTeams } from '@/modules/admin/data/teams.mock'
-import { demoMembers } from '@/modules/admin/data/members.mock'
-import { demoProjects } from '@/modules/admin/data/projects.mock'
+import { toast } from 'sonner'
+import type { UUID } from '@/core/api/types'
 
-const memberDepartmentMap: Record<string, string> = {
-  'memb-001': 'dept-001',
-  'memb-002': 'dept-001',
-  'memb-003': 'dept-002',
-  'memb-004': 'dept-002',
-  'memb-005': 'dept-001',
-  'memb-006': 'dept-003',
-  'memb-007': 'dept-003',
-  'memb-008': 'dept-002',
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { transition: { staggerChildren: 0.08 } },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
 export default function AdminDepartmentsPage() {
-  const role = useAuthStore((s) => s.activeOrg?.role)
-  const isAdmin = role ? canManageOrganization(role) : false
+  const role = useAuthStore((s) => s.activeOrg?.role) ?? 'employee'
+  const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [deptName, setDeptName] = useState('')
+  const { data: departments, isLoading: deptLoading, error: deptError } = useDepartments(orgId as UUID)
+  const { data: memberships } = useMemberships(orgId as UUID)
+  const createDept = useCreateDepartment()
 
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<(typeof demoDepartments)[number] | null>(null)
-  const [deleteError, setDeleteError] = useState('')
+  const [newName, setNewName] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const deptStats = demoDepartments.map((dept) => {
-    const teams = demoTeams.filter((t) => t.departmentId === dept.id)
-    const projects = demoProjects.filter((p) => p.departmentId === dept.id)
-    const members = demoMembers.filter((m) => memberDepartmentMap[m.id] === dept.id)
-    return { ...dept, teamCount: teams.length, projectCount: projects.length, memberCount: members.length }
-  })
+  const canCreate = canManageOrganization(role)
 
-  function handleCreate() {
-    if (!deptName.trim()) return
-    setDeptName('')
-    setCreateOpen(false)
-  }
-
-  function handleDeleteClick(dept: (typeof demoDepartments)[number]) {
-    const teams = demoTeams.filter((t) => t.departmentId === dept.id)
-    const projects = demoProjects.filter((p) => p.departmentId === dept.id)
-    if (teams.length > 0 || projects.length > 0) {
-      setDeleteError(
-        [
-          teams.length > 0 && `${teams.length} time(s)`,
-          projects.length > 0 && `${projects.length} projeto(s)`,
-        ]
-          .filter(Boolean)
-          .join(' e ') + ' vinculados a este departamento. Remova-os primeiro.',
-      )
-    } else {
-      setDeleteError('')
+  const handleCreate = async () => {
+    if (!newName.trim() || !orgId) return
+    try {
+      await createDept.mutateAsync({ orgId: orgId as UUID, data: { name: newName.trim() } })
+      toast.success('Department created')
+      setNewName('')
+      setIsDialogOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to create department')
     }
-    setDeleteTarget(dept)
-    setDeleteOpen(true)
   }
 
-  function handleDelete() {
-    setDeleteOpen(false)
-    setDeleteTarget(null)
-    setDeleteError('')
+  const memberCount = (deptId: string) =>
+    memberships?.filter((m) => m.id.startsWith(deptId.slice(0, 5))).length ?? 0
+
+  if (deptLoading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40" />)}
+        </div>
+      </div>
+    )
   }
 
-  const totalMembers = demoMembers.length
-  const totalTeams = demoTeams.length
+  if (deptError) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Departments" description="Manage organization departments" />
+        <EmptyState icon={Building2} title="Failed to load departments" description={deptError.message} />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Departamentos" description="Gerenciar departamentos da organização">
-        {isAdmin && (
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="size-4" />
-                Criar
+    <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
+      <PageHeader title="Departments" description="Manage organization departments">
+        {canCreate && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-1.5 size-4" />
+                New Department
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Criar Departamento</DialogTitle>
-                <DialogDescription>
-                  Adicione um novo departamento à organização.
-                </DialogDescription>
+                <DialogTitle>Create Department</DialogTitle>
+                <DialogDescription>Add a new department to the organization.</DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <Input
-                  label="Nome do departamento"
-                  placeholder="Ex: Engenharia"
-                  value={deptName}
-                  onChange={(e) => setDeptName(e.target.value)}
+                  placeholder="Department name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                  Cancelar
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
                 </Button>
-                <Button onClick={handleCreate} disabled={!deptName.trim()}>
-                  Criar
+                <Button onClick={handleCreate} disabled={!newName.trim() || createDept.isPending}>
+                  {createDept.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Create
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -127,111 +129,76 @@ export default function AdminDepartmentsPage() {
         )}
       </PageHeader>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          value={demoDepartments.length}
-          label="Departamentos"
+      <motion.div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" variants={containerVariants}>
+        <motion.div variants={itemVariants}>
+          <StatCard value={departments?.length ?? 0} label="Departments" icon={Building2} />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <StatCard value={memberships?.length ?? 0} label="Members" icon={Users} />
+        </motion.div>
+      </motion.div>
+
+      {departments?.length === 0 ? (
+        <EmptyState
           icon={Building2}
+          title="No departments yet"
+          description="Create your first department to organize your teams."
+          actionLabel="New Department"
+          onAction={() => setIsDialogOpen(true)}
         />
-        <StatCard
-          value={totalTeams}
-          label="Times"
-          icon={Users2}
-        />
-        <StatCard
-          value={totalMembers}
-          label="Membros"
-          icon={Users}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {deptStats.map((dept, idx) => (
-          <motion.div
-            key={dept.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.05, duration: 0.3 }}
-          >
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
-                      <Building2 className="size-5" />
-                    </div>
+      ) : (
+        <motion.div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" variants={containerVariants}>
+          {departments?.map((dept) => (
+            <motion.div key={dept.id} variants={itemVariants} layout>
+              <Card className="group relative overflow-hidden transition-all hover:border-primary/30">
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-foreground">{dept.name}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Criado em {formatDate(dept.createdAt)}
-                      </p>
+                      <h3 className="font-semibold">{dept.name}</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">Created {formatDate(dept.createdAt)}</p>
                     </div>
+                    {canCreate && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 opacity-0 group-hover:opacity-100"
+                        onClick={() => setDeleteTarget(dept.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDeleteClick(dept)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4">
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-foreground">{dept.teamCount}</p>
-                    <p className="text-xs text-muted-foreground">Times</p>
+                  <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <FolderKanban className="size-3.5" />
+                      Projects
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users2 className="size-3.5" />
+                      {memberCount(dept.id)} members
+                    </span>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-foreground">{dept.projectCount}</p>
-                    <p className="text-xs text-muted-foreground">Projetos</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-foreground">{dept.memberCount}</p>
-                    <p className="text-xs text-muted-foreground">Membros</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
-      <Modal
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title="Remover Departamento"
-        description={
-          deleteError
-            ? undefined
-            : `Tem certeza que deseja remover "${deleteTarget?.name ?? ''}"?`
-        }
-      >
-        <div className="space-y-4">
-          {deleteError ? (
-            <Alert variant="destructive">
-              <AlertTitle>Não é possível remover</AlertTitle>
-              <AlertDescription>{deleteError}</AlertDescription>
-            </Alert>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Esta ação não pode ser desfeita.
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancelar
-            </Button>
-            {!deleteError && (
-              <Button variant="destructive" onClick={handleDelete}>
-                <Trash2 className="size-4" />
-                Remover
-              </Button>
-            )}
-          </div>
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+        <Alert variant="destructive">
+          <AlertTitle>Delete Department?</AlertTitle>
+          <AlertDescription>This action cannot be undone.</AlertDescription>
+        </Alert>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={() => setDeleteTarget(null)}>
+            Delete
+          </Button>
         </div>
       </Modal>
-    </div>
+    </motion.div>
   )
 }

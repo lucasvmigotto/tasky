@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
-import { Tags, Plus, Trash2, Lock, Shield } from 'lucide-react'
-import { canManageLabels } from '@/core/auth/permissions'
+import { Tags, Plus, Trash2, Shield, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
+import { useLabels, useCreateLabel, useDeleteLabel } from '@/core/api/hooks'
+import { canManageLabels } from '@/core/auth/permissions'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Button } from '@/shared/components/ui/Button'
 import { Input } from '@/shared/components/ui/Input'
 import { Badge } from '@/shared/components/ui/Badge'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { EmptyState } from '@/shared/components/ui/EmptyState'
 import {
   Dialog,
   DialogTrigger,
@@ -16,108 +19,129 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/shared/components/ui/Dialog'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs'
 import { Modal } from '@/shared/components/ui/Modal'
-import { Card, CardContent } from '@/shared/components/ui/Card'
 import { formatDate } from '@/shared/lib/formatters'
-import { demoLabels } from '@/modules/admin/data/labels.mock'
-import { demoMembers } from '@/modules/admin/data/members.mock'
+import { toast } from 'sonner'
+import type { UUID } from '@/core/api/types'
 
-const labelColors = [
-  'bg-rose-500',
-  'bg-violet-500',
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-amber-500',
-  'bg-cyan-500',
-  'bg-orange-500',
-  'bg-pink-500',
-  'bg-indigo-500',
-  'bg-teal-500',
-  'bg-red-500',
-  'bg-lime-500',
-]
-
-function getLabelColor(index: number) {
-  return labelColors[index % labelColors.length]
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { transition: { staggerChildren: 0.08 } },
 }
 
-function getMemberDisplayName(userId: string | null) {
-  if (!userId) return '—'
-  const member = demoMembers.find((m) => m.userId === userId)
-  return member?.username ?? userId
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
 export default function AdminLabelsPage() {
-  const role = useAuthStore((s) => s.activeOrg?.role)
-  const canManage = role ? canManageLabels(role) : false
+  const role = useAuthStore((s) => s.activeOrg?.role) ?? 'employee'
+  const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
 
-  const [tab, setTab] = useState('all')
+  const { data: labels, isLoading, error } = useLabels(orgId as UUID)
+  const createLabel = useCreateLabel()
+  const deleteLabel = useDeleteLabel()
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [slug, setSlug] = useState('')
-  const [displayName, setDisplayName] = useState('')
+  const [activeTab, setActiveTab] = useState<'all' | 'system' | 'custom'>('all')
+  const [newSlug, setNewSlug] = useState('')
+  const [newDisplayName, setNewDisplayName] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<(typeof demoLabels)[number] | null>(null)
+  const canCreate = canManageLabels(role)
 
   const filtered = useMemo(() => {
-    if (tab === 'system') return demoLabels.filter((l) => l.isSystem)
-    if (tab === 'custom') return demoLabels.filter((l) => !l.isSystem)
-    return demoLabels
-  }, [tab])
+    if (!labels) return []
+    if (activeTab === 'system') return labels.filter((l) => l.isSystem)
+    if (activeTab === 'custom') return labels.filter((l) => !l.isSystem)
+    return labels
+  }, [labels, activeTab])
 
-  function handleCreate() {
-    if (!slug.trim() || !displayName.trim()) return
-    setSlug('')
-    setDisplayName('')
-    setCreateOpen(false)
+  const handleCreate = async () => {
+    if (!newSlug.trim() || !newDisplayName.trim() || !orgId) return
+    try {
+      await createLabel.mutateAsync({ orgId: orgId as UUID, data: { slug: newSlug.trim().toLowerCase().replace(/\s+/g, '-'), displayName: newDisplayName.trim() } })
+      toast.success('Label created')
+      setNewSlug('')
+      setNewDisplayName('')
+      setIsDialogOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to create label')
+    }
   }
 
-  function handleDelete() {
-    setDeleteOpen(false)
+  const handleDelete = async () => {
+    if (!deleteTarget || !orgId) return
+    try {
+      await deleteLabel.mutateAsync({ orgId: orgId as UUID, labelId: deleteTarget as UUID })
+      toast.success('Label deleted')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete label')
+    }
     setDeleteTarget(null)
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28" />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Labels" description="Manage activity labels" />
+        <EmptyState icon={Tags} title="Failed to load labels" description={error.message} />
+      </div>
+    )
+  }
+
+  const labelsCounts = {
+    all: labels?.length ?? 0,
+    system: labels?.filter((l) => l.isSystem).length ?? 0,
+    custom: labels?.filter((l) => !l.isSystem).length ?? 0,
+  }
+
   return (
-    <div className="space-y-6">
-      <PageHeader title="Labels" description="Gerenciar labels da organização">
-        {canManage && (
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="size-4" />
-                Criar
+    <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
+      <PageHeader title="Labels" description="Manage activity labels">
+        {canCreate && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-1.5 size-4" />
+                New Label
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Criar Label</DialogTitle>
-                <DialogDescription>
-                  Adicione uma nova label para categorizar atividades.
-                </DialogDescription>
+                <DialogTitle>Create Label</DialogTitle>
+                <DialogDescription>Add a custom label for activities.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="flex flex-col gap-4 py-4">
                 <Input
-                  label="Slug"
-                  placeholder="Ex: bug-fix"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  helperText="Identificador único usado no sistema"
+                  placeholder="Slug (e.g. bug, research)"
+                  value={newSlug}
+                  onChange={(e) => setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
                 />
                 <Input
-                  label="Nome de exibição"
-                  placeholder="Ex: Correção de Bug"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Display name (e.g. Bug, Research)"
+                  value={newDisplayName}
+                  onChange={(e) => setNewDisplayName(e.target.value)}
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleCreate} disabled={!slug.trim() || !displayName.trim()}>
-                  Criar
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreate} disabled={!newSlug.trim() || !newDisplayName.trim() || createLabel.isPending}>
+                  {createLabel.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Create
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -125,108 +149,66 @@ export default function AdminLabelsPage() {
         )}
       </PageHeader>
 
-      <Tabs value={tab} onValueChange={setTab} defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">Todas</TabsTrigger>
-          <TabsTrigger value="system">Sistema</TabsTrigger>
-          <TabsTrigger value="custom">Personalizadas</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((label, idx) => (
-          <motion.div
-            key={label.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.04, duration: 0.3 }}
+      <div className="flex flex-wrap gap-2">
+        {(['all', 'system', 'custom'] as const).map((tab) => (
+          <Button
+            key={tab}
+            variant={activeTab === tab ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveTab(tab)}
           >
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`size-4 shrink-0 rounded-full ${getLabelColor(idx)}`}
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground">{label.displayName}</span>
-                        {label.isSystem && (
-                          <Badge variant="info" className="text-[10px] px-1.5 py-0">
-                            <Shield className="mr-0.5 size-2.5" />
-                            Sistema
-                          </Badge>
-                        )}
-                      </div>
-                      <Badge variant="outline" className="mt-1 text-[11px] font-mono text-muted-foreground">
-                        {label.slug}
-                      </Badge>
-                    </div>
-                  </div>
-                  {!label.isSystem && canManage && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        setDeleteTarget(label)
-                        setDeleteOpen(true)
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                  {label.isSystem && (
-                    <div className="flex size-8 items-center justify-center text-muted-foreground/40">
-                      <Lock className="size-4" />
-                    </div>
-                  )}
-                </div>
-                <div className="mt-3 flex items-center gap-3 border-t border-border pt-3 text-xs text-muted-foreground">
-                  <span>
-                    Criado por{' '}
-                    <span className="font-medium text-foreground">
-                      {getMemberDisplayName(label.createdBy)}
-                    </span>
-                  </span>
-                  <span>{formatDate(label.createdAt)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+            {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            <span className="ml-1.5 text-xs opacity-70">({labelsCounts[tab]})</span>
+          </Button>
         ))}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Tags className="mb-3 size-10 text-muted-foreground/50" />
-          <h3 className="text-lg font-semibold text-foreground">Nenhuma label encontrada</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tab === 'custom'
-              ? 'Nenhuma label personalizada criada ainda.'
-              : tab === 'system'
-                ? 'Nenhuma label de sistema disponível.'
-                : 'Nenhuma label disponível.'}
-          </p>
-        </div>
+      {filtered.length === 0 ? (
+        <EmptyState icon={Tags} title="No labels found" description="Create custom labels to organize your activities." />
+      ) : (
+        <motion.div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" variants={containerVariants}>
+          {filtered.map((label) => (
+            <motion.div key={label.id} variants={itemVariants} layout>
+              <div className="group relative rounded-lg border bg-card p-5 transition-all hover:border-primary/30">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{label.displayName}</h3>
+                      {label.isSystem && (
+                        <Badge variant="secondary">
+                          <Shield className="mr-1 size-3" />
+                          System
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">/{label.slug}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Created {formatDate(label.createdAt)}</p>
+                  </div>
+                  {!label.isSystem && canCreate && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0 opacity-0 group-hover:opacity-100"
+                      onClick={() => setDeleteTarget(label.id)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
       )}
 
-      <Modal
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title="Remover Label"
-        description={`Tem certeza que deseja remover a label "${deleteTarget?.displayName ?? ''}"? Esta ação não pode ser desfeita.`}
-      >
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-            Cancelar
-          </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            <Trash2 className="size-4" />
-            Remover
-          </Button>
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+        <h3 className="mb-2 font-semibold">Delete Label?</h3>
+        <p className="text-sm text-muted-foreground">This label will be removed from all activities. This action cannot be undone.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button variant="destructive" onClick={handleDelete}>Delete</Button>
         </div>
       </Modal>
-    </div>
+    </motion.div>
   )
 }

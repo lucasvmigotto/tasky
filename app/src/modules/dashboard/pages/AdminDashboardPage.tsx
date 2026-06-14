@@ -1,33 +1,21 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import {
-  Users,
-  FolderKanban,
-  Building2,
-  Layers,
-  Clock,
-} from 'lucide-react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Cell,
-} from 'recharts'
+import { Users, FolderKanban, Building2, Layers, Clock } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 import { ROUTES } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
 import { canViewAdmin } from '@/core/auth/permissions'
+import { useDashboardStats } from '@/modules/dashboard/data/useDashboardStats'
+import { useDepartments } from '@/core/api/hooks'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { StatCard } from '@/shared/components/charts/StatCard'
 import { ChartCard } from '@/shared/components/charts/ChartCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card'
 import { Progress } from '@/shared/components/ui/Progress'
-
-import { demoDashboardStats, demoAdminStats } from '@/modules/dashboard/data/dashboard.mock'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { EmptyState } from '@/shared/components/ui/EmptyState'
+import type { UUID } from '@/core/api/types'
 
 const chartColors = {
   violet: '#8b5cf6',
@@ -41,215 +29,112 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { transition: { staggerChildren: 0.08 } },
+}
+
 export default function AdminDashboardPage() {
   const navigate = useNavigate()
+  const role = useAuthStore((s) => s.activeOrg?.role) ?? 'employee'
   const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
+  const { adminStats, stats, isLoading } = useDashboardStats()
+  const { data: departments } = useDepartments(orgId as UUID)
 
   useEffect(() => {
-    if (activeOrg && !canViewAdmin(activeOrg.role)) {
-      navigate(ROUTES.DASHBOARD, { replace: true })
-    }
-  }, [activeOrg, navigate])
+    if (!canViewAdmin(role)) navigate(ROUTES.DASHBOARD, { replace: true })
+  }, [role, navigate])
 
-  if (activeOrg && !canViewAdmin(activeOrg.role)) {
-    return null
+  const quickAccessCards = [
+    { label: 'Members', value: adminStats.totalMembers, icon: Users, href: ROUTES.ADMIN.MEMBERS, color: 'bg-violet-500/10 text-violet-400' },
+    { label: 'Projects', value: adminStats.totalProjects, icon: FolderKanban, href: ROUTES.ADMIN.PROJECTS, color: 'bg-sky-500/10 text-sky-400' },
+    { label: 'Departments', value: departments?.length ?? 0, icon: Building2, href: ROUTES.ADMIN.DEPARTMENTS, color: 'bg-emerald-500/10 text-emerald-400' },
+    { label: 'Active Projects', value: adminStats.activeProjects, icon: Layers, href: ROUTES.ADMIN.PROJECTS, color: 'bg-amber-500/10 text-amber-400' },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
   }
 
-  const adminStats = demoAdminStats
-  const userStats = demoDashboardStats
-
-  const maxMemberHours = Math.max(...adminStats.memberHours.map((m) => m.hours), 1)
-
   return (
-    <motion.div
-      className="flex flex-col gap-6"
-      initial="hidden"
-      animate="visible"
-      variants={{
-        hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
-      }}
-    >
-      <PageHeader title="Admin Dashboard" description="Visão geral da organização" />
+    <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
+      <PageHeader title="Admin Dashboard" description="Organization overview" />
 
-      <motion.div
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-        variants={{
-          hidden: { opacity: 0 },
-          visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-        }}
-      >
-        <motion.div variants={itemVariants}>
-          <StatCard
-            value={adminStats.totalMembers}
-            label="Membros"
-            icon={Users}
-          />
-        </motion.div>
-        <motion.div variants={itemVariants}>
-          <StatCard
-            value={adminStats.activeProjects}
-            label="Projetos Ativos"
-            icon={FolderKanban}
-          />
-        </motion.div>
-        <motion.div variants={itemVariants}>
-          <StatCard
-            value={adminStats.totalDepartments}
-            label="Departamentos"
-            icon={Building2}
-          />
-        </motion.div>
-        <motion.div variants={itemVariants}>
-          <StatCard
-            value={adminStats.totalTeams}
-            label="Equipas"
-            icon={Layers}
-          />
-        </motion.div>
-        <motion.div variants={itemVariants}>
-          <StatCard
-            value={adminStats.totalHoursOrg}
-            label="Horas Totais"
-            icon={Clock}
-            formatValue={(v) => `${v.toFixed(1)}h`}
-          />
-        </motion.div>
+      <motion.div className="grid grid-cols-2 gap-4 sm:grid-cols-4" variants={containerVariants}>
+        {quickAccessCards.map((card) => (
+          <motion.div key={card.label} variants={itemVariants}>
+            <Card
+              className="cursor-pointer transition-all hover:border-primary/30"
+              onClick={() => navigate(card.href)}
+            >
+              <CardContent className="flex flex-col items-center gap-2 p-5 text-center">
+                <div className={`rounded-lg p-2.5 ${card.color}`}>
+                  <card.icon className="size-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{card.value}</p>
+                  <p className="text-xs text-muted-foreground">{card.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <motion.div
-          className="lg:col-span-3"
-          variants={itemVariants}
-        >
-          <ChartCard title="Horas por Departamento" subtitle="Total de horas registadas">
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={adminStats.departmentHours}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis
-                    dataKey="department"
-                    stroke="var(--muted-foreground)"
-                    fontSize={12}
-                    tickMargin={8}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    stroke="var(--muted-foreground)"
-                    fontSize={12}
-                    tickMargin={8}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--popover)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      color: 'var(--popover-foreground)',
-                      fontSize: '13px',
-                    }}
-                    formatter={(value: number) => [`${value}h`, 'Horas']}
-                  />
-                  <Bar
-                    dataKey="hours"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={48}
-                  >
-                    {adminStats.departmentHours.map((entry, index) => (
-                      <Cell
-                        key={entry.department}
-                        fill={[chartColors.violet, chartColors.sky, chartColors.emerald][index % 3]}
-                      />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Weekly Hours</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={stats.weeklyChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                  <Bar dataKey="hours" radius={[4, 4, 0, 0]}>
+                    {stats.weeklyChartData.map((_, i) => (
+                      <Cell key={i} fill={[chartColors.violet, chartColors.sky, chartColors.emerald, chartColors.amber, chartColors.violet, chartColors.sky, chartColors.emerald][i]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-          </ChartCard>
+            </CardContent>
+          </Card>
         </motion.div>
 
-        <motion.div
-          className="lg:col-span-2"
-          variants={itemVariants}
-        >
-          <ChartCard title="Top Membros" subtitle="Por horas registadas">
-            <div className="flex flex-col gap-3 pt-1">
-              {adminStats.memberHours.map((member) => {
-                const percentage = (member.hours / maxMemberHours) * 100
-                const barColor =
-                  percentage >= 90
-                    ? chartColors.emerald
-                    : percentage >= 60
-                      ? chartColors.sky
-                      : percentage >= 30
-                        ? chartColors.amber
-                        : chartColors.violet
-                return (
-                  <div key={member.name}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="font-medium text-foreground">{member.name}</span>
-                      <span className="text-muted-foreground">{member.hours}h</span>
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {stats.projectDistribution.slice(0, 5).map((proj, i) => (
+                  <div key={i}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span>{proj.projectName}</span>
+                      <span className="text-muted-foreground">{proj.hours.toFixed(1)}h</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${percentage}%`,
-                          backgroundColor: barColor,
-                        }}
-                      />
-                    </div>
+                    <Progress value={Math.min((proj.hours / (stats.totalHoursWeek || 1)) * 100, 100)} />
                   </div>
-                )
-              })}
-            </div>
-          </ChartCard>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
-
-      <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium text-foreground">
-              Taxa de Conclusão de Atividades
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Geral</span>
-                  <span className="font-medium text-foreground">{userStats.completionRate}%</span>
-                </div>
-                <Progress value={userStats.completionRate} />
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Alta prioridade</span>
-                  <span className="font-medium text-foreground">85%</span>
-                </div>
-                <Progress value={85} />
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Média prioridade</span>
-                  <span className="font-medium text-foreground">68%</span>
-                </div>
-                <Progress value={68} />
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Baixa prioridade</span>
-                  <span className="font-medium text-foreground">92%</span>
-                </div>
-                <Progress value={92} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
     </motion.div>
   )
 }
