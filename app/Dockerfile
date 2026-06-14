@@ -29,7 +29,7 @@ ARG API_UPSTREAM=http://api:8080
 ENV API_UPSTREAM=${API_UPSTREAM}
 ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 COPY --from=build \
@@ -39,3 +39,7 @@ COPY --from=build \
 USER nginx
 
 EXPOSE 8080
+
+ENTRYPOINT [ "nginx", "-c", "/etc/nginx/nginx.conf" ]
+
+CMD ["-g", "daemon off;"]
