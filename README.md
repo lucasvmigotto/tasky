@@ -37,7 +37,11 @@ Client (Browser) → Nginx (reverse proxy)
 │   └── nginx.conf
 ├── .devcontainer/                 # Java 21 + Bun
 ├── docker-compose.yml             # api + app + db
-└── .github/workflows/ci.yml       # CI/CD pipeline
+└── .github/workflows/             # CI/CD workflows
+    ├── api-ci.yml
+    ├── api-cd.yml
+    ├── app-ci.yml
+    └── app-cd.yml
 ```
 
 ## Quick Start
@@ -146,17 +150,38 @@ Images are built from hardened `dhi.io/` base images and pushed to both registri
 
 ## CI/CD
 
-On every push to `main`, the pipeline:
+Four workflows orchestrate the pipeline:
 
-1. Runs backend tests (`./gradlew :api:test`)
-2. Runs frontend lint (`bun run lint`)
-3. Reads versions from `api/build.gradle` and `app/package.json`
-4. Creates Git tag(s) — single tag if versions match, prefixed (`api-` / `app-`) if different
-5. Logs in to GHCR and Docker Hub
-6. Builds and pushes both Docker images with version + latest tags
-7. Creates a GitHub Release with zipped artifacts (`.jar` + `dist/`)
+| Workflow | Trigger | Action |
+|---|---|---|
+| `api-ci.yml` | Push to main (`api/**`) | Test → tag `api-X.Y.Z` |
+| `api-cd.yml` | Tag `api-*` | Build image → push → release (`.jar` + source) |
+| `app-ci.yml` | Push to main (`app/**`) | Lint → tag `app-X.Y.Z` |
+| `app-cd.yml` | Tag `app-*` | Build image → push → release (`dist/` + source) |
 
-The release title uses a `v` prefix (e.g. `v1.0.0`) while the tag remains without.
+### Flow
+
+```
+Push to main (api/ changes)
+  → api-ci.yml: test → git tag api-1.0.0 (via PAT_TOKEN)
+    → api-cd.yml: build image → push to GHCR + Docker Hub → gh release
+
+Push to main (app/ changes)
+  → app-ci.yml: lint → git tag app-1.0.0 (via PAT_TOKEN)
+    → app-cd.yml: build image → push to GHCR + Docker Hub → gh release
+```
+
+Each release includes:
+- **API release** — `tasky-api-X.Y.Z.jar` + source code
+- **App release** — `dist-X.Y.Z.zip` + source code
+
+### Required Secrets
+
+| Secret | Used by |
+|---|---|
+| `PAT_TOKEN` | CI workflows (push tags that trigger CD) |
+| `DOCKER_HUB_PAT` | CD workflows (push images to Docker Hub) |
+| `DOCKER_HUB_USER` | CD workflows (Docker Hub username) |
 
 ## Testing
 
@@ -191,3 +216,8 @@ cd app && bun run lint
 - **Bun** — package manager + runtime
 - **Nginx** — reverse proxy with envsubst template
 - **dhi.io hardened images** — Bun builder + Nginx runtime
+
+## Contributors
+
+- **Lucas Migotto** — [@lucasvmigotto](https://github.com/lucasvmigotto)
+- **Jhonny Tafarel** — [@jhonnytafarel](https://github.com/jhonnytafarel)
