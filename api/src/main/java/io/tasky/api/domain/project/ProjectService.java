@@ -57,6 +57,11 @@ public class ProjectService {
         return assignmentRepository.save(assignment);
     }
 
+    public void removeAssignment(UUID projectId, UUID membershipId) {
+        assignmentRepository.findByProjectIdAndMembershipId(projectId, membershipId)
+                .ifPresent(assignmentRepository::delete);
+    }
+
     public void grantCrossDepartmentAccess(UUID projectId, UUID departmentId, UUID grantedByMembershipId) {
         if (crossDeptAccessRepository.existsByProjectIdAndDepartmentId(projectId, departmentId)) {
             throw new IllegalArgumentException("Access already granted to this department");
