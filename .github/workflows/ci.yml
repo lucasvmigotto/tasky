@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-tests:
+    if: ${{ contains(github.event.pull_request.changed_files, 'api/') || contains(github.event.pull_request.changed_files, 'build.gradle') || contains(github.event.pull_request.changed_files, 'settings.gradle') || contains(github.event.pull_request.changed_files, 'gradle/') || contains(github.event.pull_request.changed_files, 'gradlew') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests
+        run: ./gradlew :api:test
+
+  app-lint:
+    if: ${{ contains(github.event.pull_request.changed_files, 'app/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: app/
+
+      - name: Run lint
+        run: bun run lint
+        working-directory: app/
