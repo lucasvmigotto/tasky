@@ -1,5 +1,6 @@
 package io.tasky.api.domain.project;
 
+import io.tasky.api.domain.client.Client;
 import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import jakarta.persistence.Column;
@@ -19,6 +20,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -48,6 +50,23 @@ public class Project {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_membership_id", nullable = false)
     private OrganizationMembership managerMembership;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id")
+    private Client client;
+
+    @Column(name = "hourly_rate", precision = 10, scale = 2)
+    private BigDecimal hourlyRate;
+
+    @Column(name = "estimated_seconds", nullable = false)
+    @Builder.Default
+    private long estimatedSeconds = 0;
+
+    @Column(name = "budget_seconds")
+    private Long budgetSeconds;
+
+    @Column(name = "budget_amount", precision = 12, scale = 2)
+    private BigDecimal budgetAmount;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive;

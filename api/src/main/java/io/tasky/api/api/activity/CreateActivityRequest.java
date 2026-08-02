@@ -2,6 +2,8 @@ package io.tasky.api.api.activity;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import io.tasky.api.domain.activity.ActivityPriority;
+import io.tasky.api.domain.activity.ActivityTaskType;
 
 import java.time.Instant;
 import java.util.List;
@@ -14,6 +16,11 @@ public record CreateActivityRequest(
         @NotNull Instant startDatetime,
         @NotNull Instant endDatetime,
         @NotNull UUID assignedToMembershipId,
+        UUID parentActivityId,
+        Long estimatedSeconds,
         List<UUID> labelIds,
-        List<UUID> parentActivityIds
+        List<UUID> parentActivityIds,
+        ActivityTaskType taskType,
+        ActivityPriority priority,
+        Instant dueDate
 ) {}

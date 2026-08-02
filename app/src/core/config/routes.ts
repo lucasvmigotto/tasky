@@ -1,12 +1,19 @@
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
+  MY_WORK: '/my-work',
+  MY_SECTOR: '/my-sector',
   DASHBOARD: '/dashboard',
+  REQUESTS: '/requests',
+  REQUEST_DETAIL: '/requests/:requestId',
   TIMESHEET: '/timesheet',
+  TIMESHEET_APPROVALS: '/timesheet/approvals',
+  TIME_TRACKER: '/time-tracker',
   PROJECTS: '/projects',
   PROJECT_DETAIL: '/projects/:projectId',
   ACTIVITIES: '/activities',
   ACTIVITY_DETAIL: '/activities/:activityId',
+  TIMELINE: '/timeline',
   CALENDAR: '/calendar',
   REPORTS: '/reports',
   SETTINGS: '/settings',
@@ -17,6 +24,7 @@ export const ROUTES = {
     TEAMS: '/admin/teams',
     PROJECTS: '/admin/projects',
     LABELS: '/admin/labels',
+    CLIENTS: '/admin/clients',
   },
 } as const
 

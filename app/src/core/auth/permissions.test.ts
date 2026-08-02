@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canInviteRole, canCreateActivityFor, canManageOrganization, canManageLabels } from './permissions'
+import { canInviteRole, canCreateActivityFor, canManageOrganization, canManageLabels, canViewMySector } from './permissions'
 
 describe('canInviteRole', () => {
   it('admin can invite everyone', () => {
@@ -13,8 +13,8 @@ describe('canInviteRole', () => {
     expect(canInviteRole('manager', 'admin')).toBe(false)
   })
 
-  it('manager can invite manager, leader, employee', () => {
-    expect(canInviteRole('manager', 'manager')).toBe(true)
+  it('manager can invite leader and employee', () => {
+    expect(canInviteRole('manager', 'manager')).toBe(false)
     expect(canInviteRole('manager', 'leader')).toBe(true)
     expect(canInviteRole('manager', 'employee')).toBe(true)
   })
@@ -24,8 +24,8 @@ describe('canInviteRole', () => {
     expect(canInviteRole('leader', 'manager')).toBe(false)
   })
 
-  it('leader can invite leader and employee', () => {
-    expect(canInviteRole('leader', 'leader')).toBe(true)
+  it('leader can invite employee only', () => {
+    expect(canInviteRole('leader', 'leader')).toBe(false)
     expect(canInviteRole('leader', 'employee')).toBe(true)
   })
 
@@ -80,5 +80,14 @@ describe('canManageLabels', () => {
     expect(canManageLabels('manager')).toBe(true)
     expect(canManageLabels('leader')).toBe(true)
     expect(canManageLabels('employee')).toBe(false)
+  })
+})
+
+describe('canViewMySector', () => {
+  it('is available to sector roles but not organization administrators', () => {
+    expect(canViewMySector('manager')).toBe(true)
+    expect(canViewMySector('leader')).toBe(true)
+    expect(canViewMySector('employee')).toBe(true)
+    expect(canViewMySector('admin')).toBe(false)
   })
 })

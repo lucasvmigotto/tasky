@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
-import { FolderKanban, Plus, Trash2, Filter, Power, PowerOff } from 'lucide-react'
-import { canManageOrganization } from '@/core/auth/permissions'
+import { FolderKanban, Plus, Trash2, MoreHorizontal, Power, PowerOff, Loader2 } from 'lucide-react'
+import { canManageOrganization, canManageDepartment } from '@/core/auth/permissions'
 import { useAuthStore } from '@/core/auth/authStore'
+import { useProjects, useDepartments, useMemberships, useClients, useCreateProject, useDeleteProject, useUpdateProject } from '@/core/api/hooks'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Button } from '@/shared/components/ui/Button'
 import { Input } from '@/shared/components/ui/Input'
@@ -18,7 +19,7 @@ import {
   DialogFooter,
 } from '@/shared/components/ui/Dialog'
 import { Select } from '@/shared/components/ui/Select'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -28,23 +29,23 @@ import {
 import { Modal } from '@/shared/components/ui/Modal'
 import { DataTable, type DataTableColumn } from '@/shared/components/ui/DataTable'
 import { formatDate } from '@/shared/lib/formatters'
-import { demoProjects } from '@/modules/admin/data/projects.mock'
-import { demoDepartments } from '@/modules/admin/data/departments.mock'
-import { demoMembers } from '@/modules/admin/data/members.mock'
-
-const totalActivitiesMap: Record<string, number> = {
-  'proj-001': 24,
-  'proj-002': 12,
-  'proj-003': 8,
-  'proj-004': 16,
-  'proj-005': 3,
-  'proj-006': 10,
-  'proj-007': 0,
-}
+import { toast } from 'sonner'
+import type { UUID, ProjectResponse } from '@/core/api/types'
 
 export default function AdminProjectsPage() {
   const role = useAuthStore((s) => s.activeOrg?.role)
-  const isAdmin = role ? canManageOrganization(role) : false
+  const activeOrg = useAuthStore((s) => s.activeOrg)
+  const orgId = activeOrg?.id ?? null
+
+  const { data: projects = [] } = useProjects(orgId as UUID)
+  const { data: departments = [] } = useDepartments(orgId as UUID)
+  const { data: members = [] } = useMemberships(orgId as UUID)
+  const { data: clients = [] } = useClients(orgId as UUID)
+  const createProject = useCreateProject()
+  const deleteProject = useDeleteProject()
+  const updateProject = useUpdateProject()
+
+  const canCreate = role ? canManageOrganization(role) || canManageDepartment(role) : false
 
   const [deptFilter, setDeptFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -54,20 +55,21 @@ export default function AdminProjectsPage() {
   const [formDesc, setFormDesc] = useState('')
   const [formDept, setFormDept] = useState('')
   const [formManager, setFormManager] = useState('')
+  const [formClient, setFormClient] = useState('')
 
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<(typeof demoProjects)[number] | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ProjectResponse | null>(null)
 
-  const getDeptName = (id: string) => demoDepartments.find((d) => d.id === id)?.name ?? '-'
-  const getMemberName = (id: string) => demoMembers.find((m) => m.id === id)?.username ?? '-'
+  const getDeptName = (id: string) => departments.find((d) => d.id === id)?.name ?? '-'
+  const getMemberName = (id: string) => members.find((m) => m.id === id)?.username ?? '-'
 
-  const managerOptions = demoMembers.map((m) => ({
+  const managerOptions = members.map((m) => ({
     value: m.id,
     label: `${m.username} (${m.email})`,
   }))
 
   const filtered = useMemo(() => {
-    let list = demoProjects
+    let list = projects
     if (deptFilter !== 'all') {
       list = list.filter((p) => p.departmentId === deptFilter)
     }
@@ -77,23 +79,54 @@ export default function AdminProjectsPage() {
       list = list.filter((p) => !p.isActive)
     }
     return list
-  }, [deptFilter, statusFilter])
+  }, [projects, deptFilter, statusFilter])
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!formName.trim() || !formDept || !formManager) return
-    setFormName('')
-    setFormDesc('')
-    setFormDept('')
-    setFormManager('')
-    setCreateOpen(false)
+    try {
+      await createProject.mutateAsync({
+        deptId: formDept as UUID,
+        data: {
+          name: formName.trim(),
+          description: formDesc.trim() || undefined,
+          managerMembershipId: formManager as UUID,
+          clientId: formClient || undefined,
+        },
+      })
+      toast.success('Projeto criado')
+      setFormName('')
+      setFormDesc('')
+      setFormDept('')
+      setFormManager('')
+      setFormClient('')
+      setCreateOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao criar projeto')
+    }
   }
 
-  function handleDelete() {
-    setDeleteOpen(false)
-    setDeleteTarget(null)
+  async function handleToggleActive(project: ProjectResponse) {
+    try {
+      await updateProject.mutateAsync({ projectId: project.id, data: { isActive: !project.isActive } })
+      toast.success(project.isActive ? 'Projeto desativado' : 'Projeto ativado')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao atualizar projeto')
+    }
   }
 
-  const columns: DataTableColumn<(typeof demoProjects)[number]>[] = [
+  async function handleDelete() {
+    if (!deleteTarget) return
+    try {
+      await deleteProject.mutateAsync(deleteTarget.id)
+      toast.success('Projeto removido')
+      setDeleteOpen(false)
+      setDeleteTarget(null)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao remover projeto')
+    }
+  }
+
+  const columns: DataTableColumn<ProjectResponse>[] = [
     {
       key: 'name',
       header: 'Projeto',
@@ -139,13 +172,6 @@ export default function AdminProjectsPage() {
       ),
     },
     {
-      key: 'activities',
-      header: 'Atividades',
-      render: (row) => (
-        <span className="text-foreground">{totalActivitiesMap[row.id] ?? 0}</span>
-      ),
-    },
-    {
       key: 'createdAt',
       header: 'Criado em',
       render: (row) => (
@@ -159,15 +185,15 @@ export default function AdminProjectsPage() {
         <DropdownMenu>
           <DropdownMenuTrigger>
             <Button variant="ghost" size="icon" className="size-8">
-              <Filter className="size-4" />
+              <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleToggleActive(row)}>
               {row.isActive ? <PowerOff className="size-3.5" /> : <Power className="size-3.5" />}
               {row.isActive ? 'Desativar' : 'Ativar'}
             </DropdownMenuItem>
-            {isAdmin && (
+            {canCreate && (
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => {
@@ -189,7 +215,7 @@ export default function AdminProjectsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Projetos" description="Gerenciar projetos da organização">
-        {isAdmin && (
+        {canCreate && (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger>
               <Button>
@@ -219,7 +245,7 @@ export default function AdminProjectsPage() {
                 />
                 <Select
                   label="Departamento"
-                  options={demoDepartments.map((d) => ({ value: d.id, label: d.name }))}
+                  options={departments.map((d) => ({ value: d.id, label: d.name }))}
                   placeholder="Selecione um departamento"
                   value={formDept}
                   onChange={(e) => setFormDept(e.target.value)}
@@ -231,6 +257,13 @@ export default function AdminProjectsPage() {
                   value={formManager}
                   onChange={(e) => setFormManager(e.target.value)}
                 />
+                <Select
+                  label="Unidade solicitante"
+                  options={clients.map((c) => ({ value: c.id, label: c.name }))}
+                  placeholder="Selecione quem demandou o projeto (opcional)"
+                  value={formClient}
+                  onChange={(e) => setFormClient(e.target.value)}
+                />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>
@@ -238,8 +271,9 @@ export default function AdminProjectsPage() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  disabled={!formName.trim() || !formDept || !formManager}
+                  disabled={!formName.trim() || !formDept || !formManager || createProject.isPending}
                 >
+                  {createProject.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
                   Criar
                 </Button>
               </DialogFooter>
@@ -249,18 +283,16 @@ export default function AdminProjectsPage() {
       </PageHeader>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Tabs value={deptFilter} onValueChange={setDeptFilter} defaultValue="all">
-            <TabsList>
-              <TabsTrigger value="all">Todos</TabsTrigger>
-              {demoDepartments.map((d) => (
-                <TabsTrigger key={d.id} value={d.id}>
-                  {d.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
+        <Tabs value={deptFilter} onValueChange={setDeptFilter} defaultValue="all">
+          <TabsList>
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            {departments.map((d) => (
+              <TabsTrigger key={d.id} value={d.id}>
+                {d.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)} defaultValue="all">
           <TabsList>
             <TabsTrigger value="all">Todos</TabsTrigger>
@@ -288,8 +320,8 @@ export default function AdminProjectsPage() {
           <Button variant="outline" onClick={() => setDeleteOpen(false)}>
             Cancelar
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            <Trash2 className="size-4" />
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteProject.isPending}>
+            {deleteProject.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
             Remover
           </Button>
         </div>

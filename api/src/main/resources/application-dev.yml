@@ -4,7 +4,7 @@ spring:
     hibernate:
       ddl-auto: validate
   flyway:
-    enabled: false
+    enabled: true
   security:
     oauth2:
       resourceserver:
@@ -20,5 +20,7 @@ logging:
 
 tasky:
   jwt:
-    secret: dev-secret-key-that-is-at-least-256-bits-long-for-hs256-algorithm
+    secret: ${JWT_SECRET}
     expiration-hours: 168
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}

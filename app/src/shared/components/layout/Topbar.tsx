@@ -1,9 +1,12 @@
-import { type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { Menu, Search, Bell, ChevronDown, Settings, LogOut, User } from 'lucide-react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Menu, Search, ChevronDown, Settings, LogOut, User } from 'lucide-react'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/components/ui/Button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/Avatar'
+import { TimeTrackerWidget } from '@/shared/components/layout/TimeTrackerWidget'
+import { NotificationCenter } from '@/shared/components/layout/NotificationCenter'
+import { useGlobalSearch } from '@/core/api/hooks'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +53,25 @@ function Topbar({
   onSearchChange,
   searchPlaceholder = 'Pesquisar...',
 }: TopbarProps) {
+  const navigate = useNavigate()
+  const [globalQuery, setGlobalQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { data: globalResults = [] } = useGlobalSearch(globalQuery)
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === '/' && !event.ctrlKey && !event.metaKey && document.activeElement?.tagName !== 'INPUT') {
+        event.preventDefault()
+        setOpen(true)
+        inputRef.current?.focus()
+      }
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
       {isMobile && onMenuClick && (
@@ -83,29 +105,45 @@ function Topbar({
       )}
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        {onSearchChange && (
-          <div className="relative hidden max-w-xs flex-1 md:block">
+        <TimeTrackerWidget />
+
+        <div className="relative hidden max-w-xs flex-1 md:block">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
+              ref={inputRef}
               type="text"
-              value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder}
+              value={onSearchChange ? searchValue : globalQuery}
+              onFocus={() => setOpen(true)}
+              onChange={(e) => {
+                if (onSearchChange) onSearchChange(e.target.value)
+                else setGlobalQuery(e.target.value)
+              }}
+              placeholder={onSearchChange ? searchPlaceholder : 'Buscar projetos, atividades, membros... (/)' }
               className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-          </div>
-        )}
-
-        {onNotificationClick && (
-          <Button variant="ghost" size="icon" className="relative shrink-0" onClick={onNotificationClick} aria-label="Notificações">
-            <Bell className="size-5" />
-            {notificationCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
-                {notificationCount > 99 ? '99+' : notificationCount}
-              </span>
+            {!onSearchChange && open && globalQuery.trim().length >= 2 && (
+              <div className="absolute right-0 top-11 z-50 w-[360px] rounded-lg border border-border bg-popover p-2 shadow-lg">
+                {globalResults.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">Nenhum resultado</p>
+                ) : globalResults.map((result) => (
+                  <button
+                    key={`${result.type}-${result.id}`}
+                    className="flex w-full flex-col rounded-md px-2 py-2 text-left hover:bg-muted"
+                    onClick={() => {
+                      setOpen(false)
+                      setGlobalQuery('')
+                      navigate(result.url)
+                    }}
+                  >
+                    <span className="text-sm font-medium text-foreground">{result.title}</span>
+                    <span className="text-xs text-muted-foreground">{result.subtitle}</span>
+                  </button>
+                ))}
+              </div>
             )}
-          </Button>
-        )}
+          </div>
+
+        <NotificationCenter fallbackCount={notificationCount} onNotificationClick={onNotificationClick} />
 
         {user && (
           <DropdownMenu>

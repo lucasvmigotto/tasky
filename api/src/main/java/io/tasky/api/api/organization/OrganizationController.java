@@ -31,7 +31,7 @@ public class OrganizationController {
         User creator = userRepository.findById(user.id())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        Organization org = organizationService.createOrganization(request.name(), request.slug(), creator);
+        Organization org = organizationService.createOrganization(request.name(), request.slug(), request.timezone(), creator);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(toResponse(org));
     }
@@ -41,6 +41,8 @@ public class OrganizationController {
                 org.getId().toString(),
                 org.getName(),
                 org.getSlug(),
+                org.getTimezone(),
+                org.getWorkWeekStartsOn(),
                 org.getCreatedAt()
         );
     }

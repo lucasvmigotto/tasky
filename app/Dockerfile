@@ -1,8 +1,7 @@
 ARG BUN_VERSION=1
-ARG DISTRO_VERSION="debian13"
-ARG NGINX_VERSION=1.31
+ARG NGINX_VERSION=stable-alpine
 
-FROM dhi.io/bun:${BUN_VERSION}-${DISTRO_VERSION}-dev AS build
+FROM oven/bun:${BUN_VERSION} AS build
 
 ARG GOOGLE_CLIENT_ID="00000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
 
@@ -23,23 +22,24 @@ RUN --mount=type=bind,source=package.json,target=package.json \
     bun install --frozen-lock-file \
     && bun run build
 
-FROM dhi.io/nginx:${NGINX_VERSION}-${DISTRO_VERSION}
+FROM nginx:${NGINX_VERSION}
 
 ARG API_UPSTREAM=http://api:8080
 ENV API_UPSTREAM=${API_UPSTREAM}
 ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
+ENV DEMO_MODE=false
+ENV GOOGLE_CLIENT_ID=""
 
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-security-headers.conf /etc/nginx/security-headers.conf
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY runtime-config.js.template /etc/tasky/runtime-config.js.template
+COPY --chmod=755 40-tasky-runtime-config.sh /docker-entrypoint.d/40-tasky-runtime-config.sh
+
+RUN rm /etc/nginx/conf.d/default.conf
 
 COPY --from=build \
     --chown=nginx:nginx \
     /app/dist /usr/share/nginx/html
 
-USER nginx
-
 EXPOSE 8080
-
-ENTRYPOINT [ "nginx", "-c", "/etc/nginx/nginx.conf" ]
-
-CMD ["-g", "daemon off;"]

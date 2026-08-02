@@ -97,8 +97,8 @@ export default function AdminLabelsPage() {
   if (error) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Labels" description="Manage activity labels" />
-        <EmptyState icon={Tags} title="Failed to load labels" description={error.message} />
+        <PageHeader title="Etiquetas" description="Gerenciar etiquetas de atividades" />
+        <EmptyState icon={Tags} title="Falha ao carregar etiquetas" description={error.message} />
       </div>
     )
   }
@@ -111,37 +111,37 @@ export default function AdminLabelsPage() {
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Labels" description="Manage activity labels">
+      <PageHeader title="Etiquetas" description="Gerenciar etiquetas de atividades">
         {canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-1.5 size-4" />
-                New Label
+                Nova Etiqueta
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Label</DialogTitle>
-                <DialogDescription>Add a custom label for activities.</DialogDescription>
+                <DialogTitle>Criar Etiqueta</DialogTitle>
+                <DialogDescription>Adicione uma etiqueta personalizada para as atividades.</DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
                 <Input
-                  placeholder="Slug (e.g. bug, research)"
+                  placeholder="Slug (ex.: bug, pesquisa)"
                   value={newSlug}
                   onChange={(e) => setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
                 />
                 <Input
-                  placeholder="Display name (e.g. Bug, Research)"
+                  placeholder="Nome de exibição (ex.: Bug, Pesquisa)"
                   value={newDisplayName}
                   onChange={(e) => setNewDisplayName(e.target.value)}
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                 <Button onClick={handleCreate} disabled={!newSlug.trim() || !newDisplayName.trim() || createLabel.isPending}>
                   {createLabel.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Create
+                  Criar
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -157,14 +157,14 @@ export default function AdminLabelsPage() {
             size="sm"
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'all' ? 'Todas' : tab === 'system' ? 'Sistema' : 'Personalizadas'}
             <span className="ml-1.5 text-xs opacity-70">({labelsCounts[tab]})</span>
           </Button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Tags} title="No labels found" description="Create custom labels to organize your activities." />
+        <EmptyState icon={Tags} title="Nenhuma etiqueta encontrada" description="Crie etiquetas personalizadas para organizar suas atividades." />
       ) : (
         <motion.div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" variants={containerVariants}>
           {filtered.map((label) => (
@@ -177,12 +177,12 @@ export default function AdminLabelsPage() {
                       {label.isSystem && (
                         <Badge variant="secondary">
                           <Shield className="mr-1 size-3" />
-                          System
+                          Sistema
                         </Badge>
                       )}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">/{label.slug}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Created {formatDate(label.createdAt)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Criada em {formatDate(label.createdAt)}</p>
                   </div>
                   {!label.isSystem && canCreate && (
                     <Button
@@ -202,11 +202,11 @@ export default function AdminLabelsPage() {
       )}
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <h3 className="mb-2 font-semibold">Delete Label?</h3>
-        <p className="text-sm text-muted-foreground">This label will be removed from all activities. This action cannot be undone.</p>
+        <h3 className="mb-2 font-semibold">Remover etiqueta?</h3>
+        <p className="text-sm text-muted-foreground">A etiqueta será removida de todas as atividades. Esta ação não pode ser desfeita.</p>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+          <Button variant="destructive" onClick={handleDelete}>Remover</Button>
         </div>
       </Modal>
     </motion.div>

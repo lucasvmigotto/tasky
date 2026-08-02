@@ -29,7 +29,29 @@ public class TeamService {
         return teamRepository.save(team);
     }
 
-    public List<Team> getTeamsByDepartment(UUID departmentId) {
-        return teamRepository.findByDepartmentId(departmentId);
+    public List<Team> getTeamsByDepartment(UUID organizationId, UUID departmentId) {
+        return teamRepository.findByDepartmentId(departmentId).stream()
+                .filter(t -> t.getDepartment().getOrganization().getId().equals(organizationId))
+                .toList();
+    }
+
+    public Team renameTeam(UUID departmentId, UUID teamId, String name) {
+        Team team = teamRepository.findById(teamId)
+                .filter(t -> t.getDepartment().getId().equals(departmentId))
+                .orElseThrow(() -> new IllegalArgumentException("Team not found"));
+        if (name != null && !name.isBlank() && !name.equals(team.getName())) {
+            if (teamRepository.existsByDepartmentIdAndName(departmentId, name)) {
+                throw new IllegalArgumentException("Team name already exists in this department");
+            }
+            team.setName(name);
+        }
+        return teamRepository.save(team);
+    }
+
+    public void deleteTeam(UUID departmentId, UUID teamId) {
+        Team team = teamRepository.findById(teamId)
+                .filter(t -> t.getDepartment().getId().equals(departmentId))
+                .orElseThrow(() -> new IllegalArgumentException("Team not found"));
+        teamRepository.delete(team);
     }
 }

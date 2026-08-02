@@ -4,23 +4,67 @@ import { useAuthStore } from '@/core/auth/authStore'
 import { ROUTES } from '@/core/config/routes'
 import DashboardLayout from '@/app/layouts/DashboardLayout'
 import LoadingPage from '@/shared/components/feedback/LoadingPage'
+import { canViewMySector } from '@/core/auth/permissions'
 
-const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage'))
-const DashboardPage = lazy(() => import('@/modules/dashboard/pages/DashboardPage'))
-const TimesheetPage = lazy(() => import('@/modules/timesheet/pages/TimesheetPage'))
-const ProjectsPage = lazy(() => import('@/modules/projects/pages/ProjectsPage'))
-const ProjectDetailPage = lazy(() => import('@/modules/projects/pages/ProjectDetailPage'))
-const ActivitiesPage = lazy(() => import('@/modules/activities/pages/ActivitiesPage'))
-const ActivityDetailPage = lazy(() => import('@/modules/activities/pages/ActivityDetailPage'))
-const CalendarPage = lazy(() => import('@/modules/calendar/pages/CalendarPage'))
-const ReportsPage = lazy(() => import('@/modules/reports/pages/ReportsPage'))
-const SettingsPage = lazy(() => import('@/modules/settings/pages/SettingsPage'))
-const AdminDashboardPage = lazy(() => import('@/modules/admin/pages/AdminDashboardPage'))
-const AdminMembersPage = lazy(() => import('@/modules/admin/pages/AdminMembersPage'))
-const AdminDepartmentsPage = lazy(() => import('@/modules/admin/pages/AdminDepartmentsPage'))
-const AdminTeamsPage = lazy(() => import('@/modules/admin/pages/AdminTeamsPage'))
-const AdminProjectsPage = lazy(() => import('@/modules/admin/pages/AdminProjectsPage'))
-const AdminLabelsPage = lazy(() => import('@/modules/admin/pages/AdminLabelsPage'))
+function LazyLoadError() {
+  return (
+    <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+      <h2 className="text-lg font-semibold text-foreground">Falha ao carregar a tela</h2>
+      <p className="max-w-md text-sm text-muted-foreground">
+        A versão da interface mudou. Recarregue a página para baixar os arquivos novos.
+      </p>
+      <button
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        onClick={() => window.location.reload()}
+      >
+        Recarregar
+      </button>
+    </div>
+  )
+}
+
+function lazyWithRetry(factory: () => Promise<{ default: React.ComponentType }>) {
+  return lazy(() => {
+    const key = 'tasky_lazy_reload_attempted'
+    return factory().then((module) => {
+      sessionStorage.removeItem(key)
+      return module
+    }).catch((error) => {
+      if (sessionStorage.getItem(key) !== 'true') {
+        sessionStorage.setItem(key, 'true')
+        window.location.reload()
+        return new Promise<{ default: React.ComponentType }>(() => {})
+      }
+      console.error('[lazyWithRetry] Failed to load route chunk', error)
+      return { default: LazyLoadError }
+    })
+  })
+}
+
+const LoginPage = lazyWithRetry(() => import('@/modules/auth/pages/LoginPage'))
+const MyWorkPage = lazyWithRetry(() => import('@/modules/work/pages/MyWorkPage'))
+const MySectorPage = lazyWithRetry(() => import('@/modules/sector/pages/MySectorPage'))
+const DashboardPage = lazyWithRetry(() => import('@/modules/dashboard/pages/DashboardPage'))
+const RequestsPage = lazyWithRetry(() => import('@/modules/requests/pages/RequestsPage'))
+const RequestDetailPage = lazyWithRetry(() => import('@/modules/requests/pages/RequestDetailPage'))
+const TimesheetPage = lazyWithRetry(() => import('@/modules/timesheet/pages/TimesheetPage'))
+const TimesheetApprovalsPage = lazyWithRetry(() => import('@/modules/timesheet/pages/TimesheetApprovalsPage'))
+const TimeTrackerPage = lazyWithRetry(() => import('@/modules/time-tracker/pages/TimeTrackerPage'))
+const ProjectsPage = lazyWithRetry(() => import('@/modules/projects/pages/ProjectsPage'))
+const ProjectDetailPage = lazyWithRetry(() => import('@/modules/projects/pages/ProjectDetailPage'))
+const ActivitiesPage = lazyWithRetry(() => import('@/modules/activities/pages/ActivitiesPage'))
+const ActivityDetailPage = lazyWithRetry(() => import('@/modules/activities/pages/ActivityDetailPage'))
+const TimelinePage = lazyWithRetry(() => import('@/modules/timeline/pages/TimelinePage'))
+const CalendarPage = lazyWithRetry(() => import('@/modules/calendar/pages/CalendarPage'))
+const ReportsPage = lazyWithRetry(() => import('@/modules/reports/pages/ReportsPage'))
+const SettingsPage = lazyWithRetry(() => import('@/modules/settings/pages/SettingsPage'))
+const AdminDashboardPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminDashboardPage'))
+const AdminMembersPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminMembersPage'))
+const AdminDepartmentsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminDepartmentsPage'))
+const AdminTeamsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminTeamsPage'))
+const AdminProjectsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminProjectsPage'))
+const AdminLabelsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminLabelsPage'))
+const AdminClientsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminClientsPage'))
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingPage />}>{children}</Suspense>
@@ -37,6 +81,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) return <LoadingPage />
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />
+  }
+  return <>{children}</>
+}
+
+function MySectorRoute({ children }: { children: React.ReactNode }) {
+  const role = useAuthStore((state) => state.activeOrg?.role)
+  if (!role || !canViewMySector(role)) {
+    return <Navigate to={ROUTES.ADMIN.DASHBOARD} replace />
   }
   return <>{children}</>
 }
@@ -62,6 +114,24 @@ export const router = createBrowserRouter([
     ),
     children: [
       {
+        path: ROUTES.MY_WORK,
+        element: (
+          <LazyPage>
+            <MyWorkPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.MY_SECTOR,
+        element: (
+          <MySectorRoute>
+            <LazyPage>
+              <MySectorPage />
+            </LazyPage>
+          </MySectorRoute>
+        ),
+      },
+      {
         path: ROUTES.DASHBOARD,
         element: (
           <LazyPage>
@@ -74,6 +144,22 @@ export const router = createBrowserRouter([
         element: (
           <LazyPage>
             <TimesheetPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.TIMESHEET_APPROVALS,
+        element: (
+          <LazyPage>
+            <TimesheetApprovalsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.TIME_TRACKER,
+        element: (
+          <LazyPage>
+            <TimeTrackerPage />
           </LazyPage>
         ),
       },
@@ -106,6 +192,30 @@ export const router = createBrowserRouter([
         element: (
           <LazyPage>
             <ActivityDetailPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.REQUESTS,
+        element: (
+          <LazyPage>
+            <RequestsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.REQUEST_DETAIL,
+        element: (
+          <LazyPage>
+            <RequestDetailPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.TIMELINE,
+        element: (
+          <LazyPage>
+            <TimelinePage />
           </LazyPage>
         ),
       },
@@ -178,6 +288,14 @@ export const router = createBrowserRouter([
         element: (
           <LazyPage>
             <AdminLabelsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN.CLIENTS,
+        element: (
+          <LazyPage>
+            <AdminClientsPage />
           </LazyPage>
         ),
       },

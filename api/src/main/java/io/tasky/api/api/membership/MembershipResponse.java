@@ -13,5 +13,8 @@ public record MembershipResponse(
         Role role,
         String customUsername,
         int maxDailyWorkMinutes,
+        UUID primaryDepartmentId,
+        UUID primaryTeamId,
+        String timezone,
         Instant createdAt
 ) {}

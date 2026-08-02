@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
 import { Users2, Plus, Trash2, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useDepartments, useTeams, useCreateTeam } from '@/core/api/hooks'
+import { useDepartments, useAllTeams, useCreateTeam, useDeleteTeam } from '@/core/api/hooks'
 import { canManageOrganization, canManageDepartment } from '@/core/auth/permissions'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Button } from '@/shared/components/ui/Button'
@@ -42,8 +42,13 @@ export default function AdminTeamsPage() {
   const orgId = activeOrg?.id ?? null
 
   const { data: departments } = useDepartments(orgId as UUID)
-  const { data: teams, isLoading, error } = useTeams(null)
+  const deptIds = useMemo(() => (departments ?? []).map((d) => d.id as UUID), [departments])
+  const teamQueries = useAllTeams(deptIds)
+  const teams = useMemo(() => teamQueries.flatMap((q) => q.data ?? []), [teamQueries])
+  const isLoading = departments === undefined || (deptIds.length > 0 && teamQueries.some((q) => q.isPending))
+  const error = teamQueries.find((q) => q.error)?.error ?? null
   const createTeam = useCreateTeam()
+  const deleteTeam = useDeleteTeam()
 
   const [activeDeptId, setActiveDeptId] = useState<string>('all')
   const [newName, setNewName] = useState('')
@@ -83,8 +88,16 @@ export default function AdminTeamsPage() {
 
   const handleDeleteDept = async () => {
     if (!deleteTarget) return
-    setDeleteTarget(null)
-    toast.success('Team deleted')
+    try {
+      const team = teams.find((t) => t.id === deleteTarget)
+      if (!team) return
+      await deleteTeam.mutateAsync({ deptId: team.departmentId, teamId: deleteTarget as UUID })
+      toast.success('Team deleted')
+      setDeleteTarget(null)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete team')
+      setDeleteTarget(null)
+    }
   }
 
   if (isLoading) {
@@ -102,48 +115,48 @@ export default function AdminTeamsPage() {
   if (error) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Teams" description="Manage teams" />
-        <EmptyState icon={Users2} title="Failed to load teams" description={error.message} />
+        <PageHeader title="Equipes" description="Gerenciar equipes" />
+        <EmptyState icon={Users2} title="Falha ao carregar equipes" description={error.message} />
       </div>
     )
   }
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Teams" description="Manage teams across departments">
+      <PageHeader title="Equipes" description="Gerenciar equipes entre departamentos">
         {canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-1.5 size-4" />
-                New Team
+                Nova Equipe
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Team</DialogTitle>
-                <DialogDescription>Add a new team to a department.</DialogDescription>
+                <DialogTitle>Criar Equipe</DialogTitle>
+                <DialogDescription>Adicione uma nova equipe a um departamento.</DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
                 <Select
-                  label="Department"
+                  label="Departamento"
                   value={newDeptId}
                   onChange={(e) => setNewDeptId(e.target.value)}
-                  placeholder="Select department"
+                  placeholder="Selecione o departamento"
                   options={departments?.map((d) => ({ value: d.id, label: d.name })) ?? []}
                 />
                 <Input
-                  placeholder="Team name"
+                  placeholder="Nome da equipe"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                 <Button onClick={handleCreate} disabled={!newName.trim() || !newDeptId || createTeam.isPending}>
                   {createTeam.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Create
+                  Criar
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -153,7 +166,7 @@ export default function AdminTeamsPage() {
 
       <Tabs defaultValue="all" value={activeDeptId} onValueChange={(v) => setActiveDeptId(v)}>
         <TabsList>
-          <TabsTrigger value="all">All ({teams?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="all">Todas ({teams?.length ?? 0})</TabsTrigger>
           {departments?.map((d) => (
             <TabsTrigger key={d.id} value={d.id}>
               {d.name} ({deptTeams[d.id] ?? 0})
@@ -163,7 +176,7 @@ export default function AdminTeamsPage() {
       </Tabs>
 
       {filteredTeams.length === 0 ? (
-        <EmptyState icon={Users2} title="No teams in this department" description="Create your first team to get started." />
+        <EmptyState icon={Users2} title="Nenhuma equipe neste departamento" description="Crie sua primeira equipe para começar." />
       ) : (
         <motion.div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" variants={containerVariants}>
           {filteredTeams.map((team) => (
@@ -177,7 +190,7 @@ export default function AdminTeamsPage() {
                     <div>
                       <h3 className="font-semibold">{team.name}</h3>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {departments?.find((d) => d.id === team.departmentId)?.name ?? 'Unknown'} &middot; Created {formatDate(team.createdAt)}
+                        {departments?.find((d) => d.id === team.departmentId)?.name ?? 'Desconhecido'} &middot; Criada em {formatDate(team.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -199,11 +212,11 @@ export default function AdminTeamsPage() {
       )}
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <h3 className="mb-2 font-semibold">Delete Team?</h3>
-        <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+        <h3 className="mb-2 font-semibold">Remover equipe?</h3>
+        <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita.</p>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button variant="destructive" onClick={handleDeleteDept}>Delete</Button>
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+          <Button variant="destructive" onClick={handleDeleteDept}>Remover</Button>
         </div>
       </Modal>
     </motion.div>

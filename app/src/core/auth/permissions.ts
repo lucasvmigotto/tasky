@@ -32,8 +32,8 @@ export function canCreateProject(role: Role): boolean {
 
 export function canInviteRole(inviterRole: Role, targetRole: Role): boolean {
   if (inviterRole === 'admin') return true
-  if (inviterRole === 'manager') return targetRole !== 'admin'
-  if (inviterRole === 'leader') return targetRole === 'employee' || targetRole === 'leader'
+  if (inviterRole === 'manager') return targetRole === 'leader' || targetRole === 'employee'
+  if (inviterRole === 'leader') return targetRole === 'employee'
   return false
 }
 
@@ -54,4 +54,8 @@ export function canViewAdmin(role: Role): boolean {
 
 export function canEditActivity(role: Role): boolean {
   return role === 'admin' || role === 'manager' || role === 'leader'
+}
+
+export function canViewMySector(role: Role): boolean {
+  return role !== 'admin'
 }

@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+import java.time.zone.ZoneRulesException;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,13 +25,20 @@ public class OrganizationService {
     private final LabelRepository labelRepository;
 
     public Organization createOrganization(String name, String slug, User creator) {
+        return createOrganization(name, slug, null, creator);
+    }
+
+    public Organization createOrganization(String name, String slug, String timezone, User creator) {
         if (organizationRepository.existsBySlug(slug)) {
             throw new IllegalArgumentException("Organization slug already taken");
         }
 
+        String effectiveTimezone = validateTimezone(timezone != null && !timezone.isBlank() ? timezone : "UTC");
+
         Organization org = Organization.builder()
                 .name(name)
                 .slug(slug)
+                .timezone(effectiveTimezone)
                 .build();
         org = organizationRepository.save(org);
 
@@ -44,6 +53,14 @@ public class OrganizationService {
         seedSystemLabels(org.getId());
 
         return org;
+    }
+
+    private String validateTimezone(String timezone) {
+        try {
+            return ZoneId.of(timezone).getId();
+        } catch (ZoneRulesException e) {
+            throw new IllegalArgumentException("Invalid timezone");
+        }
     }
 
     private void seedSystemLabels(UUID orgId) {

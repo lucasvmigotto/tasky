@@ -37,12 +37,31 @@ public class LabelService {
         return labelRepository.findByOrganizationId(organizationId);
     }
 
-    public void deleteLabel(UUID labelId) {
-        Label label = labelRepository.findById(labelId)
+    public void deleteLabel(UUID organizationId, UUID labelId) {
+        Label label = labelRepository.findByIdAndOrganizationId(labelId, organizationId)
                 .orElseThrow(() -> new IllegalArgumentException("Label not found"));
         if (label.isSystem()) {
             throw new IllegalArgumentException("Cannot delete system labels");
         }
         labelRepository.delete(label);
+    }
+
+    public Label updateLabel(UUID organizationId, UUID labelId, String slug, String displayName) {
+        Label label = labelRepository.findByIdAndOrganizationId(labelId, organizationId)
+                .orElseThrow(() -> new IllegalArgumentException("Label not found"));
+
+        if (slug != null && !slug.isBlank() && !slug.equals(label.getSlug())) {
+            if (label.isSystem()) {
+                throw new IllegalArgumentException("Cannot change the slug of system labels");
+            }
+            if (labelRepository.existsByOrganizationIdAndSlug(organizationId, slug)) {
+                throw new IllegalArgumentException("Label slug already exists in this organization");
+            }
+            label.setSlug(slug);
+        }
+        if (displayName != null && !displayName.isBlank()) {
+            label.setDisplayName(displayName);
+        }
+        return labelRepository.save(label);
     }
 }

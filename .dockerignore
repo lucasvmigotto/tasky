@@ -1,0 +1,13 @@
+.git
+.github
+.gradle
+build
+api/build
+app/node_modules
+app/dist
+app/.vite
+backups
+*.log
+.env
+.env.*
+!*.example

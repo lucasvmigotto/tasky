@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Building2, Plus, Trash2, Users, Users2, FolderKanban, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useDepartments, useCreateDepartment } from '@/core/api/hooks'
-import { useTeams } from '@/core/api/hooks'
+import { useDepartments, useCreateDepartment, useDeleteDepartment } from '@/core/api/hooks'
 import { useMemberships } from '@/core/api/hooks'
 import { canManageOrganization } from '@/core/auth/permissions'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
@@ -46,6 +45,7 @@ export default function AdminDepartmentsPage() {
   const { data: departments, isLoading: deptLoading, error: deptError } = useDepartments(orgId as UUID)
   const { data: memberships } = useMemberships(orgId as UUID)
   const createDept = useCreateDepartment()
+  const deleteDept = useDeleteDepartment()
 
   const [newName, setNewName] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
@@ -66,7 +66,18 @@ export default function AdminDepartmentsPage() {
   }
 
   const memberCount = (deptId: string) =>
-    memberships?.filter((m) => m.id.startsWith(deptId.slice(0, 5))).length ?? 0
+    memberships?.filter((membership) => membership.primaryDepartmentId === deptId).length ?? 0
+
+  const handleDelete = async () => {
+    if (!deleteTarget || !orgId) return
+    try {
+      await deleteDept.mutateAsync({ orgId: orgId as UUID, deptId: deleteTarget as UUID })
+      toast.success('Department deleted')
+      setDeleteTarget(null)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete department')
+    }
+  }
 
   if (deptLoading) {
     return (
@@ -85,31 +96,31 @@ export default function AdminDepartmentsPage() {
   if (deptError) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Departments" description="Manage organization departments" />
-        <EmptyState icon={Building2} title="Failed to load departments" description={deptError.message} />
+        <PageHeader title="Departamentos" description="Gerenciar departamentos da organização" />
+        <EmptyState icon={Building2} title="Falha ao carregar departamentos" description={deptError.message} />
       </div>
     )
   }
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Departments" description="Manage organization departments">
+      <PageHeader title="Departamentos" description="Gerenciar departamentos da organização">
         {canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-1.5 size-4" />
-                New Department
+                Novo Departamento
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Department</DialogTitle>
-                <DialogDescription>Add a new department to the organization.</DialogDescription>
+                <DialogTitle>Criar Departamento</DialogTitle>
+                <DialogDescription>Adicione um novo departamento à organização.</DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <Input
-                  placeholder="Department name"
+                  placeholder="Nome do departamento"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
@@ -117,11 +128,11 @@ export default function AdminDepartmentsPage() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button onClick={handleCreate} disabled={!newName.trim() || createDept.isPending}>
                   {createDept.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Create
+                  Criar
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -131,19 +142,19 @@ export default function AdminDepartmentsPage() {
 
       <motion.div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" variants={containerVariants}>
         <motion.div variants={itemVariants}>
-          <StatCard value={departments?.length ?? 0} label="Departments" icon={Building2} />
+          <StatCard value={departments?.length ?? 0} label="Departamentos" icon={Building2} />
         </motion.div>
         <motion.div variants={itemVariants}>
-          <StatCard value={memberships?.length ?? 0} label="Members" icon={Users} />
+          <StatCard value={memberships?.length ?? 0} label="Membros" icon={Users} />
         </motion.div>
       </motion.div>
 
       {departments?.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No departments yet"
-          description="Create your first department to organize your teams."
-          actionLabel="New Department"
+          title="Nenhum departamento ainda"
+          description="Crie seu primeiro departamento para organizar suas equipes."
+          actionLabel="Novo Departamento"
           onAction={() => setIsDialogOpen(true)}
         />
       ) : (
@@ -155,7 +166,7 @@ export default function AdminDepartmentsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold">{dept.name}</h3>
-                      <p className="mt-1 text-xs text-muted-foreground">Created {formatDate(dept.createdAt)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Criado em {formatDate(dept.createdAt)}</p>
                     </div>
                     {canCreate && (
                       <Button
@@ -171,11 +182,11 @@ export default function AdminDepartmentsPage() {
                   <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <FolderKanban className="size-3.5" />
-                      Projects
+                      Projetos
                     </span>
                     <span className="flex items-center gap-1">
                       <Users2 className="size-3.5" />
-                      {memberCount(dept.id)} members
+                      {memberCount(dept.id)} membros
                     </span>
                   </div>
                 </CardContent>
@@ -187,15 +198,16 @@ export default function AdminDepartmentsPage() {
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
         <Alert variant="destructive">
-          <AlertTitle>Delete Department?</AlertTitle>
-          <AlertDescription>This action cannot be undone.</AlertDescription>
+          <AlertTitle>Remover departamento?</AlertTitle>
+          <AlertDescription>Esta ação não pode ser desfeita.</AlertDescription>
         </Alert>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-            Cancel
+            Cancelar
           </Button>
-          <Button variant="destructive" onClick={() => setDeleteTarget(null)}>
-            Delete
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteDept.isPending}>
+            {deleteDept.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Remover
           </Button>
         </div>
       </Modal>

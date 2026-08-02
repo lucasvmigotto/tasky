@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/core/auth/authStore'
-import { hasMinRole } from '@/core/auth/permissions'
+import { toast } from 'sonner'
+import { canViewMySector, hasMinRole } from '@/core/auth/permissions'
 import { ROUTES } from '@/core/config/routes'
 import { useLocalStorage } from '@/shared/hooks/async'
 import { Sidebar } from '@/shared/components/layout/Sidebar'
 import { Topbar } from '@/shared/components/layout/Topbar'
 import {
   LayoutDashboard,
+  ClipboardList,
+  ListChecks,
   CalendarDays,
   FolderKanban,
   Calendar,
@@ -21,8 +24,11 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  ChevronLeft,
   Clock,
+  Timer,
+  Briefcase,
+  GitBranch,
+  CheckCheck,
 } from 'lucide-react'
 import type { Role } from '@/core/auth/permissions'
 import type { SidebarNavItem } from '@/shared/components/layout/Sidebar'
@@ -34,9 +40,15 @@ interface NavEntry extends SidebarNavItem {
 }
 
 const ALL_NAV_ITEMS: NavEntry[] = [
-  { key: 'dashboard', label: 'Painel', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { key: 'timesheet', label: 'Planilha de Horas', href: ROUTES.TIMESHEET, icon: CalendarDays },
+  { key: 'my-work', label: 'Meu Trabalho', href: ROUTES.MY_WORK, icon: LayoutDashboard },
+  { key: 'my-sector', label: 'Meu Setor', href: ROUTES.MY_SECTOR, icon: Building2 },
+  { key: 'requests', label: 'Demandas Internas', href: ROUTES.REQUESTS, icon: ClipboardList },
   { key: 'projects', label: 'Projetos', href: ROUTES.PROJECTS, icon: FolderKanban },
+  { key: 'activities', label: 'Tarefas', href: ROUTES.ACTIVITIES, icon: ListChecks },
+  { key: 'time-tracker', label: 'Apontar Horas', href: ROUTES.TIME_TRACKER, icon: Timer },
+  { key: 'timesheet', label: 'Minha Semana', href: ROUTES.TIMESHEET, icon: CalendarDays },
+  { key: 'timesheet-approvals', label: 'Aprovações de Horas', href: ROUTES.TIMESHEET_APPROVALS, icon: CheckCheck },
+  { key: 'timeline', label: 'Planejamento', href: ROUTES.TIMELINE, icon: GitBranch },
   { key: 'calendar', label: 'Calendário', href: ROUTES.CALENDAR, icon: Calendar },
   { key: 'reports', label: 'Relatórios', href: ROUTES.REPORTS, icon: BarChart3 },
   { key: 'settings', label: 'Configurações', href: ROUTES.SETTINGS, icon: Settings },
@@ -49,12 +61,20 @@ const ADMIN_CHILDREN: NavEntry[] = [
   { key: 'admin-teams', label: 'Equipes', href: ROUTES.ADMIN.TEAMS, icon: Users2 },
   { key: 'admin-projects', label: 'Projetos', href: ROUTES.ADMIN.PROJECTS, icon: Folders },
   { key: 'admin-labels', label: 'Etiquetas', href: ROUTES.ADMIN.LABELS, icon: Tags },
+  { key: 'admin-clients', label: 'Unidades Solicitantes', href: ROUTES.ADMIN.CLIENTS, icon: Briefcase },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
   [ROUTES.DASHBOARD]: 'Painel',
-  [ROUTES.TIMESHEET]: 'Planilha de Horas',
+  [ROUTES.MY_WORK]: 'Meu Trabalho',
+  [ROUTES.MY_SECTOR]: 'Meu Setor',
+  [ROUTES.REQUESTS]: 'Demandas Internas',
+  [ROUTES.TIMESHEET]: 'Minha Semana',
+  [ROUTES.TIMESHEET_APPROVALS]: 'Aprovações de Horas',
+  [ROUTES.TIME_TRACKER]: 'Apontar Horas',
   [ROUTES.PROJECTS]: 'Projetos',
+  [ROUTES.ACTIVITIES]: 'Tarefas',
+  [ROUTES.TIMELINE]: 'Timeline',
   [ROUTES.CALENDAR]: 'Calendário',
   [ROUTES.REPORTS]: 'Relatórios',
   [ROUTES.ADMIN.DASHBOARD]: 'Visão Geral',
@@ -63,6 +83,7 @@ const PAGE_TITLES: Record<string, string> = {
   [ROUTES.ADMIN.TEAMS]: 'Equipes',
   [ROUTES.ADMIN.PROJECTS]: 'Projetos',
   [ROUTES.ADMIN.LABELS]: 'Etiquetas',
+  [ROUTES.ADMIN.CLIENTS]: 'Unidades Solicitantes',
   [ROUTES.SETTINGS]: 'Configurações',
 }
 
@@ -77,6 +98,8 @@ function getPageTitle(pathname: string): string {
 function filterByRole(items: NavEntry[], role: Role): NavEntry[] {
   return items.filter((item) => {
     if (item.key === 'settings') return hasMinRole(role, 'leader')
+    if (item.key === 'my-sector') return canViewMySector(role)
+    if (item.key === 'timesheet-approvals') return hasMinRole(role, 'manager')
     return true
   })
 }
@@ -89,6 +112,7 @@ function filterAdminChildren(children: NavEntry[], role: Role): NavEntry[] {
       'admin-teams': 'manager',
       'admin-projects': 'manager',
       'admin-labels': 'manager',
+      'admin-clients': 'manager',
     }
     const minRole = roles[item.key]
     if (!minRole) return true
@@ -130,7 +154,17 @@ export default function DashboardLayout() {
   const activeOrg = useAuthStore((s) => s.activeOrg)
   const organizations = useAuthStore((s) => s.organizations)
   const logout = useAuthStore((s) => s.logout)
-  const setActiveOrg = useAuthStore((s) => s.setActiveOrg)
+
+  async function handleOrgChange(orgId: string) {
+    try {
+      const org = organizations.find((item) => item.id === orgId)
+      if (!org) return
+      await useAuthStore.getState().setActiveOrg(org)
+      toast.success(`Organização alterada para ${org.name}`)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao trocar de organização')
+    }
+  }
 
   const [collapsed, setCollapsed] = useLocalStorage('tasky_sidebar_collapsed', false)
   const [mobileOpen, setMobileOpen] = useLocalStorage('tasky_sidebar_mobile_open', false)
@@ -169,8 +203,8 @@ export default function DashboardLayout() {
 
   const isAdminChild = ADMIN_CHILDREN.some((c) => location.pathname.startsWith(c.href))
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     navigate(ROUTES.LOGIN, { replace: true })
   }
 
@@ -184,25 +218,15 @@ export default function DashboardLayout() {
     : undefined
 
   const logo = (
-    <div className={cn('flex items-center', collapsed && !isMobile ? 'justify-center' : 'justify-between')}>
-      <div className="flex items-center gap-2">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary shadow-sm">
-          <Clock className="size-4 text-primary-foreground" />
-        </div>
-        {(!collapsed || isMobile) && (
-          <span className="text-lg font-bold tracking-tight">
-            <span className="text-primary">Task</span>
-            <span className="text-sidebar-foreground">Y</span>
-          </span>
-        )}
+    <div className="flex items-center gap-2">
+      <div className="flex size-8 items-center justify-center rounded-lg bg-primary shadow-sm">
+        <Clock className="size-4 text-primary-foreground" />
       </div>
-      {!isMobile && (
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md p-1 text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-        >
-          {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-        </button>
+      {(!collapsed || isMobile) && (
+        <span className="text-lg font-bold tracking-tight">
+          <span className="text-primary">Task</span>
+          <span className="text-sidebar-foreground">Y</span>
+        </span>
       )}
     </div>
   )
@@ -291,10 +315,7 @@ export default function DashboardLayout() {
           <div className="flex items-center justify-between">
             <select
               value={activeOrg?.id ?? ''}
-              onChange={(e) => {
-                const org = organizations.find((o) => o.id === e.target.value)
-                if (org) setActiveOrg(org)
-              }}
+              onChange={(e) => handleOrgChange(e.target.value)}
               className="w-full rounded-md border border-sidebar-border/30 bg-sidebar px-2 py-1.5 text-xs text-sidebar-foreground/60 outline-none focus:border-primary"
             >
               {organizations.map((org) => (
@@ -327,6 +348,7 @@ export default function DashboardLayout() {
         collapsed={collapsed}
         isMobile={isMobile}
         isOpen={mobileOpen}
+        onToggle={isMobile ? () => setMobileOpen(false) : () => setCollapsed(!collapsed)}
         logo={logo}
       >
         {children}

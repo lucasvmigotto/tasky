@@ -11,6 +11,7 @@ import {
   type SetStateAction,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { cn } from '@/shared/lib/cn'
@@ -62,17 +63,18 @@ interface DialogTriggerProps extends HTMLAttributes<HTMLDivElement> {
   asChild?: boolean
 }
 
-function DialogTrigger({ children, className, ...props }: DialogTriggerProps) {
+function DialogTrigger({ children, className, asChild = false, ...props }: DialogTriggerProps) {
   const { setOpen } = useDialogContext()
+  const Component = asChild ? Slot : 'div'
 
   return (
-    <div
+    <Component
       className={cn('inline-block cursor-pointer', className)}
       onClick={() => setOpen(true)}
       {...props}
     >
       {children}
-    </div>
+    </Component>
   )
 }
 DialogTrigger.displayName = 'DialogTrigger'
@@ -108,6 +110,8 @@ function DialogContent({ children, className, ...props }: DialogContentProps) {
             onClick={() => setOpen(false)}
           />
           <motion.div
+            role="dialog"
+            aria-modal="true"
             className={cn(
               'relative z-50 w-full max-w-lg gap-4 border border-border bg-background p-6 shadow-lg sm:rounded-lg',
               className,

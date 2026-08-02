@@ -1,20 +1,21 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   ChevronLeft,
   ChevronRight,
   Calendar,
   Plus,
-  Copy,
-  Save,
   Clock,
   Trash2,
   GripVertical,
   Timer,
   ArrowRight,
-  X,
   FileText,
-  AlignLeft,
+  Pencil,
+  CalendarCheck2,
+  Send,
+  Undo2,
+  Lock,
 } from 'lucide-react'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Card } from '@/shared/components/ui/Card'
@@ -33,12 +34,27 @@ import {
   DialogDescription,
 } from '@/shared/components/ui/Dialog'
 import { cn } from '@/shared/lib/cn'
-import { useHoursMask } from '@/shared/hooks/useHoursMask'
+import { useHoursMask, hoursToMaskDigits } from '@/shared/hooks/useHoursMask'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useActivityQuery, useProjects } from '@/core/api/hooks'
+import { useTimeEntries, useProjects, useCreateManualTimeEntry, useUpdateTimeEntry, useDeleteTimeEntry, useTimesheetPeriods, useCreateTimesheetPeriod, useSubmitTimesheetPeriod, useReopenTimesheetPeriod } from '@/core/api/hooks'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { EmptyState } from '@/shared/components/ui/EmptyState'
-import type { UUID } from '@/core/api/types'
+import { toast } from 'sonner'
+import type { UUID, TimesheetPeriodStatus } from '@/core/api/types'
+import { dateKeyInTimeZone, getEffectiveTimeZone, zonedDateTimeToIso } from '@/shared/lib/timezone'
+import { useTimeTrackerStore } from '@/core/tracker/timeTrackerStore'
+
+const APPROVAL_LABELS = {
+  DRAFT: 'Rascunho',
+  SUBMITTED: 'Enviado',
+  APPROVED: 'Aprovado',
+  REJECTED: 'Rejeitado',
+  LOCKED: 'Bloqueado',
+} as const
+
+function isProtectedStatus(status: keyof typeof APPROVAL_LABELS) {
+  return status === 'SUBMITTED' || status === 'APPROVED' || status === 'LOCKED'
+}
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 const FULL_DAY_NAMES = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
@@ -132,6 +148,9 @@ export default function TimesheetPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const activeOrg = useAuthStore((s) => s.activeOrg)
   const orgId = activeOrg?.id ?? null
+  const timeZone = getEffectiveTimeZone(activeOrg?.timezone)
+  const trackerEntry = useTimeTrackerStore((s) => s.entry)
+  const trackerElapsed = useTimeTrackerStore((s) => s.elapsed)
 
   const weekEnd = useMemo(() => {
     const end = new Date(currentWeekStart)
@@ -140,33 +159,77 @@ export default function TimesheetPage() {
     return end
   }, [currentWeekStart])
 
-  const { data: activities } = useActivityQuery(
-    orgId ? { from: currentWeekStart.toISOString(), to: weekEnd.toISOString() } : null
-  )
+  const queryRange = useMemo(() => ({
+    from: zonedDateTimeToIso(dateKeyInTimeZone(currentWeekStart, timeZone), '00:00', timeZone),
+    to: zonedDateTimeToIso(dateKeyInTimeZone(weekEnd, timeZone), '23:59', timeZone),
+  }), [currentWeekStart, timeZone, weekEnd])
+
   const { data: projects } = useProjects(orgId as UUID)
+  const { data: timeEntries = [] } = useTimeEntries(
+    orgId ? queryRange : null
+  )
+  const createManualTimeEntry = useCreateManualTimeEntry()
+  const updateTimeEntry = useUpdateTimeEntry()
+  const deleteTimeEntry = useDeleteTimeEntry()
+
+  const { data: periods = [] } = useTimesheetPeriods(orgId ? queryRange : null)
+  const createPeriod = useCreateTimesheetPeriod()
+  const submitPeriod = useSubmitTimesheetPeriod()
+  const reopenPeriod = useReopenTimesheetPeriod()
+
+  const currentPeriod = useMemo(
+    () => periods.find((p) => dateKeyInTimeZone(p.periodStart, timeZone) === dateKeyInTimeZone(currentWeekStart, timeZone)) ?? null,
+    [periods, timeZone, currentWeekStart],
+  )
+  const periodStatus = currentPeriod?.status as TimesheetPeriodStatus | undefined
+  const periodLocked = !!periodStatus && (periodStatus === 'SUBMITTED' || periodStatus === 'APPROVED' || periodStatus === 'LOCKED')
+
+  async function handleCreatePeriod() {
+    try {
+      await createPeriod.mutateAsync({ periodStart: queryRange.from })
+      toast.success('Período de apontamento criado')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao criar período')
+    }
+  }
+
+  async function handleSubmitPeriod() {
+    if (!currentPeriod) return
+    try {
+      await submitPeriod.mutateAsync(currentPeriod.id)
+      toast.success('Período enviado para aprovação')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao enviar período')
+    }
+  }
+
+  async function handleReopenPeriod() {
+    if (!currentPeriod) return
+    try {
+      await reopenPeriod.mutateAsync(currentPeriod.id)
+      toast.success('Período reaberto')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao reabrir período')
+    }
+  }
 
   const [entries, setEntries] = useState<any[]>([])
-  const [initialized, setInitialized] = useState(false)
+  const [extraRows, setExtraRows] = useState<{ id: string; projectId: string }[]>([])
 
-  // Sync activities to entries on load
-  if (activities && !initialized) {
-    const newEntries = activities
-      .filter((a) => {
-        const d = new Date(a.startDatetime)
-        return d >= currentWeekStart && d <= weekEnd
-      })
-      .map((a) => ({
-        id: a.id,
-        projectId: a.projectId,
-        date: new Date(a.startDatetime).toISOString().split('T')[0],
-        hours: parseFloat(((new Date(a.endDatetime).getTime() - new Date(a.startDatetime).getTime()) / 3600000).toFixed(2)),
-        description: a.title,
-        startTime: new Date(a.startDatetime).toLocaleTimeString(),
-        endTime: new Date(a.endDatetime).toLocaleTimeString(),
-      }))
-    setEntries(newEntries)
-    setInitialized(true)
-  }
+  // Sync API time entries into the grid
+  useEffect(() => {
+    const mapped = timeEntries.map((e) => ({
+      id: e.id,
+      projectId: e.projectId ?? '',
+      date: dateKeyInTimeZone(e.startTime, timeZone),
+      hours: parseFloat((((e.id === trackerEntry?.id ? trackerElapsed : e.durationSeconds) ?? 0) / 3600).toFixed(2)),
+      description: e.description || 'Sem descrição',
+      startTime: e.startTime,
+      endTime: e.endTime,
+      approvalStatus: e.approvalStatus,
+    }))
+    setEntries(mapped)
+  }, [timeEntries, timeZone, trackerElapsed, trackerEntry?.id])
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -179,28 +242,33 @@ export default function TimesheetPage() {
   const [formDescription, setFormDescription] = useState('')
   const hoursMask = useHoursMask()
 
+  // Edit state
+  const [editingEntry, setEditingEntry] = useState<any | null>(null)
+  const [editDesc, setEditDesc] = useState('')
+  const editMask = useHoursMask()
+
   const weekDates = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
   }, [currentWeekStart])
 
-  const weekDatesISO = useMemo(() => weekDates.map((d) => d.toISOString().split('T')[0]), [weekDates])
+  const weekDatesISO = useMemo(() => weekDates.map((d) => dateKeyInTimeZone(d, timeZone)), [timeZone, weekDates])
 
   const weekLabel = getWeekDateRangeLabel(currentWeekStart)
 
   const projectList = useMemo(() => {
-    const ids = [...new Set(entries.map((e) => e.projectId))]
+    const ids = [...new Set([...entries.map((e) => e.projectId), ...extraRows.map((r) => r.projectId)])]
     return ids.map((id) => {
       const p = projects?.find((proj) => proj.id === id)
       return { id, name: p?.name ?? 'Desconhecido' }
     })
-  }, [entries, projects])
+  }, [entries, extraRows, projects])
 
   const allProjects = useMemo(() => {
-    const existingIds = new Set(entries.map((e) => e.projectId))
+    const existingIds = new Set([...entries.map((e) => e.projectId), ...extraRows.map((r) => r.projectId)])
     return (projects ?? [])
       .filter((p) => !existingIds.has(p.id))
       .map((p) => ({ value: p.id, label: p.name }))
-  }, [projectList])
+  }, [entries, extraRows, projects])
 
   const projectOptions = useMemo(() => {
     return (projects ?? []).map((p) => ({ value: p.id, label: p.name }))
@@ -233,58 +301,92 @@ export default function TimesheetPage() {
   const goCurrentWeek = useCallback(() => setCurrentWeekStart(startOfWeek(new Date())), [])
 
   function openCellModal(projectId: string, projectName: string, dayIndex: number) {
+    if (periodLocked) return
     setModalProjectId(projectId)
     setModalProjectName(projectName)
     setModalDayIndex(dayIndex)
     setModalDate(weekDatesISO[dayIndex])
     setFormDescription('')
     hoursMask.reset()
+    setEditingEntry(null)
+    editMask.reset()
     setModalOpen(true)
   }
 
-  function addEntry() {
+  async function addEntry() {
+    if (periodLocked) return
     const hours = hoursMask.getDecimal()
-    if (hours <= 0) return
-    const newEntry: any = {
-      id: `e-${Date.now()}`,
-      projectId: modalProjectId,
-      date: modalDate,
-      hours,
-      description: formDescription.trim() || 'Sem descrição',
-      startTime: null,
-      endTime: null,
+    if (hours <= 0 || !modalProjectId) return
+    try {
+      const startTime = zonedDateTimeToIso(modalDate, '09:00', timeZone)
+      const end = new Date(startTime)
+      end.setSeconds(end.getSeconds() + hours * 3600)
+      await createManualTimeEntry.mutateAsync({
+        projectId: modalProjectId,
+        description: formDescription.trim() || 'Sem descrição',
+        startTime,
+        endTime: end.toISOString(),
+      })
+      setFormDescription('')
+      hoursMask.reset()
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao adicionar registro')
     }
-    setEntries((prev) => [...prev, newEntry])
-    setFormDescription('')
-    hoursMask.reset()
   }
 
-  function removeEntry(entryId: string) {
-    setEntries((prev) => prev.filter((e) => e.id !== entryId))
+  async function removeEntry(entryId: string) {
+    const entry = entries.find((item) => item.id === entryId)
+    if (entry && isProtectedStatus(entry.approvalStatus)) return
+    try {
+      await deleteTimeEntry.mutateAsync(entryId)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao remover registro')
+    }
+  }
+
+  function openEdit(entry: any) {
+    if (isProtectedStatus(entry.approvalStatus)) return
+    setEditingEntry(entry)
+    setEditDesc(entry.description === 'Sem descrição' ? '' : entry.description)
+    editMask.setDigits(hoursToMaskDigits(entry.hours || 0))
+  }
+
+  async function saveEdit() {
+    if (!editingEntry) return
+    const hours = editMask.getDecimal()
+    if (hours <= 0) {
+      toast.error('Informe uma quantidade de horas válida')
+      return
+    }
+    try {
+      const startTime = editingEntry.startTime
+      const end = new Date(startTime)
+      end.setSeconds(end.getSeconds() + hours * 3600)
+      await updateTimeEntry.mutateAsync({
+        entryId: editingEntry.id,
+        data: {
+          description: editDesc.trim() || undefined,
+          startTime,
+          endTime: end.toISOString(),
+        },
+      })
+      toast.success('Registro atualizado')
+      setEditingEntry(null)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao atualizar registro')
+    }
   }
 
   function addProjectRow() {
     if (!selectedProjectId) return
-    const project = projects?.find((p) => p.id === selectedProjectId)
-    if (!project) return
-    setEntries((prev) => [
-      ...prev,
-      {
-        id: `e-${Date.now()}`,
-        projectId: project.id,
-        date: weekDatesISO[0],
-        hours: 0,
-        description: '',
-        startTime: null,
-        endTime: null,
-      },
-    ])
+    if (extraRows.some((r) => r.projectId === selectedProjectId)) return
+    setExtraRows((prev) => [...prev, { id: `row-${Date.now()}`, projectId: selectedProjectId }])
     setSelectedProjectId('')
     setShowAddRow(false)
   }
 
   function removeProjectRow(projectId: string) {
-    setEntries((prev) => prev.filter((e) => e.projectId !== projectId))
+    setExtraRows((prev) => prev.filter((r) => r.projectId !== projectId))
   }
 
   const modalEntries = modalOpen ? getEntries(modalProjectId, modalDate) : []
@@ -315,6 +417,58 @@ export default function TimesheetPage() {
           </div>
         </div>
       </div>
+
+      {/* Status do período de apontamento */}
+      <Card className="border-border/50">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <CalendarCheck2 className="size-5 text-primary" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Período de apontamento</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {currentPeriod ? `Semana de ${weekLabel}` : 'Nenhum período criado para esta semana.'}
+                {periodStatus && periodStatus !== 'DRAFT' && (
+                  <Badge
+                    variant={periodStatus === 'REJECTED' ? 'destructive' : periodStatus === 'APPROVED' ? 'success' : periodStatus === 'SUBMITTED' ? 'info' : 'warning'}
+                    className="ml-2"
+                  >
+                    {APPROVAL_LABELS[periodStatus]}
+                  </Badge>
+                )}
+              </p>
+              {periodStatus === 'REJECTED' && currentPeriod?.rejectionComment && (
+                <p className="mt-1 text-xs text-destructive">
+                  Motivo da rejeição: {currentPeriod.rejectionComment}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {!currentPeriod && (
+              <Button size="sm" onClick={handleCreatePeriod} disabled={createPeriod.isPending}>
+                <Plus className="mr-1.5 size-4" /> Criar período
+              </Button>
+            )}
+            {periodStatus === 'DRAFT' && (
+              <Button size="sm" onClick={handleSubmitPeriod} disabled={submitPeriod.isPending}>
+                <Send className="mr-1.5 size-4" /> Enviar para aprovação
+              </Button>
+            )}
+            {periodStatus === 'REJECTED' && (
+              <Button size="sm" variant="outline" onClick={handleReopenPeriod} disabled={reopenPeriod.isPending}>
+                <Undo2 className="mr-1.5 size-4" /> Reabrir período
+              </Button>
+            )}
+            {periodLocked && (
+              <Badge variant="warning" className="gap-1">
+                <Lock className="size-3" /> Registros bloqueados
+              </Badge>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Planilha */}
       <Card className="overflow-hidden border-border/50 shadow-xl shadow-black/20">
@@ -393,16 +547,18 @@ export default function TimesheetPage() {
                           >
                             <div
                               className={cn(
-                                'group/cell relative flex h-10 cursor-pointer flex-col items-center justify-center rounded-md border px-2 text-sm tabular-nums outline-none transition-all',
+                                'group/cell relative flex h-10 flex-col items-center justify-center rounded-md border px-2 text-sm tabular-nums outline-none transition-all',
+                                periodLocked && 'cursor-not-allowed',
                                 hasValue
                                   ? 'border-border/60 bg-muted/30 font-medium text-foreground'
                                   : 'border-border/20 bg-transparent text-muted-foreground/30',
-                                'hover:border-border/50 hover:bg-muted/20',
+                                !periodLocked && 'cursor-pointer',
+                                !periodLocked && 'hover:border-border/50 hover:bg-muted/20',
                                 today && hasValue && 'border-[#3b82f6]/30',
                               )}
                             >
                               <span className={cn(hasValue ? 'text-foreground' : 'text-muted-foreground/30')}>
-                                {hasValue ? decimalToHHMM(total) : '+'}
+                                {periodLocked && !hasValue ? '—' : hasValue ? decimalToHHMM(total) : '+'}
                               </span>
                               {count > 1 && (
                                 <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-primary-foreground">
@@ -426,12 +582,16 @@ export default function TimesheetPage() {
 
                       {/* Remover */}
                       <td className="px-2 py-2.5">
-                        <button
-                          onClick={() => removeProjectRow(project.id)}
-                          className="flex size-8 items-center justify-center rounded-md text-muted-foreground/20 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        {extraRows.some((row) => row.projectId === project.id) && !entries.some((entry) => entry.projectId === project.id) && (
+                          <button
+                            type="button"
+                            aria-label={`Remover linha do projeto ${project.name}`}
+                            onClick={() => removeProjectRow(project.id)}
+                            className="flex size-8 items-center justify-center rounded-md text-muted-foreground/20 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
                       </td>
                     </motion.tr>
                   )
@@ -486,7 +646,7 @@ export default function TimesheetPage() {
 
         <Separator className="bg-border/30" />
         <div className="flex items-center justify-between px-4 py-3">
-          <Button variant="ghost" size="sm" onClick={() => setShowAddRow(true)} disabled={projectOptions.length === 0} className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="sm" onClick={() => setShowAddRow(true)} disabled={projectOptions.length === 0 || periodLocked} className="text-muted-foreground hover:text-foreground">
             <Plus className="mr-1.5 size-4" /> Adicionar projeto
           </Button>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -561,20 +721,69 @@ export default function TimesheetPage() {
                   key={entry.id}
                   className="group relative rounded-lg border border-border/40 bg-muted/20 p-3 transition-colors hover:bg-muted/30"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{entry.description}</p>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        <span className="font-semibold tabular-nums text-primary">{decimalToHHMM(entry.hours)}</span>
+                  {editingEntry?.id === entry.id ? (
+                    <div className="space-y-3">
+                      <Textarea
+                        label="Descrição"
+                        placeholder="O que você fez?"
+                        value={editDesc}
+                        onChange={(e) => setEditDesc(e.target.value)}
+                        className="min-h-[60px]"
+                      />
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <Input
+                            label="Horas"
+                            placeholder="00:00"
+                            inputMode="numeric"
+                            value={editMask.value}
+                            onChange={editMask.handleChange}
+                            onKeyDown={editMask.handleKeyDown}
+                            onFocus={editMask.handleFocus}
+                            onPaste={editMask.handlePaste}
+                            className="font-mono tabular-nums tracking-wider text-lg text-center"
+                          />
+                        </div>
+                        <Button size="sm" onClick={saveEdit} disabled={updateTimeEntry.isPending || !editMask.digits}>
+                          Salvar
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingEntry(null)}>
+                          Cancelar
+                        </Button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => removeEntry(entry.id)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground">{entry.description}</p>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-semibold tabular-nums text-primary">{decimalToHHMM(entry.hours)}</span>
+                          {entry.approvalStatus !== 'DRAFT' && (
+                            <Badge variant="secondary" className="ml-2 text-[10px]">
+                              {APPROVAL_LABELS[entry.approvalStatus as keyof typeof APPROVAL_LABELS]}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {!isProtectedStatus(entry.approvalStatus) && <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(entry)}
+                          className="flex size-7 items-center justify-center rounded-md text-muted-foreground/30 opacity-0 transition-all hover:bg-primary/10 hover:text-primary group-hover:opacity-100"
+                          title="Editar registro"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeEntry(entry.id)}
+                          className="flex size-7 items-center justify-center rounded-md text-muted-foreground/30 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>}
+                    </div>
+                  )}
                 </div>
               ))
             )}

@@ -14,14 +14,7 @@ import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
 import { Input } from '@/shared/components/ui/Input'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
-import { Separator } from '@/shared/components/ui/Separator'
-
-const chartColors = {
-  violet: '#8b5cf6',
-  sky: '#0ea5e9',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-}
+import { formatDuration } from '@/shared/lib/formatters'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -40,7 +33,7 @@ export default function DashboardPage() {
   const [quickText, setQuickText] = useState('')
 
   const now = new Date()
-  const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+  const greeting = now.getHours() < 12 ? 'Bom dia' : now.getHours() < 18 ? 'Boa tarde' : 'Boa noite'
 
   const handleQuickSubmit = useCallback(() => {
     if (!quickText.trim()) return
@@ -61,19 +54,19 @@ export default function DashboardPage() {
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Dashboard" description={`${greeting}, ${user?.displayName ?? 'user'}`} />
+      <PageHeader title="Painel" description={`${greeting}, ${user?.displayName ?? 'usuário'}`} />
 
       <motion.div variants={itemVariants}>
         <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card">
           <CardContent className="p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-foreground">What are you working on today?</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Type and press Enter to log to Timesheet</p>
+                <h3 className="text-sm font-medium text-foreground">No que você está trabalhando hoje?</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">Pressione Enter para ir à Planilha de Horas</p>
               </div>
               <div className="flex w-full items-center gap-2 sm:w-auto sm:min-w-[320px]">
                 <Input
-                  placeholder="Ex: Dashboard development..."
+                  placeholder="Ex: Desenvolvimento do painel..."
                   value={quickText}
                   onChange={(e) => setQuickText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleQuickSubmit()}
@@ -90,22 +83,22 @@ export default function DashboardPage() {
 
       <motion.div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" variants={containerVariants}>
         <motion.div variants={itemVariants}>
-          <StatCard value={stats.totalHoursToday} label="Today" icon={Clock} formatValue={(v) => `${v.toFixed(1)}h`} />
+          <StatCard value={stats.totalHoursToday} label="Hoje" icon={Clock} formatValue={(v) => `${v.toFixed(1)}h`} />
         </motion.div>
         <motion.div variants={itemVariants}>
-          <StatCard value={stats.totalHoursWeek} label="Week" icon={CalendarDays} formatValue={(v) => `${v.toFixed(1)}h`} />
+          <StatCard value={stats.totalHoursWeek} label="Semana" icon={CalendarDays} formatValue={(v) => `${v.toFixed(1)}h`} />
         </motion.div>
         <motion.div variants={itemVariants}>
-          <StatCard value={stats.totalActivitiesWeek} label="Activities" icon={ListChecks} />
+          <StatCard value={stats.totalActivitiesWeek} label="Atividades" icon={ListChecks} />
         </motion.div>
         <motion.div variants={itemVariants}>
-          <StatCard value={stats.projectDistribution.length} label="Projects" icon={Target} />
+          <StatCard value={stats.projectDistribution.length} label="Projetos" icon={Target} />
         </motion.div>
       </motion.div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <motion.div variants={itemVariants}>
-          <ChartCard title="Weekly Hours" subtitle="Hours tracked per day">
+          <ChartCard title="Horas da Semana" subtitle="Horas registradas por dia">
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={stats.weeklyChartData}>
                 <defs>
@@ -125,7 +118,7 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <ChartCard title="Projects" subtitle="Hours per project">
+          <ChartCard title="Projetos" subtitle="Horas por projeto">
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={stats.projectDistribution} dataKey="hours" nameKey="projectName" cx="50%" cy="50%" outerRadius={80} label={({ projectName, percent }) => `${(percent * 100).toFixed(0)}%`}>
@@ -144,22 +137,26 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-medium">Recent Activities</h3>
+              <h3 className="text-sm font-medium">Atividades Recentes</h3>
               <Button variant="ghost" size="sm" onClick={() => navigate(ROUTES.ACTIVITIES)}>
-                View all <ArrowRight className="ml-1 size-3.5" />
+                Ver todas <ArrowRight className="ml-1 size-3.5" />
               </Button>
             </div>
             {stats.recentActivities.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No activities this week</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma atividade nesta semana</p>
             ) : (
               <div className="space-y-3">
                 {stats.recentActivities.map((act) => (
                   <div key={act.id} className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2.5">
                     <div>
                       <p className="text-sm font-medium">{act.title}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(act.startDatetime).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(act.startDatetime).toLocaleString('pt-BR')}
+                      </p>
                     </div>
-                    <Badge variant="secondary">{((new Date(act.endDatetime).getTime() - new Date(act.startDatetime).getTime()) / 3600000).toFixed(1)}h</Badge>
+                    <Badge variant="secondary">
+                      {formatDuration(((new Date(act.endDatetime).getTime() - new Date(act.startDatetime).getTime()) / 1000))}
+                    </Badge>
                   </div>
                 ))}
               </div>

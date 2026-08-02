@@ -23,4 +23,6 @@ export interface OrgInfo {
   name: string
   slug: string
   role: Role
+  timezone: string
+  workWeekStartsOn: number
 }

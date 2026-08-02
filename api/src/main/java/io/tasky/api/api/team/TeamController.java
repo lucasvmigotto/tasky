@@ -8,10 +8,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,14 +31,11 @@ public class TeamController {
     private final PermissionService permissionService;
 
     @PostMapping
+    @PreAuthorize("@access.canManageDepartment(authentication.principal, #deptId)")
     public ResponseEntity<TeamResponse> create(
             @PathVariable UUID deptId,
             @Valid @RequestBody CreateTeamRequest request,
             @AuthenticationPrincipal SecurityUser user) {
-
-        if (!permissionService.canManageDepartment(user, deptId)) {
-            throw new SecurityException("Only admins and managers can create teams");
-        }
 
         Team team = teamService.createTeam(deptId, request.name());
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -46,8 +46,34 @@ public class TeamController {
     public ResponseEntity<List<TeamResponse>> list(
             @PathVariable UUID deptId,
             @AuthenticationPrincipal SecurityUser user) {
-        List<Team> teams = teamService.getTeamsByDepartment(deptId);
+        UUID orgId = permissionService.getMembershipByUserAndDepartment(user.id(), deptId)
+                .map(m -> m.getOrganization().getId())
+                .orElseThrow(() -> new SecurityException("Not a member of this organization"));
+        List<Team> teams = teamService.getTeamsByDepartment(orgId, deptId);
         return ResponseEntity.ok(teams.stream().map(this::toResponse).toList());
+    }
+
+    @PutMapping("/{teamId}")
+    @PreAuthorize("@access.canManageDepartment(authentication.principal, #deptId)")
+    public ResponseEntity<TeamResponse> update(
+            @PathVariable UUID deptId,
+            @PathVariable UUID teamId,
+            @Valid @RequestBody CreateTeamRequest request,
+            @AuthenticationPrincipal SecurityUser user) {
+
+        Team team = teamService.renameTeam(deptId, teamId, request.name());
+        return ResponseEntity.ok(toResponse(team));
+    }
+
+    @DeleteMapping("/{teamId}")
+    @PreAuthorize("@access.canManageDepartment(authentication.principal, #deptId)")
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID deptId,
+            @PathVariable UUID teamId,
+            @AuthenticationPrincipal SecurityUser user) {
+
+        teamService.deleteTeam(deptId, teamId);
+        return ResponseEntity.noContent().build();
     }
 
     private TeamResponse toResponse(Team team) {

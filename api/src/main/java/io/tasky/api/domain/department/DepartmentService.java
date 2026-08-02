@@ -32,4 +32,22 @@ public class DepartmentService {
     public List<Department> getDepartmentsByOrganization(UUID organizationId) {
         return departmentRepository.findByOrganizationId(organizationId);
     }
+
+    public Department renameDepartment(UUID organizationId, UUID departmentId, String name) {
+        Department dept = departmentRepository.findByIdAndOrganizationId(departmentId, organizationId)
+                .orElseThrow(() -> new IllegalArgumentException("Department not found"));
+        if (name != null && !name.isBlank() && !name.equals(dept.getName())) {
+            if (departmentRepository.existsByOrganizationIdAndName(organizationId, name)) {
+                throw new IllegalArgumentException("Department name already exists in this organization");
+            }
+            dept.setName(name);
+        }
+        return departmentRepository.save(dept);
+    }
+
+    public void deleteDepartment(UUID organizationId, UUID departmentId) {
+        Department dept = departmentRepository.findByIdAndOrganizationId(departmentId, organizationId)
+                .orElseThrow(() -> new IllegalArgumentException("Department not found"));
+        departmentRepository.delete(dept);
+    }
 }

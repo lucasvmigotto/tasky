@@ -71,7 +71,7 @@ export function GanttChart({ activities, dependencies, onActivityClick, classNam
   if (activities.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-        No activities to display on the timeline.
+        Nenhuma atividade para exibir na timeline.
       </div>
     )
   }
@@ -86,7 +86,7 @@ export function GanttChart({ activities, dependencies, onActivityClick, classNam
           {/* Header */}
           <div className="flex border-b border-border">
             <div className="sticky left-0 z-10 w-[200px] shrink-0 bg-card px-3 py-2 text-xs font-medium text-muted-foreground">
-              Activity
+              Atividade
             </div>
             <div className="flex">
               {dayLabels.map((label, i) => (
@@ -141,7 +141,7 @@ export function GanttChart({ activities, dependencies, onActivityClick, classNam
                       animate={{ width: barWidth * dayWidth - 4 }}
                       className={`absolute top-2 h-5 cursor-pointer rounded-sm ${color} bg-opacity-80 hover:opacity-100`}
                       style={{ left: barStart * dayWidth + 2 }}
-                      title={`${activity.title} — ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`}
+                      title={`${activity.title} - ${startDate.toLocaleDateString('pt-BR')} até ${endDate.toLocaleDateString('pt-BR')}`}
                       onClick={() => onActivityClick?.(activity.id)}
                     />
                   )}

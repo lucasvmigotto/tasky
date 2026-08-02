@@ -6,6 +6,8 @@ import io.tasky.api.domain.project.Project;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,6 +18,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -44,6 +47,10 @@ public class Activity {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_activity_id")
+    private Activity parentActivity;
+
     @Column(nullable = false)
     private String title;
 
@@ -58,6 +65,39 @@ public class Activity {
 
     @Column(name = "end_datetime", nullable = false)
     private Instant endDatetime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ActivityStatus status = ActivityStatus.TODO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "task_type", nullable = false, length = 20)
+    @Builder.Default
+    private ActivityTaskType taskType = ActivityTaskType.TASK;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    @Builder.Default
+    private ActivityPriority priority = ActivityPriority.NORMAL;
+
+    @Column(name = "due_date")
+    private Instant dueDate;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int position = 0;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
+
+    @Column(name = "estimated_seconds", nullable = false)
+    @Builder.Default
+    private long estimatedSeconds = 0;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)

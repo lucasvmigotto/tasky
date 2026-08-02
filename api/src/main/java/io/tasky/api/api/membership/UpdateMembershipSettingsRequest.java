@@ -6,5 +6,6 @@ import jakarta.validation.constraints.Min;
 
 public record UpdateMembershipSettingsRequest(
         String customUsername,
-        @Min(1) @Max(1440) Integer maxDailyWorkMinutes
+        @Min(1) @Max(1440) Integer maxDailyWorkMinutes,
+        String timezone
 ) {}

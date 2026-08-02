@@ -22,6 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -37,11 +38,11 @@ public class OrganizationMembership {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
@@ -54,6 +55,43 @@ public class OrganizationMembership {
 
     @Column(name = "max_daily_work_minutes", nullable = false)
     private int maxDailyWorkMinutes;
+
+    @Column(name = "primary_department_id")
+    private UUID primaryDepartmentId;
+
+    @Column(name = "primary_team_id")
+    private UUID primaryTeamId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "invitation_status", nullable = false, length = 20)
+    @Builder.Default
+    private InvitationStatus invitationStatus = InvitationStatus.ACCEPTED;
+
+    @Column(name = "invited_at")
+    private Instant invitedAt;
+
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
+    @Column(name = "accepted_at")
+    private Instant acceptedAt;
+
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "invited_by_membership_id")
+    private OrganizationMembership invitedBy;
+
+    @Column(length = 64)
+    private String timezone;
+
+    @Column(name = "cost_rate", precision = 10, scale = 2)
+    private BigDecimal costRate;
+
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

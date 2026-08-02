@@ -21,7 +21,20 @@ public class JwtTokenProvider {
     private final long expirationHours;
 
     public JwtTokenProvider(TaskYProperties properties) {
-        byte[] keyBytes = Base64.getDecoder().decode(properties.jwt().secret());
+        String secret = properties.jwt().secret();
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("tasky.jwt.secret must be configured via JWT_SECRET");
+        }
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(secret);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("tasky.jwt.secret is not a valid Base64 value", e);
+        }
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException(
+                    "tasky.jwt.secret must decode to at least 32 bytes for HS256, got " + keyBytes.length);
+        }
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.expirationHours = properties.jwt().expirationHours();
     }

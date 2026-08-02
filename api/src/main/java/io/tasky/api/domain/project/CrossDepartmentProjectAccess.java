@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -47,4 +48,9 @@ public class CrossDepartmentProjectAccess {
 
     @Column(name = "granted_at", nullable = false, updatable = false)
     private Instant grantedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        grantedAt = Instant.now();
+    }
 }

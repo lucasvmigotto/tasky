@@ -1,5 +1,6 @@
 package io.tasky.api.api.project;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -9,6 +10,11 @@ public record ProjectResponse(
         String name,
         String description,
         UUID managerMembershipId,
+        UUID clientId,
+        BigDecimal hourlyRate,
+        long estimatedSeconds,
+        Long budgetSeconds,
+        BigDecimal budgetAmount,
         boolean isActive,
         Instant createdAt
 ) {}

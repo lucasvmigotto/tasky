@@ -11,7 +11,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState'
 import { cn } from '@/shared/lib/cn'
 import { getMonthName } from '@/shared/lib/dates'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useActivityQuery } from '@/core/api/hooks'
+import { useActivityQuery, useProjects } from '@/core/api/hooks'
 import type { UUID } from '@/core/api/types'
 
 function startOfMonth(date: Date): Date {
@@ -100,6 +100,7 @@ export default function CalendarPage() {
   const { data: activities, isLoading } = useActivityQuery(
     orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString() } : null
   )
+  const { data: projects = [] } = useProjects(orgId as UUID)
 
   const events = useMemo(() => {
     if (!activities) return []
@@ -112,6 +113,8 @@ export default function CalendarPage() {
       type: 'activity' as const,
     }))
   }, [activities])
+
+  const projectName = (projectId: string) => projects.find((p) => p.id === projectId)?.name ?? ''
 
   const filteredEvents = useMemo(() => {
     if (typeFilter === 'all') return events
@@ -279,7 +282,7 @@ export default function CalendarPage() {
                       <Icon className={cn('size-4', TYPE_COLORS[et].split(' ')[2])} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                        <p className="text-xs text-muted-foreground">{event.type === 'activity' ? event.projectId : ''}</p>
+                        <p className="text-xs text-muted-foreground">{event.type === 'activity' ? projectName(event.projectId) : ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
