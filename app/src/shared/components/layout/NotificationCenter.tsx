@@ -30,7 +30,7 @@ function notificationRoute(notification: NotificationResponse): string | null {
   if (notification.resourceType === 'activity') {
     return buildRoute(ROUTES.ACTIVITY_DETAIL, { activityId: notification.resourceId })
   }
-  if (notification.type === 'OPEN_TIMER') return ROUTES.TIME_TRACKER
+  if (notification.type === 'OPEN_TIMER') return ROUTES.TIMESHEET
   if (notification.type === 'TIME_ENTRY_PENDING_APPROVAL') return ROUTES.TIMESHEET
   if (notification.resourceType === 'time_entry') return ROUTES.TIMESHEET
   if (notification.resourceType === 'membership') return ROUTES.SETTINGS

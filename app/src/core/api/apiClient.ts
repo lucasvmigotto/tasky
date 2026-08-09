@@ -10,6 +10,22 @@ export class ApiError extends Error {
 }
 
 let accessToken: string | null = null
+const REQUEST_TIMEOUT_MS = 15_000
+
+async function fetchWithTimeout(input: RequestInfo | URL, options: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const externalSignal = options.signal
+  const abortExternal = () => controller.abort()
+  externalSignal?.addEventListener('abort', abortExternal, { once: true })
+
+  try {
+    return await fetch(input, { ...options, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeoutId)
+    externalSignal?.removeEventListener('abort', abortExternal)
+  }
+}
 
 export function setAccessToken(token: string | null) {
   accessToken = token
@@ -28,7 +44,7 @@ export async function rawRequest<T>(path: string, options: RequestInit = {}): Pr
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   }
-  return fetch(`/api/v1${path}`, {
+  return fetchWithTimeout(`/api/v1${path}`, {
     ...options,
     headers,
     credentials: 'include',
@@ -73,7 +89,7 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
     headers['Authorization'] = `Bearer ${accessToken}`
   }
 
-  const response = await fetch(`/api/v1${path}`, {
+  const response = await fetchWithTimeout(`/api/v1${path}`, {
     ...options,
     headers,
     credentials: 'include',

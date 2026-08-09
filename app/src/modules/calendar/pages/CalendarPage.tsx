@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Circle, Clock, Target, Users, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Circle, Clock, Target, Timer, Users, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Button } from '@/shared/components/ui/Button'
@@ -11,7 +11,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState'
 import { cn } from '@/shared/lib/cn'
 import { getMonthName } from '@/shared/lib/dates'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useActivityQuery, useProjects } from '@/core/api/hooks'
+import { useActivityQuery, useProjects, useTimeEntries } from '@/core/api/hooks'
 import type { UUID } from '@/core/api/types'
 
 function startOfMonth(date: Date): Date {
@@ -40,7 +40,7 @@ function getFirstDayOfMonth(date: Date): number {
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 
-type CalendarEventType = 'activity' | 'meeting' | 'deadline'
+type CalendarEventType = 'activity' | 'meeting' | 'deadline' | 'entry'
 
 interface CalendarEvent {
   id: string
@@ -49,24 +49,28 @@ interface CalendarEvent {
   startDatetime: string
   endDatetime: string
   type: CalendarEventType
+  hours?: number
 }
 
 const TYPE_ICONS: Record<CalendarEventType, typeof Circle> = {
   activity: Clock,
   meeting: Users,
   deadline: Target,
+  entry: Timer,
 }
 
 const TYPE_COLORS: Record<CalendarEventType, string> = {
   activity: 'border-l-blue-500 bg-blue-500/10 text-blue-400',
   meeting: 'border-l-emerald-500 bg-emerald-500/10 text-emerald-400',
   deadline: 'border-l-amber-500 bg-amber-500/10 text-amber-400',
+  entry: 'border-l-violet-500 bg-violet-500/10 text-violet-400',
 }
 
-const TYPE_BADGE: Record<CalendarEventType, 'info' | 'success' | 'warning'> = {
+const TYPE_BADGE: Record<CalendarEventType, 'info' | 'success' | 'warning' | 'secondary'> = {
   activity: 'info',
   meeting: 'success',
   deadline: 'warning',
+  entry: 'secondary',
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -100,11 +104,13 @@ export default function CalendarPage() {
   const { data: activities, isLoading } = useActivityQuery(
     orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString() } : null
   )
+  const { data: entries = [] } = useTimeEntries(
+    orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString(), size: 5000 } : null
+  )
   const { data: projects = [] } = useProjects(orgId as UUID)
 
   const events = useMemo(() => {
-    if (!activities) return []
-    return activities.map((a) => ({
+    const activityEvents: CalendarEvent[] = (activities ?? []).map((a) => ({
       id: a.id,
       title: a.title,
       projectId: a.projectId,
@@ -112,7 +118,21 @@ export default function CalendarPage() {
       endDatetime: a.endDatetime,
       type: 'activity' as const,
     }))
-  }, [activities])
+    const entryEvents: CalendarEvent[] = entries.map((e) => {
+      const hours = (e.durationSeconds ?? 0) / 3600
+      const desc = e.description || 'Horas registradas'
+      return {
+        id: e.id,
+        title: hours > 0 ? `${desc} · ${hours.toFixed(2)}h` : desc,
+        projectId: e.projectId ?? '',
+        startDatetime: e.startTime,
+        endDatetime: e.endTime ?? e.startTime,
+        type: 'entry' as const,
+        hours,
+      }
+    })
+    return [...entryEvents, ...activityEvents]
+  }, [activities, entries])
 
   const projectName = (projectId: string) => projects.find((p) => p.id === projectId)?.name ?? ''
 
@@ -168,6 +188,7 @@ export default function CalendarPage() {
       <Tabs defaultValue="all" value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
         <TabsList>
           <TabsTrigger value="all">Todos</TabsTrigger>
+          <TabsTrigger value="entry">Apontamentos</TabsTrigger>
           <TabsTrigger value="activity">Atividades</TabsTrigger>
           <TabsTrigger value="meeting">Reuniões</TabsTrigger>
           <TabsTrigger value="deadline">Prazos</TabsTrigger>
@@ -282,17 +303,23 @@ export default function CalendarPage() {
                       <Icon className={cn('size-4', TYPE_COLORS[et].split(' ')[2])} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                        <p className="text-xs text-muted-foreground">{event.type === 'activity' ? projectName(event.projectId) : ''}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {event.type === 'activity' || event.type === 'entry' ? projectName(event.projectId) : ''}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {!isAllDay && (
+                      {event.type === 'entry' && event.hours != null ? (
+                        <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-violet-400">
+                          {event.hours.toFixed(2)}h
+                        </span>
+                      ) : !isAllDay ? (
                         <span className="whitespace-nowrap text-xs text-muted-foreground">
                           {start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      )}
+                      ) : null}
                       <Badge variant={TYPE_BADGE[et]} className="text-[10px] px-1.5 py-0">
-                        {event.type === 'activity' ? 'Atividade' : event.type === 'meeting' ? 'Reunião' : 'Prazo'}
+                        {event.type === 'activity' ? 'Atividade' : event.type === 'entry' ? 'Apontamento' : event.type === 'meeting' ? 'Reunião' : 'Prazo'}
                       </Badge>
                     </div>
                   </div>

@@ -21,10 +21,7 @@ export const ROUTES = {
     DASHBOARD: '/admin',
     MEMBERS: '/admin/members',
     DEPARTMENTS: '/admin/departments',
-    TEAMS: '/admin/teams',
     PROJECTS: '/admin/projects',
-    LABELS: '/admin/labels',
-    CLIENTS: '/admin/clients',
   },
 } as const
 

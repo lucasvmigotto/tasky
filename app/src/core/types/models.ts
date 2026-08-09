@@ -23,13 +23,6 @@ export interface Department {
   createdAt: string
 }
 
-export interface Team {
-  id: string
-  departmentId: string
-  name: string
-  createdAt: string
-}
-
 export interface Project {
   id: string
   departmentId: string
@@ -51,15 +44,6 @@ export interface Membership {
   createdAt: string
 }
 
-export interface Label {
-  id: string
-  slug: string
-  displayName: string
-  isSystem: boolean
-  createdBy: string | null
-  createdAt: string
-}
-
 export interface Activity {
   id: string
   projectId: string
@@ -70,7 +54,6 @@ export interface Activity {
   endDatetime: string
   createdBy: string
   assignedTo: string
-  labelIds: string[]
   parentIds: string[]
   createdAt: string
 }
@@ -87,7 +70,6 @@ export interface TimeEntry {
   endTime: string | null
   duration: number
   date: string
-  labelIds: string[]
 }
 
 export type NavItem = {

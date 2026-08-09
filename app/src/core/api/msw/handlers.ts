@@ -1,12 +1,12 @@
 import { http, HttpResponse } from 'msw'
-import type { ActivityResponse, LabelResponse, ProjectResponse, MembershipResponse, MembershipInvitationResponse, OrganizationResponse, DepartmentResponse, TeamResponse, PaginatedResponse, TimeEntryResponse, ReportDetailedRow } from '@/core/api/types'
+import type { ActivityResponse, ProjectResponse, MembershipResponse, MembershipInvitationResponse, OrganizationResponse, DepartmentResponse, MemberTypeResponse, PaginatedResponse, TimeEntryResponse, ReportDetailedRow } from '@/core/api/types'
 
 const mockActivities: ActivityResponse[] = [
-  { id: 'act-1', projectId: 'proj-1', parentActivityId: null, title: 'Setup CI', description: null, weight: 3, startDatetime: new Date().toISOString(), endDatetime: new Date(Date.now() + 86400000).toISOString(), status: 'TODO', taskType: 'TASK', priority: 'NORMAL', dueDate: null, position: 1000, completedAt: null, estimatedSeconds: 7200, createdBy: 'mem-1', assignedTo: 'mem-2', labelIds: ['label-1'], parentIds: [], checklistTotal: 2, checklistCompleted: 1, createdAt: new Date().toISOString(), version: 1 },
+  { id: 'act-1', projectId: 'proj-1', parentActivityId: null, title: 'Setup CI', description: null, weight: 3, startDatetime: new Date().toISOString(), endDatetime: new Date(Date.now() + 86400000).toISOString(), status: 'TODO', taskType: 'TASK', priority: 'NORMAL', dueDate: null, position: 1000, completedAt: null, estimatedSeconds: 7200, createdBy: 'mem-1', assignedTo: 'mem-2', parentIds: [], checklistTotal: 2, checklistCompleted: 1, createdAt: new Date().toISOString(), version: 1 },
 ]
 
 const mockTimeEntries: TimeEntryResponse[] = [
-  { id: 'te-1', organizationId: 'org-1', membershipId: 'mem-1', userId: 'user-1', projectId: 'proj-1', activityId: null, description: 'Implemented auth', startTime: new Date().toISOString(), endTime: new Date(Date.now() + 3600000).toISOString(), durationSeconds: 3600, pausedSeconds: 0, pausedAt: null, approvalStatus: 'DRAFT', submittedAt: null, approvedAt: null, approvedBy: null, rejectionComment: null, billingRateSnapshot: 120, costRateSnapshot: 60, billable: false, tags: [], createdAt: new Date().toISOString() },
+  { id: 'te-1', organizationId: 'org-1', membershipId: 'mem-1', userId: 'user-1', projectId: 'proj-1', activityId: null, description: 'Implemented auth', startTime: new Date().toISOString(), endTime: new Date(Date.now() + 3600000).toISOString(), durationSeconds: 3600, pausedSeconds: 0, pausedAt: null, approvalStatus: 'DRAFT', submittedAt: null, approvedAt: null, approvedBy: null, rejectionComment: null, billingRateSnapshot: 120, costRateSnapshot: 60, billable: false, createdAt: new Date().toISOString() },
 ]
 
 export const handlers = [
@@ -23,20 +23,18 @@ export const handlers = [
     ])
   }),
 
-  http.get('/api/v1/departments/:deptId/teams', ({ params }) => {
+  http.get('/api/v1/departments/:deptId/member-types', ({ params }) => {
     const departmentId = String(params.deptId)
-    return HttpResponse.json<TeamResponse[]>(departmentId === 'dept-1' ? [
-      { id: 'team-1', departmentId, name: 'Backend', createdAt: new Date().toISOString() },
-      { id: 'team-2', departmentId, name: 'Frontend', createdAt: new Date().toISOString() },
-    ] : [
-      { id: 'team-3', departmentId, name: 'Design', createdAt: new Date().toISOString() },
-    ])
+    const types: MemberTypeResponse[] = departmentId === 'dept-1'
+      ? [{ id: 'type-1', departmentId, name: 'Programador Backend', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]
+      : []
+    return HttpResponse.json(types)
   }),
 
   http.get('/api/v1/organizations/:orgId/memberships', () => {
     return HttpResponse.json<MembershipResponse[]>([
-      { id: 'mem-1', userId: 'user-1', email: 'admin@test.com', username: 'admin#test1234', role: 'admin', customUsername: null, maxDailyWorkMinutes: 480, primaryDepartmentId: null, primaryTeamId: null, timezone: null, createdAt: new Date().toISOString() },
-      { id: 'mem-2', userId: 'user-2', email: 'emp@test.com', username: 'emp#test5678', role: 'employee', customUsername: null, maxDailyWorkMinutes: 480, primaryDepartmentId: 'dept-1', primaryTeamId: 'team-1', timezone: null, createdAt: new Date().toISOString() },
+       { id: 'mem-1', userId: 'user-1', email: 'admin@test.com', username: 'admin#test1234', role: 'admin', customUsername: null, maxDailyWorkMinutes: 480, primaryDepartmentId: null, memberTypes: [], timezone: null, createdAt: new Date().toISOString() },
+       { id: 'mem-2', userId: 'user-2', email: 'emp@test.com', username: 'emp#test5678', role: 'employee', customUsername: null, maxDailyWorkMinutes: 480, primaryDepartmentId: 'dept-1', memberTypes: [{ id: 'type-1', name: 'Programador Backend' }], timezone: null, createdAt: new Date().toISOString() },
     ])
   }),
 
@@ -46,12 +44,12 @@ export const handlers = [
 
   http.get('/api/v1/organizations/:orgId/projects', () => {
     return HttpResponse.json<ProjectResponse[]>([
-      { id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', managerMembershipId: 'mem-1', clientId: null, hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString() },
+       { id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', color: '#3B82F6', managerMembershipId: 'mem-1', hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString() },
     ])
   }),
 
-  http.get('/api/v1/projects/:projectId', () => {
-    return HttpResponse.json<ProjectResponse>({ id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', managerMembershipId: 'mem-1', clientId: null, hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString() })
+   http.get('/api/v1/projects/:projectId', () => {
+     return HttpResponse.json<ProjectResponse>({ id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', color: '#3B82F6', managerMembershipId: 'mem-1', hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString() })
   }),
 
   http.get('/api/v1/projects/:projectId/assignments', () => {
@@ -62,14 +60,6 @@ export const handlers = [
 
   http.get('/api/v1/projects/:projectId/cross-department-access', () => {
     return HttpResponse.json([])
-  }),
-
-  http.get('/api/v1/organizations/:orgId/labels', () => {
-    return HttpResponse.json<LabelResponse[]>([
-      { id: 'label-1', slug: 'urgent', displayName: 'Urgent', isSystem: true, createdBy: null, createdAt: new Date().toISOString() },
-      { id: 'label-2', slug: 'feature', displayName: 'Feature', isSystem: true, createdBy: null, createdAt: new Date().toISOString() },
-      { id: 'label-3', slug: 'custom', displayName: 'Custom Label', isSystem: false, createdBy: 'mem-1', createdAt: new Date().toISOString() },
-    ])
   }),
 
   http.get('/api/v1/projects/:projectId/activities', () => {
@@ -213,7 +203,6 @@ export const handlers = [
       ],
       projectHours: [{ project: 'TaskY', hours: 1 }],
       memberProductivity: [{ name: 'Admin', hours: 1, activities: 1 }],
-      labelDistribution: [],
       dailyAverage: 1,
       totalHours: 1,
       totalActivities: 1,
@@ -236,7 +225,6 @@ export const handlers = [
           cost: 60,
           margin: 60,
           billable: true,
-          tags: ['dev'],
         },
       ],
       totalElements: 1,
@@ -269,16 +257,6 @@ export const handlers = [
     return HttpResponse.json([
       { departmentId: 'dept-1', departmentName: 'Engineering', estimatedSeconds: 28800, actualApprovedSeconds: 7200, actualNotApprovedSeconds: 0, remainingSeconds: 21600, progressPercent: 25, cost: 120, revenue: 240, margin: 120 },
     ])
-  }),
-
-  http.get('/api/v1/reports/financials/teams', () => {
-    return HttpResponse.json([
-      { teamId: 'team-1', teamName: 'Backend', estimatedSeconds: 14400, actualApprovedSeconds: 3600, actualNotApprovedSeconds: 0, remainingSeconds: 10800, progressPercent: 25, cost: 60, revenue: 120, margin: 60 },
-    ])
-  }),
-
-  http.get('/api/v1/reports/financials/clients', () => {
-    return HttpResponse.json([])
   }),
 
   http.get('/api/v1/reports/groupings/approval', () => {
@@ -432,7 +410,6 @@ export const handlers = [
       billingRateSnapshot: null,
       costRateSnapshot: null,
       billable: false,
-      tags: [],
       createdAt: new Date().toISOString(),
     }
     mockTimeEntries.unshift(entry)
@@ -464,7 +441,6 @@ export const handlers = [
       billingRateSnapshot: null,
       costRateSnapshot: null,
       billable: body.billable ?? false,
-      tags: body.tags ?? [],
       createdAt: new Date().toISOString(),
     }
     mockTimeEntries.unshift(entry)

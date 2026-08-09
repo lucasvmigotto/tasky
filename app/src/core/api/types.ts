@@ -44,13 +44,6 @@ export interface Department {
   createdAt: ISO8601
 }
 
-export interface Team {
-  id: UUID
-  departmentId: UUID
-  name: string
-  createdAt: ISO8601
-}
-
 export interface Membership {
   id: UUID
   userId: UUID
@@ -60,7 +53,6 @@ export interface Membership {
   customUsername: string | null
   maxDailyWorkMinutes: number
   primaryDepartmentId: UUID | null
-  primaryTeamId: UUID | null
   timezone: string | null
   createdAt: ISO8601
 }
@@ -90,15 +82,6 @@ export interface CrossDepartmentProjectAccess {
   grantedAt: ISO8601
 }
 
-export interface Label {
-  id: UUID
-  slug: string
-  displayName: string
-  isSystem: boolean
-  createdBy: UUID | null
-  createdAt: ISO8601
-}
-
 export interface Activity {
   id: UUID
   projectId: UUID
@@ -117,7 +100,6 @@ export interface Activity {
   estimatedSeconds: number
   createdBy: UUID
   assignedTo: UUID
-  labelIds: UUID[]
   parentIds: UUID[]
   createdAt: ISO8601
   version: number
@@ -209,28 +191,32 @@ export interface DepartmentResponse {
   createdAt: ISO8601
 }
 
-export interface CreateTeamRequest {
-  name: string
-}
-
-export interface TeamResponse {
+export interface MemberTypeResponse {
   id: UUID
   departmentId: UUID
   name: string
+  isActive: boolean
   createdAt: ISO8601
+  updatedAt: ISO8601
+}
+
+export interface CreateMemberTypeRequest {
+  name: string
+  isActive?: boolean
 }
 
 export interface InviteRequest {
   email: string
   role: Role
   departmentIds?: UUID[]
-  teamIds?: UUID[]
+  memberTypeIds?: UUID[]
 }
 
 export interface UpdateMembershipSettingsRequest {
   customUsername?: string
   maxDailyWorkMinutes?: number
   timezone?: string
+  memberTypeIds?: UUID[]
 }
 
 export interface MembershipResponse {
@@ -242,7 +228,7 @@ export interface MembershipResponse {
   customUsername: string | null
   maxDailyWorkMinutes: number
   primaryDepartmentId: UUID | null
-  primaryTeamId: UUID | null
+  memberTypes?: Array<{ id: UUID; name: string }>
   timezone: string | null
   createdAt: ISO8601
 }
@@ -254,7 +240,6 @@ export interface MembershipInvitationResponse {
   email: string
   role: Role
   primaryDepartmentId: UUID | null
-  primaryTeamId: UUID | null
   status: InvitationStatus
   invitedAt: ISO8601 | null
   expiresAt: ISO8601 | null
@@ -265,13 +250,11 @@ export interface MembershipInvitationResponse {
 export interface SectorOverviewResponse {
   role: Role
   departments: Array<{ id: UUID; name: string }>
-  teams: Array<{ id: UUID; departmentId: UUID; name: string; memberCount: number }>
   members: Array<{
     id: UUID
     displayName: string
     role: Role
     departmentId: UUID | null
-    teamId: UUID | null
     openActivities: number
     estimatedSeconds: number
   }>
@@ -293,8 +276,8 @@ export interface SectorOverviewResponse {
 export interface CreateProjectRequest {
   name: string
   description?: string
-  managerMembershipId: UUID
-  clientId?: UUID
+  color?: string
+  managerMembershipId?: UUID
   hourlyRate?: number
   estimatedSeconds?: number
   budgetSeconds?: number
@@ -306,38 +289,13 @@ export interface ProjectResponse {
   departmentId: UUID
   name: string
   description: string | null
-  managerMembershipId: UUID
-  clientId: UUID | null
+  color?: string
+  managerMembershipId: UUID | null
   hourlyRate: number | null
   estimatedSeconds: number
   budgetSeconds: number | null
   budgetAmount: number | null
   isActive: boolean
-  createdAt: ISO8601
-}
-
-export interface CreateLabelRequest {
-  slug: string
-  displayName: string
-}
-
-export interface ClientResponse {
-  id: UUID
-  organizationId: UUID
-  name: string
-  createdAt: ISO8601
-}
-
-export interface CreateClientRequest {
-  name: string
-}
-
-export interface LabelResponse {
-  id: UUID
-  slug: string
-  displayName: string
-  isSystem: boolean
-  createdBy: UUID | null
   createdAt: ISO8601
 }
 
@@ -350,7 +308,6 @@ export interface CreateActivityRequest {
   assignedToMembershipId: UUID
   parentActivityId?: UUID
   estimatedSeconds?: number
-  labelIds?: UUID[]
   parentActivityIds?: UUID[]
   taskType?: ActivityTaskType
   priority?: ActivityPriority
@@ -379,7 +336,6 @@ export interface ActivityResponse {
   estimatedSeconds: number
   createdBy: UUID
   assignedTo: UUID
-  labelIds: UUID[]
   parentIds: UUID[]
   checklistTotal: number
   checklistCompleted: number
@@ -412,8 +368,8 @@ export interface ActivityQueryParams {
 export interface UpdateProjectRequest {
   name?: string
   description?: string
+  color?: string
   managerMembershipId?: UUID
-  clientId?: UUID
   hourlyRate?: number
   estimatedSeconds?: number
   budgetSeconds?: number
@@ -445,7 +401,6 @@ export interface UpdateActivityRequest {
   assignedToMembershipId?: UUID
   parentActivityId?: UUID
   estimatedSeconds?: number
-  labelIds?: UUID[]
   status?: ActivityStatus
   position?: number
   taskType?: ActivityTaskType
@@ -579,15 +534,10 @@ export interface CreateActivityAttachmentRequest {
   url: string
 }
 
-export interface UpdateLabelRequest {
-  slug?: string
-  displayName?: string
-}
-
 export interface ChangeRoleRequest {
   role: Role
   departmentId?: UUID
-  teamId?: UUID
+  memberTypeIds?: UUID[]
 }
 
 export interface TimeEntryResponse {
@@ -598,6 +548,7 @@ export interface TimeEntryResponse {
   projectId: UUID | null
   activityId: UUID | null
   description: string | null
+  glpiTicketId?: string | null
   startTime: ISO8601
   endTime: ISO8601 | null
   durationSeconds: number | null
@@ -611,7 +562,6 @@ export interface TimeEntryResponse {
   billingRateSnapshot: number | null
   costRateSnapshot: number | null
   billable: boolean
-  tags: string[]
   createdAt: ISO8601
 }
 
@@ -621,26 +571,26 @@ export interface ManualTimeEntryRequest {
   projectId?: UUID
   activityId?: UUID
   description?: string
+  glpiTicketId?: string
   billable?: boolean
-  tags?: string[]
 }
 
 export interface StartTimeEntryRequest {
   projectId?: UUID
   activityId?: UUID
   description?: string
+  glpiTicketId?: string
   billable?: boolean
-  tags?: string[]
 }
 
 export interface UpdateTimeEntryRequest {
   projectId?: UUID
   activityId?: UUID
   description?: string
+  glpiTicketId?: string
   startTime?: ISO8601
   endTime?: ISO8601
   billable?: boolean
-  tags?: string[]
 }
 
 export interface TimeEntryQueryParams {
@@ -658,7 +608,9 @@ export interface ReportWeeklyHoursPoint {
 }
 
 export interface ReportProjectHoursPoint {
+  projectId: UUID
   project: string
+  color?: string
   hours: number
 }
 
@@ -668,16 +620,10 @@ export interface ReportMemberProductivityPoint {
   activities: number
 }
 
-export interface ReportLabelDistributionPoint {
-  label: string
-  count: number
-}
-
 export interface ReportSummaryResponse {
   weeklyHours: ReportWeeklyHoursPoint[]
   projectHours: ReportProjectHoursPoint[]
   memberProductivity: ReportMemberProductivityPoint[]
-  labelDistribution: ReportLabelDistributionPoint[]
   dailyAverage: number
   totalHours: number
   totalActivities: number
@@ -694,7 +640,10 @@ export interface ReportSummaryResponse {
 
 export interface ReportDetailedRow {
   id: UUID
+  projectId?: UUID | null
   projectName: string
+  projectColor?: string
+  glpiTicketId?: string | null
   memberName: string
   description: string | null
   startTime: ISO8601
@@ -705,7 +654,6 @@ export interface ReportDetailedRow {
   cost: number
   margin: number
   billable: boolean
-  tags: string[]
 }
 
 export interface ReportQueryParams {
@@ -713,6 +661,7 @@ export interface ReportQueryParams {
   to?: ISO8601
   projectId?: UUID
   membershipId?: UUID
+  departmentId?: UUID
 }
 
 export interface SwitchOrgResponse {
@@ -960,32 +909,6 @@ export interface DepartmentFinancialResponse {
   margin: number
 }
 
-export interface TeamFinancialResponse {
-  teamId: UUID
-  teamName: string
-  estimatedSeconds: number
-  actualApprovedSeconds: number
-  actualNotApprovedSeconds: number
-  remainingSeconds: number
-  progressPercent: number
-  cost: number
-  revenue: number
-  margin: number
-}
-
-export interface ClientFinancialResponse {
-  clientId: UUID
-  clientName: string
-  estimatedSeconds: number
-  actualApprovedSeconds: number
-  actualNotApprovedSeconds: number
-  remainingSeconds: number
-  progressPercent: number
-  cost: number
-  revenue: number
-  margin: number
-}
-
 export interface ApprovalGroupResponse {
   approvalStatus: string
   seconds: number
@@ -1063,7 +986,6 @@ export interface InternalRequest {
   requesterMembershipId: UUID
   requestingDepartmentId: UUID | null
   responsibleDepartmentId: UUID | null
-  responsibleTeamId: UUID | null
   assigneeMembershipId: UUID | null
   desiredDueDate: ISO8601 | null
   projectId: UUID | null
@@ -1080,7 +1002,6 @@ export interface CreateInternalRequest {
   priority?: RequestPriority
   requestingDepartmentId?: UUID
   responsibleDepartmentId?: UUID
-  responsibleTeamId?: UUID
   desiredDueDate?: ISO8601
 }
 
@@ -1089,7 +1010,6 @@ export interface UpdateInternalRequest {
   description?: string
   priority?: RequestPriority
   responsibleDepartmentId?: UUID
-  responsibleTeamId?: UUID
   assigneeMembershipId?: UUID
   desiredDueDate?: ISO8601
 }

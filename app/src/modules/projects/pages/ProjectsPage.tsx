@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { FolderKanban, ArrowUpRight, Clock, Loader2 } from 'lucide-react'
 import { ROUTES, buildRoute } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useProjects, useDepartments, useClients } from '@/core/api/hooks'
+import { useProjects, useDepartments } from '@/core/api/hooks'
 import { canCreateProject, canManageOrganization } from '@/core/auth/permissions'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Input } from '@/shared/components/ui/Input'
@@ -40,7 +40,7 @@ const DEPT_ICON_COLORS: Record<string, string> = {
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 
 const itemVariants = {
@@ -56,7 +56,6 @@ export default function ProjectsPage() {
 
   const { data: projects, isLoading, error } = useProjects(orgId as UUID)
   const { data: departments } = useDepartments(orgId as UUID)
-  const { data: clients } = useClients(orgId as UUID)
   const [search, setSearch] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
@@ -70,7 +69,6 @@ export default function ProjectsPage() {
   }, [projects, search])
 
   const getDeptName = (deptId: string) => departments?.find((d) => d.id === deptId)?.name ?? 'Desconhecido'
-  const getClientName = (clientId: string | null) => (clientId ? clients?.find((c) => c.id === clientId)?.name : undefined)
 
   if (isLoading) {
     return (
@@ -126,11 +124,6 @@ export default function ProjectsPage() {
                       <div className="flex-1">
                         <h3 className="font-semibold">{project.name}</h3>
                         <p className="mt-1 text-xs text-muted-foreground">{getDeptName(project.departmentId)}</p>
-                        {getClientName(project.clientId) && (
-                          <p className="mt-0.5 text-xs text-muted-foreground/80">
-                            Solicitante: {getClientName(project.clientId)}
-                          </p>
-                        )}
                       </div>
                       <ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </div>

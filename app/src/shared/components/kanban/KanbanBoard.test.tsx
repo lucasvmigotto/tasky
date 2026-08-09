@@ -22,7 +22,6 @@ const activity: ActivityResponse = {
   estimatedSeconds: 3600,
   createdBy: 'member-1',
   assignedTo: 'member-1',
-  labelIds: [],
   parentIds: [],
   checklistTotal: 4,
   checklistCompleted: 2,

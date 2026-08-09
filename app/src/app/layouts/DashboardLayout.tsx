@@ -1,39 +1,31 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/core/auth/authStore'
 import { toast } from 'sonner'
-import { canViewMySector, hasMinRole } from '@/core/auth/permissions'
+import { hasMinRole } from '@/core/auth/permissions'
 import { ROUTES } from '@/core/config/routes'
-import { useLocalStorage } from '@/shared/hooks/async'
-import { Sidebar } from '@/shared/components/layout/Sidebar'
 import { Topbar } from '@/shared/components/layout/Topbar'
 import {
   LayoutDashboard,
-  ClipboardList,
-  ListChecks,
   CalendarDays,
-  FolderKanban,
-  Calendar,
   BarChart3,
   Shield,
   Users,
   Building2,
-  Users2,
   Folders,
-  Tags,
-  Settings,
-  LogOut,
-  ChevronRight,
   Clock,
-  Timer,
-  Briefcase,
-  GitBranch,
-  CheckCheck,
+  ChevronDown,
 } from 'lucide-react'
 import type { Role } from '@/core/auth/permissions'
 import type { SidebarNavItem } from '@/shared/components/layout/Sidebar'
 import type { TopbarUser } from '@/shared/components/layout/Topbar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/DropdownMenu'
 import { cn } from '@/shared/lib/cn'
+import { ErrorBoundary } from '@/core/errors/ErrorBoundary'
 
 interface NavEntry extends SidebarNavItem {
   key: string
@@ -41,65 +33,22 @@ interface NavEntry extends SidebarNavItem {
 
 const ALL_NAV_ITEMS: NavEntry[] = [
   { key: 'my-work', label: 'Meu Trabalho', href: ROUTES.MY_WORK, icon: LayoutDashboard },
-  { key: 'my-sector', label: 'Meu Setor', href: ROUTES.MY_SECTOR, icon: Building2 },
-  { key: 'requests', label: 'Demandas Internas', href: ROUTES.REQUESTS, icon: ClipboardList },
-  { key: 'projects', label: 'Projetos', href: ROUTES.PROJECTS, icon: FolderKanban },
-  { key: 'activities', label: 'Tarefas', href: ROUTES.ACTIVITIES, icon: ListChecks },
-  { key: 'time-tracker', label: 'Apontar Horas', href: ROUTES.TIME_TRACKER, icon: Timer },
   { key: 'timesheet', label: 'Minha Semana', href: ROUTES.TIMESHEET, icon: CalendarDays },
-  { key: 'timesheet-approvals', label: 'Aprovações de Horas', href: ROUTES.TIMESHEET_APPROVALS, icon: CheckCheck },
-  { key: 'timeline', label: 'Planejamento', href: ROUTES.TIMELINE, icon: GitBranch },
-  { key: 'calendar', label: 'Calendário', href: ROUTES.CALENDAR, icon: Calendar },
-  { key: 'reports', label: 'Relatórios', href: ROUTES.REPORTS, icon: BarChart3 },
-  { key: 'settings', label: 'Configurações', href: ROUTES.SETTINGS, icon: Settings },
+  { key: 'my-report', label: 'Meu Relatório', href: ROUTES.REPORTS, icon: BarChart3 },
+  { key: 'sector-report', label: 'Relatório do Setor', href: ROUTES.REPORTS, icon: BarChart3 },
 ]
 
 const ADMIN_CHILDREN: NavEntry[] = [
   { key: 'admin-overview', label: 'Visão Geral', href: ROUTES.ADMIN.DASHBOARD, icon: LayoutDashboard },
   { key: 'admin-members', label: 'Membros', href: ROUTES.ADMIN.MEMBERS, icon: Users },
   { key: 'admin-departments', label: 'Departamentos', href: ROUTES.ADMIN.DEPARTMENTS, icon: Building2 },
-  { key: 'admin-teams', label: 'Equipes', href: ROUTES.ADMIN.TEAMS, icon: Users2 },
   { key: 'admin-projects', label: 'Projetos', href: ROUTES.ADMIN.PROJECTS, icon: Folders },
-  { key: 'admin-labels', label: 'Etiquetas', href: ROUTES.ADMIN.LABELS, icon: Tags },
-  { key: 'admin-clients', label: 'Unidades Solicitantes', href: ROUTES.ADMIN.CLIENTS, icon: Briefcase },
 ]
-
-const PAGE_TITLES: Record<string, string> = {
-  [ROUTES.DASHBOARD]: 'Painel',
-  [ROUTES.MY_WORK]: 'Meu Trabalho',
-  [ROUTES.MY_SECTOR]: 'Meu Setor',
-  [ROUTES.REQUESTS]: 'Demandas Internas',
-  [ROUTES.TIMESHEET]: 'Minha Semana',
-  [ROUTES.TIMESHEET_APPROVALS]: 'Aprovações de Horas',
-  [ROUTES.TIME_TRACKER]: 'Apontar Horas',
-  [ROUTES.PROJECTS]: 'Projetos',
-  [ROUTES.ACTIVITIES]: 'Tarefas',
-  [ROUTES.TIMELINE]: 'Timeline',
-  [ROUTES.CALENDAR]: 'Calendário',
-  [ROUTES.REPORTS]: 'Relatórios',
-  [ROUTES.ADMIN.DASHBOARD]: 'Visão Geral',
-  [ROUTES.ADMIN.MEMBERS]: 'Membros',
-  [ROUTES.ADMIN.DEPARTMENTS]: 'Departamentos',
-  [ROUTES.ADMIN.TEAMS]: 'Equipes',
-  [ROUTES.ADMIN.PROJECTS]: 'Projetos',
-  [ROUTES.ADMIN.LABELS]: 'Etiquetas',
-  [ROUTES.ADMIN.CLIENTS]: 'Unidades Solicitantes',
-  [ROUTES.SETTINGS]: 'Configurações',
-}
-
-function getPageTitle(pathname: string): string {
-  const exact = PAGE_TITLES[pathname]
-  if (exact) return exact
-  if (pathname.startsWith('/projects/')) return 'Detalhes do Projeto'
-  if (pathname.startsWith('/activities/')) return 'Detalhes da Atividade'
-  return 'TaskY'
-}
 
 function filterByRole(items: NavEntry[], role: Role): NavEntry[] {
   return items.filter((item) => {
-    if (item.key === 'settings') return hasMinRole(role, 'leader')
-    if (item.key === 'my-sector') return canViewMySector(role)
-    if (item.key === 'timesheet-approvals') return hasMinRole(role, 'manager')
+    if (item.key === 'my-report') return !hasMinRole(role, 'manager')
+    if (item.key === 'sector-report') return hasMinRole(role, 'manager')
     return true
   })
 }
@@ -107,35 +56,14 @@ function filterByRole(items: NavEntry[], role: Role): NavEntry[] {
 function filterAdminChildren(children: NavEntry[], role: Role): NavEntry[] {
   return children.filter((item) => {
     const roles: Record<string, Role> = {
-      'admin-members': 'admin',
+      'admin-members': 'manager',
       'admin-departments': 'admin',
-      'admin-teams': 'manager',
       'admin-projects': 'manager',
-      'admin-labels': 'manager',
-      'admin-clients': 'manager',
     }
     const minRole = roles[item.key]
     if (!minRole) return true
     return hasMinRole(role, minRole)
   })
-}
-
-function getAvatarGradient(name: string): string {
-  const gradients = [
-    'from-pink-500 to-rose-500',
-    'from-violet-500 to-purple-500',
-    'from-blue-500 to-cyan-500',
-    'from-emerald-500 to-teal-500',
-    'from-amber-500 to-orange-500',
-    'from-rose-500 to-pink-600',
-    'from-indigo-500 to-blue-600',
-    'from-teal-500 to-emerald-600',
-  ]
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return gradients[Math.abs(hash) % gradients.length]
 }
 
 function getInitials(name: string): string {
@@ -166,47 +94,20 @@ export default function DashboardLayout() {
     }
   }
 
-  const [collapsed, setCollapsed] = useLocalStorage('tasky_sidebar_collapsed', false)
-  const [mobileOpen, setMobileOpen] = useLocalStorage('tasky_sidebar_mobile_open', false)
-
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(max-width: 1023px)').matches
-  })
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023px)')
-    const handler = (e: MediaQueryListEvent) => {
-      setIsMobile(e.matches)
-      if (!e.matches) setMobileOpen(false)
-    }
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [setMobileOpen])
-
-  const role = activeOrg?.role ?? 'employee'
-
-  const navItems = useMemo(() => {
-    const items = filterByRole(ALL_NAV_ITEMS, role)
-    if (hasMinRole(role, 'manager')) {
-      const adminChildren = filterAdminChildren(ADMIN_CHILDREN, role)
-      items.splice(items.length - 1, 0, {
-        key: 'admin',
-        label: 'Administrador',
-        href: ROUTES.ADMIN.DASHBOARD,
-        icon: Shield,
-        children: adminChildren,
-      })
-    }
-    return items
-  }, [role])
-
-  const isAdminChild = ADMIN_CHILDREN.some((c) => location.pathname.startsWith(c.href))
-
   async function handleLogout() {
     await logout()
     navigate(ROUTES.LOGIN, { replace: true })
   }
+
+  const role = activeOrg?.role ?? 'employee'
+  const isManagerOrAdmin = hasMinRole(role, 'manager')
+
+  const mainNav = useMemo(() => filterByRole(ALL_NAV_ITEMS, role), [role])
+  const adminNav = useMemo(() => filterAdminChildren(ADMIN_CHILDREN, role), [role])
+  const isAdminActive = ADMIN_CHILDREN.some((c) => location.pathname.startsWith(c.href))
+
+  const isActive = (href: string) =>
+    location.pathname === href || (href !== '/' && location.pathname.startsWith(href))
 
   const topbarUser: TopbarUser | undefined = user
     ? {
@@ -218,156 +119,120 @@ export default function DashboardLayout() {
     : undefined
 
   const logo = (
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <div className="flex size-8 items-center justify-center rounded-lg bg-primary shadow-sm">
         <Clock className="size-4 text-primary-foreground" />
       </div>
-      {(!collapsed || isMobile) && (
-        <span className="text-lg font-bold tracking-tight">
-          <span className="text-primary">Task</span>
-          <span className="text-sidebar-foreground">Y</span>
-        </span>
-      )}
+      <span className="text-lg font-bold tracking-tight">
+        <span className="text-primary">Task</span>
+        <span className="text-foreground">Y</span>
+      </span>
     </div>
   )
 
-  const children = (
-    <nav className="flex flex-1 flex-col gap-0 px-2 py-3">
-      {(!collapsed || isMobile) && (
-        <div className="mb-2 px-1">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
-            Menu
-          </span>
-        </div>
-      )}
-      <div className="flex flex-col gap-0.5">
-        {navItems.map((item) => {
-          const isActive =
-            location.pathname === item.href ||
-            (item.href !== '/' && location.pathname.startsWith(item.href))
-
-          const hasChildren = item.children && item.children.length > 0
-          const isAdminExpanded = 'children' in item && (isActive || isAdminChild)
-
-          return (
-            <div key={item.href}>
-              <button
-                onClick={() => {
-                  navigate(item.href)
-                  if (isMobile) setMobileOpen(false)
-                }}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                  isActive && !hasChildren
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
-                    : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-                  collapsed && !isMobile && 'justify-center px-2',
-                )}
-              >
-                <item.icon className={cn('size-5 shrink-0', isActive && !hasChildren ? 'text-primary' : '')} />
-                {(!collapsed || isMobile) && (
-                  <>
-                    <span className="truncate">{item.label}</span>
-                    {hasChildren && (
-                      <ChevronRight
-                        className={cn(
-                          'ml-auto h-4 w-4 transition-transform',
-                          isAdminExpanded && 'rotate-90',
-                        )}
-                      />
-                    )}
-                  </>
-                )}
-              </button>
-
-              {hasChildren && isAdminExpanded && (!collapsed || isMobile) && (
-                <div className="ml-3 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-3">
-                  {item.children!.map((child) => {
-                    const childActive = location.pathname === child.href
-                    return (
-                      <button
-                        key={child.href}
-                        onClick={() => {
-                          navigate(child.href)
-                          if (isMobile) setMobileOpen(false)
-                        }}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-all',
-                          childActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                            : 'text-sidebar-foreground/50 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground',
-                        )}
-                      >
-                        <child.icon className="h-4 w-4 shrink-0" />
-                        <span className="truncate">{child.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {organizations.length > 1 && !collapsed && (
-        <div className="mt-auto border-t border-sidebar-border/40 pt-3">
-          <div className="flex items-center justify-between">
-            <select
-              value={activeOrg?.id ?? ''}
-              onChange={(e) => handleOrgChange(e.target.value)}
-              className="w-full rounded-md border border-sidebar-border/30 bg-sidebar px-2 py-1.5 text-xs text-sidebar-foreground/60 outline-none focus:border-primary"
-            >
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
-      {!collapsed && (
-        <div className="border-t border-sidebar-border/40 pt-2">
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          >
-            <LogOut className="size-3.5" />
-            <span>Sair</span>
-          </button>
-        </div>
-      )}
-    </nav>
+  const navPill = cn(
+    'flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
   )
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        collapsed={collapsed}
-        isMobile={isMobile}
-        isOpen={mobileOpen}
-        onToggle={isMobile ? () => setMobileOpen(false) : () => setCollapsed(!collapsed)}
-        logo={logo}
-      >
-        {children}
-      </Sidebar>
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
+        {logo}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Navegação principal">
+          {mainNav.map((item) => {
+            const active = isActive(item.href)
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  navPill,
+                  active
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <item.icon className="size-4 shrink-0" />
+                <span className="whitespace-nowrap">{item.label}</span>
+              </a>
+            )
+          })}
+
+          {isManagerOrAdmin && adminNav.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  navPill,
+                  isAdminActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <Shield className="size-4 shrink-0" />
+                <span className="whitespace-nowrap">Administrador</span>
+                <ChevronDown className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-60">
+                <div className="flex flex-col gap-0.5">
+                  {adminNav.map((child) => {
+                    const active = location.pathname === child.href
+                    return (
+                      <a
+                        key={child.href}
+                        href={child.href}
+                        className={cn(
+                          'flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors',
+                          active
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-foreground/80 hover:bg-accent hover:text-accent-foreground',
+                        )}
+                      >
+                        <child.icon className="size-4 shrink-0" />
+                        <span className="truncate">{child.label}</span>
+                      </a>
+                    )
+                  })}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </nav>
+
+        {organizations.length > 1 && (
+          <select
+            value={activeOrg?.id ?? ''}
+            onChange={(e) => handleOrgChange(e.target.value)}
+            className="h-9 shrink-0 rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+            aria-label="Organização ativa"
+          >
+            {organizations.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </header>
+
+      <ErrorBoundary
+        fallback={
+          <div className="flex h-14 shrink-0 items-center justify-end border-b border-border bg-background px-4 text-xs text-muted-foreground">
+            TaskY
+          </div>
+        }
+      >
         <Topbar
-          isMobile={isMobile}
-          onMenuClick={() => setMobileOpen(true)}
           user={topbarUser}
           onLogout={handleLogout}
           onSettings={() => navigate(ROUTES.SETTINGS)}
           onProfile={() => navigate(ROUTES.SETTINGS)}
         />
+      </ErrorBoundary>
 
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
-        </main>
-      </div>
+      <main className="flex-1 overflow-y-auto p-6">
+        <Outlet />
+      </main>
     </div>
   )
 }

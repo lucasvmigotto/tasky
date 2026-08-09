@@ -21,7 +21,6 @@ import {
   useProjectAssignments,
   useMemberships,
   useDepartments,
-  useClients,
   useActivityTemplates,
   useCreateActivityTemplate,
   useActivityTemplate,
@@ -53,7 +52,6 @@ import { STATUS_LABELS } from '@/shared/components/kanban/ActivityCard'
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   manager: 'Gerente',
-  leader: 'Líder',
   employee: 'Funcionário',
 }
 
@@ -80,7 +78,6 @@ export default function ProjectDetailPage() {
   const { data: assignments = [] } = useProjectAssignments(projectId as UUID)
   const { data: members = [] } = useMemberships(orgId as UUID)
   const { data: departments = [] } = useDepartments(orgId as UUID)
-  const { data: clients = [] } = useClients(orgId as UUID)
   const templatesQuery = useActivityTemplates(projectId as UUID)
   const createTemplate = useCreateActivityTemplate()
   const useTemplate = useActivityTemplate()
@@ -134,7 +131,6 @@ export default function ProjectDetailPage() {
   )
 
   const getDepartmentName = (id: string) => departments.find((d) => d.id === id)?.name ?? 'Desconhecido'
-  const getClientName = (id: string | null) => (id ? clients.find((c) => c.id === id)?.name ?? '—' : '—')
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.username ?? 'Desconhecido'
   const getMemberInitials = (id: string) => {
     const name = getMemberName(id)
@@ -261,7 +257,7 @@ export default function ProjectDetailPage() {
                   </span>
                   <span className="flex items-center gap-1">
                     <User className="size-3.5" />
-                    {getMemberName(project.managerMembershipId)}
+                    {project.managerMembershipId ? getMemberName(project.managerMembershipId) : 'Sem responsável'}
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="size-3.5" />
@@ -565,14 +561,10 @@ export default function ProjectDetailPage() {
                   </p>
                 </div>
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground">Gerente</span>
+                  <span className="text-xs font-medium text-muted-foreground">Responsável</span>
                   <p className="mt-1 text-sm text-foreground">
-                    {getMemberName(project.managerMembershipId)}
+                    {project.managerMembershipId ? getMemberName(project.managerMembershipId) : '—'}
                   </p>
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground">Unidade solicitante</span>
-                  <p className="mt-1 text-sm text-foreground">{getClientName(project.clientId)}</p>
                 </div>
                 <div>
                   <span className="text-xs font-medium text-muted-foreground">Status</span>

@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { ArrowLeft, Clock, User, Tag, FolderKanban, Trash2, Link2, Loader2, MessageSquare, Send, Paperclip, ExternalLink, Plus, CheckSquare } from 'lucide-react'
+import { ArrowLeft, Clock, User, FolderKanban, Trash2, Link2, Loader2, MessageSquare, Send, Paperclip, ExternalLink, Plus, CheckSquare } from 'lucide-react'
 import { ROUTES, buildRoute } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
 import { canEditActivity } from '@/core/auth/permissions'
-import { useActivity, useActivities, useProjects, useMemberships, useLabels, useDeleteActivity, useAddDependency, useRemoveDependency, useActivityFeed, useMentionCandidates, useCreateActivityComment, useDeleteActivityComment, useActivityAttachments, useCreateActivityAttachment, useDeleteActivityAttachment, useActivityChecklist, useAddActivityChecklistItem, useToggleActivityChecklistItem, useDeleteActivityChecklistItem, useUpdateActivity } from '@/core/api/hooks'
+import { useActivity, useActivities, useProjects, useMemberships, useDeleteActivity, useAddDependency, useRemoveDependency, useActivityFeed, useMentionCandidates, useCreateActivityComment, useDeleteActivityComment, useActivityAttachments, useCreateActivityAttachment, useDeleteActivityAttachment, useActivityChecklist, useAddActivityChecklistItem, useToggleActivityChecklistItem, useDeleteActivityChecklistItem, useUpdateActivity } from '@/core/api/hooks'
 import { DependencyTree } from '@/shared/components/activities/DependencyTree'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
@@ -72,7 +72,6 @@ export default function ActivityDetailPage() {
   const { data: allActivities } = useActivities(activity?.projectId as UUID)
   const { data: projects } = useProjects(orgId as UUID)
   const { data: members } = useMemberships(orgId as UUID)
-  const { data: labels } = useLabels(orgId as UUID)
   const deleteActivity = useDeleteActivity()
   const addDependency = useAddDependency()
   const removeDependency = useRemoveDependency()
@@ -230,7 +229,6 @@ export default function ActivityDetailPage() {
 
   const projectName = projects?.find((p) => p.id === activity?.projectId)?.name ?? 'Unknown'
   const memberName = (id: string) => members?.find((m) => m.id === id)?.username ?? id
-  const labelName = (id: string) => labels?.find((l) => l.id === id)?.displayName ?? id
 
   const handleAddChecklist = async () => {
     if (!activityId || !checklistText.trim()) return
@@ -628,21 +626,6 @@ export default function ActivityDetailPage() {
                 </span>
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Tag className="size-4" /> Etiquetas
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {activity.labelIds?.length > 0
-                    ? activity.labelIds.map((id) => (
-                        <Badge key={id} variant="secondary" className="text-[10px]">
-                          {labelName(id)}
-                        </Badge>
-                      ))
-                    : <span className="text-xs text-muted-foreground">Nenhuma</span>
-                  }
-                </div>
-              </div>
             </CardContent>
           </Card>
 

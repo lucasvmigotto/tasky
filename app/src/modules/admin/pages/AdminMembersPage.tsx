@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
 import { Users, Plus, UserCog, Shield, Loader2, Trash2, Mail, RotateCcw, XCircle } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useAllTeams, useChangeMembershipRole, useDepartments, useInviteMember, useMembershipInvitations, useMemberships, useRemoveMember, useRevokeMembershipInvitation, useUpdateMembershipSettings } from '@/core/api/hooks'
+import { useChangeMembershipRole, useCreateMemberType, useDeleteMemberType, useDepartmentMemberTypes, useDepartments, useInviteMember, useMembershipInvitations, useMemberships, useRemoveMember, useRevokeMembershipInvitation, useUpdateMembershipSettings } from '@/core/api/hooks'
 import { canManageOrganization, canInviteRole, type Role } from '@/core/auth/permissions'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Button } from '@/shared/components/ui/Button'
@@ -22,20 +22,19 @@ import {
   DialogFooter,
 } from '@/shared/components/ui/Dialog'
 import { formatDate } from '@/shared/lib/formatters'
+import { cn } from '@/shared/lib/cn'
 import { toast } from 'sonner'
 import type { InvitationStatus, MembershipInvitationResponse, UUID } from '@/core/api/types'
 
 const roleColors: Record<Role, 'default' | 'secondary' | 'info' | 'success'> = {
   admin: 'default',
   manager: 'info',
-  leader: 'secondary',
   employee: 'success',
 }
 
 const roleLabels: Record<Role, string> = {
   admin: 'Administrador do órgão',
   manager: 'Chefe de setor',
-  leader: 'Líder de equipe',
   employee: 'Colaborador',
 }
 
@@ -55,9 +54,6 @@ export default function AdminMembersPage() {
   const { data: members, isLoading, error } = useMemberships(orgId as UUID)
   const invitationsQuery = useMembershipInvitations(orgId as UUID)
   const { data: departments = [] } = useDepartments(orgId as UUID)
-  const departmentIds = useMemo(() => departments.map((department) => department.id as UUID), [departments])
-  const teamQueries = useAllTeams(departmentIds)
-  const teams = useMemo(() => teamQueries.flatMap((query) => query.data ?? []), [teamQueries])
   const inviteMember = useInviteMember()
   const updateSettings = useUpdateMembershipSettings()
   const removeMember = useRemoveMember()
@@ -72,26 +68,27 @@ export default function AdminMembersPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<Role>('employee')
   const [inviteDepartmentId, setInviteDepartmentId] = useState('')
-  const [inviteTeamId, setInviteTeamId] = useState('')
+  const [inviteMemberTypeIds, setInviteMemberTypeIds] = useState<string[]>([])
   const [editingMember, setEditingMember] = useState<string | null>(null)
   const [editDailyMinutes, setEditDailyMinutes] = useState(480)
   const [editRole, setEditRole] = useState<Role>('employee')
   const [editDepartmentId, setEditDepartmentId] = useState('')
-  const [editTeamId, setEditTeamId] = useState('')
+  const [editMemberTypeIds, setEditMemberTypeIds] = useState<string[]>([])
+  const [typeManagementDeptId, setTypeManagementDeptId] = useState('')
+  const [newMemberTypeName, setNewMemberTypeName] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-  const canInvite = role === 'admin' || role === 'manager' || role === 'leader'
+  const canInvite = role === 'admin' || role === 'manager'
   const currentMembership = members?.find((membership) => membership.userId === user?.id)
   const availableDepartments = role === 'admin'
     ? departments
     : departments.filter((department) => department.id === currentMembership?.primaryDepartmentId)
-  const availableInviteTeams = teams.filter((team) =>
-    team.departmentId === inviteDepartmentId
-    && (role !== 'leader' || team.id === currentMembership?.primaryTeamId),
-  )
-  const availableEditTeams = teams.filter((team) => team.departmentId === editDepartmentId)
+  const inviteEffectiveDeptId = inviteDepartmentId || (role === 'manager' ? currentMembership?.primaryDepartmentId ?? '' : '')
+  const memberTypesQuery = useDepartmentMemberTypes((typeManagementDeptId || inviteEffectiveDeptId || editDepartmentId || currentMembership?.primaryDepartmentId || null) as UUID | null)
+  const memberTypes = memberTypesQuery.data ?? []
+  const createMemberType = useCreateMemberType()
+  const deleteMemberType = useDeleteMemberType()
   const getDepartmentName = (id: string | null) => departments.find((department) => department.id === id)?.name ?? 'Sem setor'
-  const getTeamName = (id: string | null) => teams.find((team) => team.id === id)?.name ?? 'Sem equipe'
   const canManageMember = (membership: NonNullable<typeof members>[number]) => {
     if (isAdmin) return true
     if (role === 'manager') {
@@ -99,9 +96,7 @@ export default function AdminMembersPage() {
         && membership.role !== 'admin'
         && membership.role !== 'manager'
     }
-    return role === 'leader'
-      && membership.role === 'employee'
-      && membership.primaryTeamId === currentMembership?.primaryTeamId
+    return false
   }
 
   const filtered = useMemo(() => {
@@ -117,12 +112,9 @@ export default function AdminMembersPage() {
 
   const handleInvite = async () => {
     if (!inviteEmail.trim() || !orgId) return
-    if (inviteRole !== 'admin' && !inviteDepartmentId) {
+    const deptId = inviteRole === 'admin' ? undefined : inviteEffectiveDeptId
+    if (inviteRole !== 'admin' && !deptId) {
       toast.error('Selecione o setor do membro')
-      return
-    }
-    if (inviteRole === 'leader' && !inviteTeamId) {
-      toast.error('Selecione a equipe que será liderada')
       return
     }
     try {
@@ -131,17 +123,40 @@ export default function AdminMembersPage() {
         data: {
           email: inviteEmail.trim(),
           role: inviteRole,
-          departmentIds: inviteRole === 'admin' ? undefined : [inviteDepartmentId as UUID],
-          teamIds: inviteTeamId ? [inviteTeamId as UUID] : undefined,
+          departmentIds: inviteRole === 'admin' ? undefined : [deptId as UUID],
+          memberTypeIds: inviteMemberTypeIds.length > 0 ? inviteMemberTypeIds as UUID[] : undefined,
         },
       })
       toast.success('Pré-cadastro criado. Nenhum e-mail foi enviado; o acesso será ativado no próximo login com este endereço.')
       setInviteEmail('')
       setInviteDepartmentId('')
-      setInviteTeamId('')
+      setInviteMemberTypeIds([])
       setIsDialogOpen(false)
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao adicionar membro')
+    }
+  }
+
+  async function handleCreateMemberType() {
+    const departmentId = typeManagementDeptId || currentMembership?.primaryDepartmentId
+    if (!departmentId || !newMemberTypeName.trim()) return
+    try {
+      await createMemberType.mutateAsync({ deptId: departmentId as UUID, data: { name: newMemberTypeName.trim() } })
+      setNewMemberTypeName('')
+      toast.success('Tipo de colaborador criado')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao criar tipo de colaborador')
+    }
+  }
+
+  async function handleDeleteMemberType(memberTypeId: string) {
+    const departmentId = typeManagementDeptId || currentMembership?.primaryDepartmentId
+    if (!departmentId) return
+    try {
+      await deleteMemberType.mutateAsync({ deptId: departmentId as UUID, memberTypeId: memberTypeId as UUID })
+      toast.success('Tipo de colaborador removido')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao remover tipo de colaborador')
     }
   }
 
@@ -159,7 +174,7 @@ export default function AdminMembersPage() {
     setInviteEmail(invitation.email)
     setInviteRole(invitation.role)
     setInviteDepartmentId(invitation.primaryDepartmentId ?? '')
-    setInviteTeamId(invitation.primaryTeamId ?? '')
+    setInviteMemberTypeIds([])
     setIsDialogOpen(true)
   }
 
@@ -168,17 +183,15 @@ export default function AdminMembersPage() {
       toast.error('Selecione o setor do membro')
       return
     }
-    if (isAdmin && editRole === 'leader' && !editTeamId) {
-      toast.error('Selecione a equipe que será liderada')
-      return
-    }
     try {
-      await updateSettings.mutateAsync({ orgId: orgId as UUID, membershipId: membershipId as UUID, data: { maxDailyWorkMinutes: editDailyMinutes } })
+      await updateSettings.mutateAsync({ orgId: orgId as UUID, membershipId: membershipId as UUID, data: {
+        maxDailyWorkMinutes: editDailyMinutes,
+        memberTypeIds: editMemberTypeIds.length > 0 ? editMemberTypeIds as UUID[] : undefined,
+      } })
       const current = members?.find((membership) => membership.id === membershipId)
       const structureChanged = current && (
         current.role !== editRole
         || (editRole !== 'admin' && current.primaryDepartmentId !== editDepartmentId)
-        || ((editRole === 'leader' || editRole === 'employee') && current.primaryTeamId !== (editTeamId || null))
       )
       if (isAdmin && structureChanged) {
         await changeRole.mutateAsync({
@@ -187,7 +200,6 @@ export default function AdminMembersPage() {
           data: {
             role: editRole,
             departmentId: editRole === 'admin' ? undefined : editDepartmentId as UUID,
-            teamId: editTeamId ? editTeamId as UUID : undefined,
           },
         })
       }
@@ -265,35 +277,58 @@ export default function AdminMembersPage() {
                 onChange={(e) => {
                   setInviteRole(e.target.value as Role)
                   setInviteDepartmentId('')
-                  setInviteTeamId('')
+                  setInviteMemberTypeIds([])
                 }}
                     options={[
                       { value: 'admin', label: 'Administrador' },
                       { value: 'manager', label: 'Chefe de setor' },
-                      { value: 'leader', label: 'Líder de equipe' },
                       { value: 'employee', label: 'Colaborador' },
                     ].filter((o) => canInviteRole(role, o.value as Role))}
                   />
-                  {inviteRole !== 'admin' && (
+                  {inviteRole !== 'admin' && (role === 'manager' ? (
+                    <p className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                      Setor: <span className="font-medium text-foreground">{getDepartmentName(currentMembership?.primaryDepartmentId ?? null)}</span>
+                    </p>
+                  ) : (
                     <Select
                       label="Setor"
                       value={inviteDepartmentId}
                       onChange={(e) => {
                         setInviteDepartmentId(e.target.value)
-                        setInviteTeamId('')
+                        setInviteMemberTypeIds([])
                       }}
                       placeholder="Selecione o setor"
                       options={availableDepartments.map((department) => ({ value: department.id, label: department.name }))}
                     />
-                  )}
-                  {(inviteRole === 'leader' || inviteRole === 'employee') && (
-                    <Select
-                      label={inviteRole === 'leader' ? 'Equipe liderada' : 'Equipe (opcional)'}
-                      value={inviteTeamId}
-                      onChange={(e) => setInviteTeamId(e.target.value)}
-                      placeholder={inviteRole === 'leader' ? 'Selecione a equipe' : 'Sem equipe'}
-                      options={availableInviteTeams.map((team) => ({ value: team.id, label: team.name }))}
-                    />
+                  ))}
+                  {inviteRole !== 'admin' && inviteEffectiveDeptId && (
+                    <div>
+                      <span className="mb-1.5 block text-sm font-medium text-foreground">Funções (opcional)</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {memberTypes.filter((type) => type.isActive).map((type) => {
+                          const active = inviteMemberTypeIds.includes(type.id)
+                          return (
+                            <button
+                              key={type.id}
+                              type="button"
+                              onClick={() => setInviteMemberTypeIds((prev) =>
+                                active ? prev.filter((id) => id !== type.id) : [...prev, type.id])}
+                              className={cn(
+                                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                active
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                              )}
+                            >
+                              {type.name}
+                            </button>
+                          )
+                        })}
+                        {memberTypes.filter((type) => type.isActive).length === 0 && (
+                          <span className="text-xs text-muted-foreground">Nenhuma função cadastrada neste setor.</span>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
                 <DialogFooter>
@@ -310,7 +345,7 @@ export default function AdminMembersPage() {
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">
-        {['all', 'admin', 'manager', 'leader', 'employee'].map((r) => (
+        {['all', 'admin', 'manager', 'employee'].map((r) => (
           <Button
             key={r}
             variant={roleFilter === r ? 'default' : 'outline'}
@@ -336,7 +371,11 @@ export default function AdminMembersPage() {
             )},
             { key: 'role', header: 'Função', render: (row: any) => <Badge variant={roleColors[row.role as Role]}>{roleLabels[row.role as Role]}</Badge> },
             { key: 'primaryDepartmentId', header: 'Setor', render: (row: any) => getDepartmentName(row.primaryDepartmentId) },
-            { key: 'primaryTeamId', header: 'Equipe', render: (row: any) => getTeamName(row.primaryTeamId) },
+             { key: 'memberTypes', header: 'Funções', render: (row: any) => (
+               (row.memberTypes ?? []).length > 0
+                 ? <div className="flex flex-wrap gap-1">{(row.memberTypes as Array<{name: string}>).map((t) => <Badge key={t.name} variant="secondary" className="text-[10px]">{t.name}</Badge>)}</div>
+                 : <span className="text-muted-foreground/60">—</span>
+             ) },
             { key: 'maxDailyWorkMinutes', header: 'Máx/dia', render: (row: any) => `${row.maxDailyWorkMinutes} min` },
             { key: 'createdAt', header: 'Desde', render: (row: any) => formatDate(row.createdAt) },
           ]}
@@ -349,12 +388,49 @@ export default function AdminMembersPage() {
             }
             setEditingMember(row.id)
             setEditDailyMinutes(row.maxDailyWorkMinutes)
-            setEditRole(row.role)
-            setEditDepartmentId(row.primaryDepartmentId ?? '')
-            setEditTeamId(row.primaryTeamId ?? '')
+             setEditRole(row.role)
+             setEditDepartmentId(row.primaryDepartmentId ?? '')
+             setEditMemberTypeIds((row.memberTypes ?? []).map((t: any) => t.id))
           }}
           emptyTitle="Nenhum membro corresponde aos filtros."
         />
+      )}
+
+      {canInvite && (
+        <div className="rounded-xl border border-border/60 bg-card p-4">
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold">Tipos de colaborador</h2>
+            <p className="text-sm text-muted-foreground">Cadastre títulos como Programador Backend para organizar cada setor.</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <Select
+              label="Departamento"
+              value={typeManagementDeptId || currentMembership?.primaryDepartmentId || ''}
+              onChange={(e) => setTypeManagementDeptId(e.target.value)}
+              options={availableDepartments.map((department) => ({ value: department.id, label: department.name }))}
+              placeholder="Selecione o departamento"
+            />
+            <Input
+              label="Novo tipo"
+              placeholder="Ex.: Programador Backend"
+              value={newMemberTypeName}
+              onChange={(e) => setNewMemberTypeName(e.target.value)}
+            />
+            <Button onClick={handleCreateMemberType} disabled={!newMemberTypeName.trim() || createMemberType.isPending}>
+              {createMemberType.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              Criar tipo
+            </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {memberTypes.filter((type) => type.isActive).map((type) => (
+              <Badge key={type.id} variant="secondary" className="gap-2 pr-1">
+                {type.name}
+                <button type="button" aria-label={`Remover ${type.name}`} onClick={() => handleDeleteMemberType(type.id)} className="rounded px-1 text-muted-foreground hover:text-destructive">×</button>
+              </Badge>
+            ))}
+            {memberTypes.length === 0 && <span className="text-xs text-muted-foreground">Nenhum tipo cadastrado neste departamento.</span>}
+          </div>
+        </div>
       )}
 
       <div className="flex flex-col gap-3">
@@ -411,12 +487,11 @@ export default function AdminMembersPage() {
                 onChange={(e) => {
                   setEditRole(e.target.value as Role)
                   setEditDepartmentId('')
-                  setEditTeamId('')
+                  setEditMemberTypeIds([])
                 }}
                 options={[
                   { value: 'admin', label: 'Administrador' },
                   { value: 'manager', label: 'Chefe de setor' },
-                  { value: 'leader', label: 'Líder de equipe' },
                   { value: 'employee', label: 'Colaborador' },
                 ]}
               />
@@ -426,21 +501,41 @@ export default function AdminMembersPage() {
                 label="Setor"
                 value={editDepartmentId}
                 onChange={(e) => {
-                  setEditDepartmentId(e.target.value)
-                  setEditTeamId('')
+                    setEditDepartmentId(e.target.value)
+                    setEditMemberTypeIds([])
                 }}
                 placeholder="Selecione o setor"
                 options={departments.map((department) => ({ value: department.id, label: department.name }))}
               />
             )}
-            {isAdmin && (editRole === 'leader' || editRole === 'employee') && (
-              <Select
-                label={editRole === 'leader' ? 'Equipe liderada' : 'Equipe (opcional)'}
-                value={editTeamId}
-                onChange={(e) => setEditTeamId(e.target.value)}
-                placeholder={editRole === 'leader' ? 'Selecione a equipe' : 'Sem equipe'}
-                options={availableEditTeams.map((team) => ({ value: team.id, label: team.name }))}
-              />
+            {editDepartmentId && (
+              <div>
+                <span className="mb-1.5 block text-sm font-medium text-foreground">Funções (opcional)</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {memberTypes.filter((type) => type.isActive).map((type) => {
+                    const active = editMemberTypeIds.includes(type.id)
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => setEditMemberTypeIds((prev) =>
+                          active ? prev.filter((id) => id !== type.id) : [...prev, type.id])}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                          active
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                        )}
+                      >
+                        {type.name}
+                      </button>
+                    )
+                  })}
+                  {memberTypes.filter((type) => type.isActive).length === 0 && (
+                    <span className="text-xs text-muted-foreground">Nenhuma função cadastrada neste setor.</span>
+                  )}
+                </div>
+              </div>
             )}
           </div>
           <DialogFooter className="justify-between">

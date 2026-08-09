@@ -24,6 +24,8 @@ type AuthActions = {
 }
 
 let coordinatedRefresh: Promise<AuthRefreshResponse> | null = null
+let restorePromise: Promise<void> | null = null
+let authVersion = 0
 
 function withRefreshLock(operation: () => Promise<AuthRefreshResponse>) {
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
@@ -41,6 +43,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
   }))
 
   const handleAuthResponse = (data: AuthResponse) => {
+    authVersion += 1
     setAccessToken(data.token)
     const orgs = mapOrganizations(data.organizations)
     set({
@@ -55,6 +58,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
   }
 
   const handleRefreshResponse = (data: AuthRefreshResponse) => {
+    authVersion += 1
     setAccessToken(data.token)
     const organizations = mapOrganizations(data.organizations)
     const activeOrg = organizations.find((org) => org.id === data.activeOrganizationId) ?? null
@@ -69,7 +73,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     })
   }
 
-  const clearLocalAuth = () => {
+  const clearLocalAuth = (expectedVersion?: number) => {
+    if (expectedVersion !== undefined && expectedVersion !== authVersion) return
+    authVersion += 1
     setAccessToken(null)
     resetTenantState()
     set({
@@ -95,12 +101,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
   }
 
   setRefreshExecutor(async () => {
+    const versionAtStart = authVersion
     try {
       const body = await requestRefresh()
+      if (versionAtStart !== authVersion) return get().token
       handleRefreshResponse(body)
       return body.token
     } catch {
-      clearLocalAuth()
+      clearLocalAuth(versionAtStart)
       return null
     }
   })
@@ -119,6 +127,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     isDemo: false,
 
     loginWithGoogle: async (idToken: string) => {
+      authVersion += 1
       set({ isLoading: true })
       try {
         const data = await apiClient.post<AuthResponse>('/auth/google', { idToken })
@@ -130,6 +139,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     },
 
     loginWithDemo: async () => {
+      authVersion += 1
       set({ isLoading: true })
       const { getDemoAuth } = await import('./demoAuth')
       const demo = getDemoAuth()
@@ -145,17 +155,20 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     },
 
     refreshToken: async () => {
+      const versionAtStart = authVersion
       try {
         const body = await requestRefresh()
+        if (versionAtStart !== authVersion) return get().token
         handleRefreshResponse(body)
         return body.token
       } catch {
-        clearLocalAuth()
+        clearLocalAuth(versionAtStart)
         return null
       }
     },
 
     setActiveOrg: async (org: OrgInfo) => {
+      authVersion += 1
       try {
         resetTenantState()
         const data = await apiClient.post<{ token: string; org: OrgInfo }>('/auth/switch-org', { orgId: org.id })
@@ -167,6 +180,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     },
 
     logout: async () => {
+      authVersion += 1
       try {
         await apiClient.raw('/auth/logout', { method: 'POST' })
       } finally {
@@ -175,20 +189,26 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     },
 
     restore: async () => {
-      const config = getConfig()
-      if (config.demoMode === 'true') {
-        await get().loginWithDemo()
-        return
-      }
-      const { handleGoogleCallback } = await import('./googleOAuth')
-      if (await handleGoogleCallback()) {
-        return
-      }
-      try {
-        await get().refreshToken()
-      } catch {
-        clearLocalAuth()
-      }
+      if (restorePromise) return restorePromise
+      restorePromise = (async () => {
+        const config = getConfig()
+        if (config.demoMode === 'true') {
+          await get().loginWithDemo()
+          return
+        }
+        const { handleGoogleCallback } = await import('./googleOAuth')
+        if (await handleGoogleCallback()) {
+          return
+        }
+        try {
+          await get().refreshToken()
+        } catch {
+          clearLocalAuth()
+        }
+      })().finally(() => {
+        restorePromise = null
+      })
+      return restorePromise
     },
   }
 })

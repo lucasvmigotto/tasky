@@ -51,11 +51,6 @@ function DependencyNode({
             <Badge variant="secondary" className="text-[10px]">
               W{activity.weight}
             </Badge>
-            {activity.labelIds?.slice(0, 2).map((labelId) => (
-              <Badge key={labelId} variant="outline" className="text-[10px]">
-                {labelId.slice(0, 8)}
-              </Badge>
-            ))}
           </div>
         </div>
       </div>

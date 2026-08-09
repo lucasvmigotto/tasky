@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { ArrowRight, CalendarDays, CheckCircle2, Clock, FolderKanban, ListChecks, Play, Timer } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, Clock, FolderKanban, ListChecks, Timer } from 'lucide-react'
 import { ROUTES, buildRoute } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
 import { useActivityQuery, useProjects, useRequests, useTimeEntries } from '@/core/api/hooks'
@@ -111,10 +111,6 @@ export default function MyWorkPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => navigate(ROUTES.TIME_TRACKER)}>
-              <Play className="size-4" />
-              Apontar horas
-            </Button>
             <Button variant="outline" onClick={() => navigate(ROUTES.ACTIVITIES)}>
               <ListChecks className="size-4" />
               Ver tarefas

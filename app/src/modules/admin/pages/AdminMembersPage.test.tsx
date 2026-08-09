@@ -20,7 +20,7 @@ describe('AdminMembersPage organizational placement', () => {
     })
   })
 
-  it('sends department and team when inviting a team leader', async () => {
+  it('sends department when inviting a collaborator', async () => {
     let requestBody: Record<string, unknown> | null = null
     server.use(
       http.get('/api/v1/organizations/:orgId/memberships/invitations', () => HttpResponse.json([{
@@ -28,7 +28,6 @@ describe('AdminMembersPage organizational placement', () => {
         email: 'pendente@orgao.gov.br',
         role: 'employee',
         primaryDepartmentId: 'dept-1',
-        primaryTeamId: 'team-1',
         status: 'PENDING',
         invitedAt: '2026-08-01T12:00:00Z',
         expiresAt: '2026-08-15T12:00:00Z',
@@ -39,10 +38,9 @@ describe('AdminMembersPage organizational placement', () => {
         requestBody = await request.json() as Record<string, unknown>
         return HttpResponse.json({
           id: 'member-new',
-          email: 'lider@orgao.gov.br',
-          role: 'leader',
+          email: 'colaborador@orgao.gov.br',
+          role: 'employee',
           primaryDepartmentId: 'dept-1',
-          primaryTeamId: 'team-1',
           status: 'PENDING',
           invitedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 1209600000).toISOString(),
@@ -62,17 +60,15 @@ describe('AdminMembersPage organizational placement', () => {
     expect(screen.getByText('Pendente')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar membro' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.change(screen.getByPlaceholderText('Endereço de e-mail'), { target: { value: 'lider@orgao.gov.br' } })
-    fireEvent.change(screen.getByLabelText('Função'), { target: { value: 'leader' } })
+    fireEvent.change(screen.getByPlaceholderText('Endereço de e-mail'), { target: { value: 'colaborador@orgao.gov.br' } })
+    fireEvent.change(screen.getByLabelText('Função'), { target: { value: 'employee' } })
     fireEvent.change(screen.getByLabelText('Setor'), { target: { value: 'dept-1' } })
-    fireEvent.change(screen.getByLabelText('Equipe liderada'), { target: { value: 'team-1' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Adicionar membro' }))
 
     await waitFor(() => expect(requestBody).toEqual(expect.objectContaining({
-      email: 'lider@orgao.gov.br',
-      role: 'leader',
+      email: 'colaborador@orgao.gov.br',
+      role: 'employee',
       departmentIds: ['dept-1'],
-      teamIds: ['team-1'],
     })))
   })
 })

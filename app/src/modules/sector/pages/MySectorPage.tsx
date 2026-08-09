@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Activity, AlertTriangle, Building2, FolderKanban, Users, Users2 } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, FolderKanban, Users } from 'lucide-react'
 import { useSectorOverview, useCapacityMembers } from '@/core/api/hooks'
 import type { ActivityPriority, ActivityStatus, MemberCapacityResponse } from '@/core/api/types'
 import { ROUTES, buildRoute } from '@/core/config/routes'
@@ -19,7 +19,6 @@ import { formatDate } from '@/shared/lib/formatters'
 const ROLE_LABELS = {
   admin: 'Administrador',
   manager: 'Chefe de setor',
-  leader: 'Líder de equipe',
   employee: 'Colaborador',
 }
 
@@ -71,12 +70,10 @@ export default function MySectorPage() {
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{ROLE_LABELS[overview.role]}</Badge>
               {overview.departments.map((department) => <Badge key={department.id} variant="outline">{department.name}</Badge>)}
-              {overview.teams.map((team) => <Badge key={team.id} variant="outline">Equipe {team.name}</Badge>)}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard label="Pessoas" value={overview.members.length} icon={Users} />
-              <StatCard label="Equipes" value={overview.teams.length} icon={Users2} />
               <StatCard label="Projetos ativos" value={overview.projects.length} icon={FolderKanban} />
               <StatCard label="Atividades abertas" value={openActivities} icon={Activity} />
               <StatCard label="Bloqueadas" value={counts?.BLOCKED ?? 0} icon={AlertTriangle} />
@@ -159,17 +156,6 @@ export default function MySectorPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader><CardTitle>Equipes</CardTitle><CardDescription>Estrutura dentro do seu escopo</CardDescription></CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2">
-                  {overview.teams.length > 0 ? overview.teams.map((team) => (
-                    <article key={team.id} className="rounded-lg border border-border/60 p-4">
-                      <div className="flex items-center justify-between gap-3"><h3 className="font-medium">{team.name}</h3><Badge variant="secondary">{team.memberCount} pessoas</Badge></div>
-                    </article>
-                  )) : <p className="text-sm text-muted-foreground">Nenhuma equipe vinculada.</p>}
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardHeader><CardTitle>Projetos ativos</CardTitle><CardDescription>Projetos visíveis dentro da lotação</CardDescription></CardHeader>
                 <CardContent className="flex flex-col gap-2">

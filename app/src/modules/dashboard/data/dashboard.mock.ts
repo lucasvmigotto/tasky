@@ -44,7 +44,6 @@ export interface AdminStats {
   totalMembers: number
   totalProjects: number
   totalDepartments: number
-  totalTeams: number
   activeProjects: number
   totalHoursOrg: number
   memberHours: Array<{ name: string; hours: number }>
@@ -79,7 +78,6 @@ export const demoAdminStats: AdminStats = {
   totalMembers: 8,
   totalProjects: 5,
   totalDepartments: 3,
-  totalTeams: 6,
   activeProjects: 4,
   totalHoursOrg: 142.5,
   memberHours: [

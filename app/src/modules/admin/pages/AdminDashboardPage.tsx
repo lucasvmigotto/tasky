@@ -5,7 +5,6 @@ import {
   Users,
   FolderKanban,
   Building2,
-  Users2,
   Target,
   ArrowUpRight,
 } from 'lucide-react'
@@ -20,7 +19,7 @@ import {
 } from 'recharts'
 import { ROUTES } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useDepartments, useAllTeams, useProjects, useMemberships, useReportSummary, useTimeEntriesOrg } from '@/core/api/hooks'
+import { useDepartments, useProjects, useMemberships, useReportSummary, useTimeEntriesOrg } from '@/core/api/hooks'
 import { useDashboardStats } from '@/modules/dashboard/data/useDashboardStats'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { StatCard } from '@/shared/components/charts/StatCard'
@@ -65,13 +64,10 @@ export default function AdminDashboardPage() {
   const { data: departments = [] } = useDepartments(orgId as UUID)
   const { data: projects = [] } = useProjects(orgId as UUID)
   const { data: members = [] } = useMemberships(orgId as UUID)
-  const deptIds = useMemo(() => departments.map((d) => d.id as UUID), [departments])
-  const teamQueries = useAllTeams(deptIds)
   const { data: report } = useReportSummary({})
   const { from, to } = weekRange()
   const { data: orgEntries = [] } = useTimeEntriesOrg({ from, to })
 
-  const totalTeams = useMemo(() => teamQueries.reduce((sum, q) => sum + (q.data?.length ?? 0), 0), [teamQueries])
   const activeProjects = projects.filter((p) => p.isActive).length
 
   const memberHours = useMemo(() => (report?.memberProductivity ?? []).map((m) => ({ name: m.name, hours: m.hours })), [report])
@@ -128,9 +124,6 @@ export default function AdminDashboardPage() {
         </motion.div>
         <motion.div variants={itemVariants}>
           <StatCard value={departments.length} label="Departamentos" icon={Building2} formatValue={(v) => String(v)} />
-        </motion.div>
-        <motion.div variants={itemVariants}>
-          <StatCard value={totalTeams} label="Equipes" icon={Users2} formatValue={(v) => String(v)} />
         </motion.div>
         <motion.div variants={itemVariants}>
           <StatCard
@@ -234,26 +227,6 @@ export default function AdminDashboardPage() {
                 <div className="text-left">
                   <p className="text-sm font-medium">Departamentos</p>
                   <p className="text-xs text-muted-foreground">{departments.length} deptos.</p>
-                </div>
-              </div>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </Button>
-            <Button variant="outline" className="h-auto justify-between gap-4 py-4" onClick={() => navigate(ROUTES.ADMIN.TEAMS)}>
-              <div className="flex items-center gap-3">
-                <Users2 className="size-5 text-primary" />
-                <div className="text-left">
-                  <p className="text-sm font-medium">Equipes</p>
-                  <p className="text-xs text-muted-foreground">{totalTeams} equipes</p>
-                </div>
-              </div>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </Button>
-            <Button variant="outline" className="h-auto justify-between gap-4 py-4" onClick={() => navigate(ROUTES.ADMIN.LABELS)}>
-              <div className="flex items-center gap-3">
-                <FolderKanban className="size-5 text-primary" />
-                <div className="text-left">
-                  <p className="text-sm font-medium">Etiquetas</p>
-                  <p className="text-xs text-muted-foreground">Gerenciar categorias</p>
                 </div>
               </div>
               <ArrowUpRight className="size-4 text-muted-foreground" />

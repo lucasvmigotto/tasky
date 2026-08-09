@@ -24,14 +24,6 @@ function formatHours(seconds: number) {
   return `${(seconds / 3600).toFixed(1)}h`
 }
 
-function parseTags(text: string): string[] | undefined {
-  const tags = text
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean)
-  return tags.length > 0 ? tags : undefined
-}
-
 function startOfWeek(date: Date) {
   const d = new Date(date)
   const day = d.getDay()
@@ -76,7 +68,6 @@ export default function TimeTrackerPage() {
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
   const [description, setDescription] = useState('')
-  const [tagsText, setTagsText] = useState('')
   const [billable, setBillable] = useState(false)
 
   const startTimeEntry = useStartTimeEntry()
@@ -150,7 +141,6 @@ export default function TimeTrackerPage() {
         activityId: activityId || undefined,
         description: description.trim() || title.trim() || undefined,
         billable,
-        tags: parseTags(tagsText),
         startTime: startISO,
         endTime: endISO,
       })
@@ -170,7 +160,6 @@ export default function TimeTrackerPage() {
         activityId: activityId || undefined,
         description: description.trim() || undefined,
         billable,
-        tags: parseTags(tagsText),
       })
       trackerStart(entry)
       toast.success('Timer iniciado')
@@ -285,12 +274,6 @@ export default function TimeTrackerPage() {
             />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Input
-                label="Tags (separadas por vírgula)"
-                placeholder="Ex: dev, backend, urgente"
-                value={tagsText}
-                onChange={(e) => setTagsText(e.target.value)}
-              />
               <label className="flex items-end gap-2 pb-2 text-sm">
                 <input
                   type="checkbox"

@@ -1,4 +1,4 @@
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, getAccessToken } from '@/core/api/apiClient'
 import { useAuthStore } from '@/core/auth/authStore'
 import type {
@@ -6,8 +6,8 @@ import type {
   CreateOrganizationRequest,
   DepartmentResponse,
   CreateDepartmentRequest,
-  TeamResponse,
-  CreateTeamRequest,
+  MemberTypeResponse,
+  CreateMemberTypeRequest,
   MembershipResponse,
   MembershipInvitationResponse,
   InviteRequest,
@@ -17,9 +17,6 @@ import type {
   UpdateProjectRequest,
   ProjectAssignmentResponse,
   CrossDepartmentAccessResponse,
-  LabelResponse,
-  CreateLabelRequest,
-  UpdateLabelRequest,
   ActivityResponse,
   CreateActivityRequest,
   UpdateActivityRequest,
@@ -41,8 +38,6 @@ import type {
   TimeEntryQueryParams,
   ChangeRoleRequest,
   ReportSummaryResponse,
-  ClientResponse,
-  CreateClientRequest,
   ReportDetailedRow,
   ReportQueryParams,
   WorkloadMemberResponse,
@@ -85,8 +80,6 @@ import type {
   MemberFinancialResponse,
   ActivityFinancialResponse,
   DepartmentFinancialResponse,
-  TeamFinancialResponse,
-  ClientFinancialResponse,
   ApprovalGroupResponse,
   BillableGroupResponse,
   SavedReportResponse,
@@ -128,33 +121,6 @@ export function useCreateDepartment() {
   })
 }
 
-export function useTeams(deptId: UUID | null) {
-  return useQuery({
-    queryKey: ['teams', deptId],
-    queryFn: () => apiClient.get<TeamResponse[]>(`/departments/${deptId}/teams`),
-    enabled: !!deptId,
-  })
-}
-
-export function useAllTeams(deptIds: UUID[]) {
-  return useQueries({
-    queries: deptIds.map((deptId) => ({
-      queryKey: ['teams', deptId],
-      queryFn: () => apiClient.get<TeamResponse[]>(`/departments/${deptId}/teams`),
-      enabled: deptIds.length > 0,
-    })),
-  })
-}
-
-export function useCreateTeam() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ deptId, data }: { deptId: UUID; data: CreateTeamRequest }) =>
-      apiClient.post<TeamResponse>(`/departments/${deptId}/teams`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
-  })
-}
-
 export function useMemberships(orgId: UUID | null) {
   return useQuery({
     queryKey: ['memberships', orgId],
@@ -171,6 +137,44 @@ export function useInviteMember() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['memberships'] })
       void qc.invalidateQueries({ queryKey: ['membership-invitations'] })
+    },
+  })
+}
+
+export function useDepartmentMemberTypes(deptId: UUID | null) {
+  return useQuery({
+    queryKey: ['member-types', deptId],
+    queryFn: () => apiClient.get<MemberTypeResponse[]>(`/departments/${deptId}/member-types`),
+    enabled: !!deptId,
+  })
+}
+
+export function useCreateMemberType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ deptId, data }: { deptId: UUID; data: CreateMemberTypeRequest }) =>
+      apiClient.post<MemberTypeResponse>(`/departments/${deptId}/member-types`, data),
+    onSuccess: (_data, variables) => qc.invalidateQueries({ queryKey: ['member-types', variables.deptId] }),
+  })
+}
+
+export function useUpdateMemberType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ deptId, memberTypeId, data }: { deptId: UUID; memberTypeId: UUID; data: Partial<CreateMemberTypeRequest> }) =>
+      apiClient.put<MemberTypeResponse>(`/departments/${deptId}/member-types/${memberTypeId}`, data),
+    onSuccess: (_data, variables) => qc.invalidateQueries({ queryKey: ['member-types', variables.deptId] }),
+  })
+}
+
+export function useDeleteMemberType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ deptId, memberTypeId }: { deptId: UUID; memberTypeId: UUID }) =>
+      apiClient.delete(`/departments/${deptId}/member-types/${memberTypeId}`),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ['member-types', variables.deptId] })
+      void qc.invalidateQueries({ queryKey: ['memberships'] })
     },
   })
 }
@@ -242,32 +246,6 @@ export function useGrantCrossDepartmentAccess() {
     mutationFn: ({ projectId, departmentId }: { projectId: UUID; departmentId: UUID }) =>
       apiClient.post(`/projects/${projectId}/cross-department-access`, { departmentId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
-  })
-}
-
-export function useLabels(orgId: UUID | null) {
-  return useQuery({
-    queryKey: ['labels', orgId],
-    queryFn: () => apiClient.get<LabelResponse[]>(`/organizations/${orgId}/labels`),
-    enabled: !!orgId,
-  })
-}
-
-export function useCreateLabel() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ orgId, data }: { orgId: UUID; data: CreateLabelRequest }) =>
-      apiClient.post<LabelResponse>(`/organizations/${orgId}/labels`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['labels'] }),
-  })
-}
-
-export function useDeleteLabel() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ orgId, labelId }: { orgId: UUID; labelId: UUID }) =>
-      apiClient.delete(`/organizations/${orgId}/labels/${labelId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['labels'] }),
   })
 }
 
@@ -419,33 +397,6 @@ export function useDeleteDepartment() {
     mutationFn: ({ orgId, deptId }: { orgId: UUID; deptId: UUID }) =>
       apiClient.delete(`/organizations/${orgId}/departments/${deptId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['departments'] }),
-  })
-}
-
-export function useUpdateTeam() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ deptId, teamId, name }: { deptId: UUID; teamId: UUID; name: string }) =>
-      apiClient.put<TeamResponse>(`/departments/${deptId}/teams/${teamId}`, { name }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
-  })
-}
-
-export function useDeleteTeam() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ deptId, teamId }: { deptId: UUID; teamId: UUID }) =>
-      apiClient.delete(`/departments/${deptId}/teams/${teamId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
-  })
-}
-
-export function useUpdateLabel() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ orgId, labelId, data }: { orgId: UUID; labelId: UUID; data: UpdateLabelRequest }) =>
-      apiClient.put<LabelResponse>(`/organizations/${orgId}/labels/${labelId}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['labels'] }),
   })
 }
 
@@ -1007,6 +958,7 @@ export function useReportSummary(params: ReportQueryParams | null) {
     if (params.to) searchParams.set('to', params.to)
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
+    if (params.departmentId) searchParams.set('departmentId', params.departmentId)
   }
   return useQuery({
     queryKey: ['reports', 'summary', params],
@@ -1022,6 +974,7 @@ export function useReportDetailed(params: ReportQueryParams | null) {
     if (params.to) searchParams.set('to', params.to)
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
+    if (params.departmentId) searchParams.set('departmentId', params.departmentId)
     searchParams.set('size', '500')
   }
   return useQuery({
@@ -1061,6 +1014,7 @@ function reportFilterSearchParams(params: ReportQueryParams | null): string {
   if (params?.to) searchParams.set('to', params.to)
   if (params?.projectId) searchParams.set('projectId', params.projectId)
   if (params?.membershipId) searchParams.set('membershipId', params.membershipId)
+  if (params?.departmentId) searchParams.set('departmentId', params.departmentId)
   const qs = searchParams.toString()
   return qs ? `?${qs}` : ''
 }
@@ -1093,22 +1047,6 @@ export function useReportDepartmentFinancials(params: ReportQueryParams | null) 
   return useQuery({
     queryKey: ['reports', 'financials', 'departments', params],
     queryFn: () => apiClient.get<DepartmentFinancialResponse[]>(`/reports/financials/departments${reportFilterSearchParams(params)}`),
-    enabled: params != null,
-  })
-}
-
-export function useReportTeamFinancials(params: ReportQueryParams | null) {
-  return useQuery({
-    queryKey: ['reports', 'financials', 'teams', params],
-    queryFn: () => apiClient.get<TeamFinancialResponse[]>(`/reports/financials/teams${reportFilterSearchParams(params)}`),
-    enabled: params != null,
-  })
-}
-
-export function useReportClientFinancials(params: ReportQueryParams | null) {
-  return useQuery({
-    queryKey: ['reports', 'financials', 'clients', params],
-    queryFn: () => apiClient.get<ClientFinancialResponse[]>(`/reports/financials/clients${reportFilterSearchParams(params)}`),
     enabled: params != null,
   })
 }
@@ -1253,6 +1191,7 @@ export async function downloadReportCsv(params: ReportQueryParams | null) {
   if (params?.to) searchParams.set('to', params.to)
   if (params?.projectId) searchParams.set('projectId', params.projectId)
   if (params?.membershipId) searchParams.set('membershipId', params.membershipId)
+  if (params?.departmentId) searchParams.set('departmentId', params.departmentId)
   const qs = searchParams.toString()
   const response = await fetch(`/api/v1/reports/export${qs ? `?${qs}` : ''}`, {
     headers: { Authorization: `Bearer ${getAccessToken()}` },
@@ -1272,41 +1211,6 @@ export async function downloadReportCsv(params: ReportQueryParams | null) {
 export function useSwitchOrg() {
   return useMutation({
     mutationFn: (orgId: UUID) => apiClient.post<SwitchOrgResponse>('/auth/switch-org', { orgId }),
-  })
-}
-
-export function useClients(orgId: UUID | null) {
-  return useQuery({
-    queryKey: ['clients', orgId],
-    queryFn: () => apiClient.get<ClientResponse[]>(`/organizations/${orgId}/clients`),
-    enabled: !!orgId,
-  })
-}
-
-export function useCreateClient() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ orgId, data }: { orgId: UUID; data: CreateClientRequest }) =>
-      apiClient.post<ClientResponse>(`/organizations/${orgId}/clients`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
-  })
-}
-
-export function useUpdateClient() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ orgId, clientId, data }: { orgId: UUID; clientId: UUID; data: CreateClientRequest }) =>
-      apiClient.put<ClientResponse>(`/organizations/${orgId}/clients/${clientId}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
-  })
-}
-
-export function useDeleteClient() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ orgId, clientId }: { orgId: UUID; clientId: UUID }) =>
-      apiClient.delete(`/organizations/${orgId}/clients/${clientId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
   })
 }
 

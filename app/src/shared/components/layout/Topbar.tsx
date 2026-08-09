@@ -4,7 +4,6 @@ import { Menu, Search, ChevronDown, Settings, LogOut, User } from 'lucide-react'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/components/ui/Button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/Avatar'
-import { TimeTrackerWidget } from '@/shared/components/layout/TimeTrackerWidget'
 import { NotificationCenter } from '@/shared/components/layout/NotificationCenter'
 import { useGlobalSearch } from '@/core/api/hooks'
 import {
@@ -105,8 +104,6 @@ function Topbar({
       )}
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        <TimeTrackerWidget />
-
         <div className="relative hidden max-w-xs flex-1 md:block">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input

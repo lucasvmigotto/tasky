@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { Plus, List, Columns3, Clock, User, Loader2, CalendarClock, CheckSquare } from 'lucide-react'
 import { ROUTES, buildRoute } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useActivities, useActivityQuery, useProjects, useMemberships, useLabels, useCreateActivity, useMoveActivity } from '@/core/api/hooks'
+import { useActivities, useActivityQuery, useProjects, useMemberships, useCreateActivity, useMoveActivity } from '@/core/api/hooks'
 import type { ActivityResponse, ActivityStatus, ActivityTaskType, FibonacciWeight, UUID } from '@/core/api/types'
 import { canCreateActivityFor } from '@/core/auth/permissions'
 import { Button } from '@/shared/components/ui/Button'
@@ -53,7 +53,7 @@ const KANBAN_COLUMNS: { key: ActivityStatus; accent: string }[] = [
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 
 export default function ActivitiesPage() {
@@ -72,7 +72,6 @@ export default function ActivitiesPage() {
 
   const { data: projects } = useProjects(orgId as UUID)
   const { data: members } = useMemberships(orgId as UUID)
-  const { data: labels } = useLabels(orgId as UUID)
   const createActivity = useCreateActivity()
   const moveActivity = useMoveActivity()
 
@@ -94,7 +93,6 @@ export default function ActivitiesPage() {
       .sort((a, b) => a.status.localeCompare(b.status) || a.position - b.position || a.startDatetime.localeCompare(b.startDatetime))
   }, [activities, search])
 
-  const getLabelName = (id: string) => labels?.find((l) => l.id === id)?.displayName ?? id
   const getMemberName = (id: string) => members?.find((m) => m.id === id)?.username ?? id
   const getProjectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? id
 
@@ -115,7 +113,6 @@ export default function ActivitiesPage() {
   const [newEnd, setNewEnd] = useState('')
   const [newAssignee, setNewAssignee] = useState('')
   const [newParentActivityId, setNewParentActivityId] = useState('')
-  const [newLabels, setNewLabels] = useState<string[]>([])
   const [createProjectId, setCreateProjectId] = useState(requestedProjectId)
 
   const handleCreate = async () => {
@@ -135,7 +132,6 @@ export default function ActivitiesPage() {
           endDatetime: new Date(newEnd).toISOString(),
           assignedToMembershipId: newAssignee as UUID,
           parentActivityId: newParentActivityId ? newParentActivityId as UUID : undefined,
-          labelIds: newLabels.length > 0 ? newLabels as UUID[] : undefined,
         },
       })
       toast.success('Atividade criada')
@@ -146,7 +142,6 @@ export default function ActivitiesPage() {
       setNewEnd('')
       setNewAssignee('')
       setNewParentActivityId('')
-      setNewLabels([])
       setIsDialogOpen(false)
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao criar atividade')
@@ -268,13 +263,6 @@ export default function ActivitiesPage() {
                   placeholder="Sem pai"
                   options={parentOptions}
                 />
-                <Select
-                  label="Etiquetas"
-                  value={newLabels[0] ?? ''}
-                  onChange={(e) => setNewLabels(e.target.value ? [e.target.value] : [])}
-                  placeholder="Selecione a etiqueta"
-                  options={labels?.map((l) => ({ value: l.id, label: l.displayName })) ?? []}
-                />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
@@ -323,13 +311,6 @@ export default function ActivitiesPage() {
             { key: 'status', header: 'Status', render: (row: any) => <Badge variant="secondary">{STATUS_LABELS[row.status as ActivityStatus]}</Badge> },
             { key: 'startDatetime', header: 'Início', render: (row: any) => formatDateTime(row.startDatetime) },
             { key: 'endDatetime', header: 'Fim', render: (row: any) => formatDateTime(row.endDatetime) },
-            { key: 'labelIds', header: 'Etiquetas', render: (row: any) => (
-              <div className="flex gap-1">
-                {(row.labelIds as string[]).slice(0, 2).map((id: string) => (
-                  <Badge key={id} variant="secondary">{getLabelName(id)}</Badge>
-                ))}
-              </div>
-            )},
           ]}
           rows={filtered}
           keyExtractor={(row: any) => row.id}

@@ -12,10 +12,9 @@ import MySectorPage from './MySectorPage'
 const managerOverview: SectorOverviewResponse = {
   role: 'manager',
   departments: [{ id: 'department-1', name: 'Tecnologia da Informação' }],
-  teams: [{ id: 'team-1', departmentId: 'department-1', name: 'Sistemas', memberCount: 2 }],
   members: [
-    { id: 'member-1', displayName: 'Maria Gestora', role: 'manager', departmentId: 'department-1', teamId: null, openActivities: 1, estimatedSeconds: 7200 },
-    { id: 'member-2', displayName: 'Ana Silva', role: 'employee', departmentId: 'department-1', teamId: 'team-1', openActivities: 3, estimatedSeconds: 14400 },
+    { id: 'member-1', displayName: 'Maria Gestora', role: 'manager', departmentId: 'department-1', openActivities: 1, estimatedSeconds: 7200 },
+    { id: 'member-2', displayName: 'Ana Silva', role: 'employee', departmentId: 'department-1', openActivities: 3, estimatedSeconds: 14400 },
   ],
   projects: [{ id: 'project-1', departmentId: 'department-1', name: 'Portal do Servidor', active: true }],
   activityCounts: { TODO: 2, IN_PROGRESS: 1, BLOCKED: 1, DONE: 4, CANCELED: 0 },
@@ -51,7 +50,6 @@ describe('MySectorPage', () => {
 
     expect(await screen.findByText('Tecnologia da Informação')).toBeInTheDocument()
     expect(screen.getByText('Chefe de setor')).toBeInTheDocument()
-    expect(screen.getByText('Sistemas')).toBeInTheDocument()
     expect(screen.getAllByText('Ana Silva')).toHaveLength(2)
     expect(screen.getByText('4h · 3 tarefas')).toBeInTheDocument()
     expect(screen.getByText('Publicar novo formulário')).toBeInTheDocument()
@@ -66,7 +64,6 @@ describe('MySectorPage', () => {
     server.use(http.get('/api/v1/me/sector', () => HttpResponse.json({
       role: 'employee',
       departments: [],
-      teams: [],
       members: [],
       projects: [],
       activityCounts: { TODO: 0, IN_PROGRESS: 0, BLOCKED: 0, DONE: 0, CANCELED: 0 },
