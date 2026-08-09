@@ -52,8 +52,8 @@ public class TimeEntryController {
                 request.projectId(),
                 request.activityId(),
                 request.description(),
-                request.billable() != null && request.billable(),
-                request.tags()
+                request.glpiTicketId(),
+                request.billable() != null && request.billable()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(entry));
     }
@@ -70,8 +70,8 @@ public class TimeEntryController {
                 request.projectId(),
                 request.activityId(),
                 request.description(),
-                request.billable() != null && request.billable(),
-                request.tags()
+                request.glpiTicketId(),
+                request.billable() != null && request.billable()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(entry));
     }
@@ -90,8 +90,8 @@ public class TimeEntryController {
                 request.projectId(),
                 request.activityId(),
                 request.description(),
-                request.billable() != null && request.billable(),
-                request.tags()
+                request.glpiTicketId(),
+                request.billable() != null && request.billable()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(entry));
     }
@@ -221,8 +221,8 @@ public class TimeEntryController {
         OrganizationMembership membership = currentMembership(user);
         TimeEntry entry = timeEntryService.updateEntry(
                 user.activeOrganizationId(), membership.getId(), entryId,
-                request.projectId(), request.activityId(), request.description(),
-                request.startTime(), request.endTime(), request.billable(), request.tags()
+                request.projectId(), request.activityId(), request.description(), request.glpiTicketId(),
+                request.startTime(), request.endTime(), request.billable()
         );
         return ResponseEntity.ok(toResponse(entry));
     }
@@ -251,6 +251,7 @@ public class TimeEntryController {
                 entry.getProject() != null ? entry.getProject().getId() : null,
                 entry.getActivity() != null ? entry.getActivity().getId() : null,
                 entry.getDescription(),
+                entry.getGlpiTicketId(),
                 entry.getStartTime(),
                 entry.getEndTime(),
                 entry.getDurationSeconds(),
@@ -264,7 +265,6 @@ public class TimeEntryController {
                 entry.getBillingRateSnapshot(),
                 entry.getCostRateSnapshot(),
                 entry.isBillable(),
-                new java.util.ArrayList<>(entry.getTags()),
                 entry.getCreatedAt()
         );
     }

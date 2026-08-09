@@ -6,8 +6,8 @@ import java.util.UUID;
 public record UpdateProjectRequest(
         String name,
         String description,
+        String color,
         UUID managerMembershipId,
-        UUID clientId,
         BigDecimal hourlyRate,
         Long estimatedSeconds,
         Long budgetSeconds,

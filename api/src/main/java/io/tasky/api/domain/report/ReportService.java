@@ -3,13 +3,11 @@ package io.tasky.api.domain.report;
 import io.tasky.api.api.report.ActivityFinancialResponse;
 import io.tasky.api.api.report.ApprovalGroupResponse;
 import io.tasky.api.api.report.BillableGroupResponse;
-import io.tasky.api.api.report.ClientFinancialResponse;
 import io.tasky.api.api.report.DepartmentFinancialResponse;
 import io.tasky.api.api.report.MemberFinancialResponse;
 import io.tasky.api.api.report.ProjectFinancialResponse;
 import io.tasky.api.api.report.ReportDetailedRow;
 import io.tasky.api.api.report.ReportSummaryResponse;
-import io.tasky.api.api.report.TeamFinancialResponse;
 import io.tasky.api.api.report.WorkloadMemberResponse;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
@@ -80,7 +78,9 @@ public class ReportService {
                 .findSecondsByProject(orgId, from, to, projectId, membershipId, scopeMembershipIds)
                 .stream()
                 .map(r -> new ReportSummaryResponse.ProjectHoursPoint(
+                        r.getProjectId(),
                         r.getProjectName(),
+                        r.getProjectColor(),
                         round1(r.getSeconds() / HOUR)))
                 .sorted((a, b) -> Double.compare(b.hours(), a.hours()))
                 .toList();
@@ -109,13 +109,6 @@ public class ReportService {
                 .sorted((a, b) -> Double.compare(b.hours(), a.hours()))
                 .toList();
 
-        List<ReportSummaryResponse.LabelDistributionPoint> labelDistribution = reportRepository
-                .findLabelDistribution(orgId, from, to, projectId, scopeMembershipIds)
-                .stream()
-                .map(r -> new ReportSummaryResponse.LabelDistributionPoint(r.getLabelName(), r.getCount()))
-                .sorted((a, b) -> Long.compare(b.count(), a.count()))
-                .toList();
-
         ReportRepository.ReportTotalsProjection totals = reportRepository
                 .findTotals(orgId, from, to, projectId, membershipId, scopeMembershipIds);
         double totalHours = round1(totals.getSeconds() / HOUR);
@@ -142,7 +135,7 @@ public class ReportService {
         BigDecimal margin = revenue.subtract(cost);
 
         return new ReportSummaryResponse(
-                weeklyHours, projectHours, memberProductivity, labelDistribution,
+                weeklyHours, projectHours, memberProductivity,
                 dailyAverage, totalHours, totalActivities, billableHours, round1(totalHours - billableHours),
                 estimatedSeconds, actualSeconds, remainingSeconds, progressPercent,
                 moneyDouble(revenue), moneyDouble(cost), moneyDouble(margin));
@@ -153,14 +146,7 @@ public class ReportService {
                                                Set<UUID> scopeMembershipIds) {
         List<ReportRepository.DetailedRowProjection> rows = reportRepository
                 .findDetailedRows(orgId, from, to, projectId, membershipId, scopeMembershipIds);
-        Map<UUID, List<String>> tagsByEntry = reportRepository
-                .findTagsByEntry(orgId, from, to, projectId, membershipId, scopeMembershipIds)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        ReportRepository.TimeEntryTagRow::getTimeEntryId,
-                        LinkedHashMap::new,
-                        Collectors.mapping(ReportRepository.TimeEntryTagRow::getTag, Collectors.toList())));
-        return toDetailedRows(rows, tagsByEntry);
+        return toDetailedRows(rows);
     }
 
     public Page<ReportDetailedRow> getDetailedPage(UUID orgId, Instant from, Instant to,
@@ -168,24 +154,17 @@ public class ReportService {
                                                    Set<UUID> scopeMembershipIds, Pageable pageable) {
         Page<ReportRepository.DetailedRowProjection> page = reportRepository
                 .findDetailedRowsPage(orgId, from, to, projectId, membershipId, scopeMembershipIds, pageable);
-        Map<UUID, List<String>> tagsByEntry = page.getContent().isEmpty()
-                ? Map.of()
-                : reportRepository
-                        .findTagsByEntryIds(page.getContent().stream().map(ReportRepository.DetailedRowProjection::getId).toList())
-                        .stream()
-                        .collect(Collectors.groupingBy(
-                                ReportRepository.TimeEntryTagRow::getTimeEntryId,
-                                LinkedHashMap::new,
-                                Collectors.mapping(ReportRepository.TimeEntryTagRow::getTag, Collectors.toList())));
-        return new PageImpl<>(toDetailedRows(page.getContent(), tagsByEntry), pageable, page.getTotalElements());
+        return new PageImpl<>(toDetailedRows(page.getContent()), pageable, page.getTotalElements());
     }
 
-    private List<ReportDetailedRow> toDetailedRows(List<ReportRepository.DetailedRowProjection> rows,
-                                                   Map<UUID, List<String>> tagsByEntry) {
+    private List<ReportDetailedRow> toDetailedRows(List<ReportRepository.DetailedRowProjection> rows) {
         return rows.stream()
                 .map(r -> new ReportDetailedRow(
                         r.getId(),
+                        r.getProjectId(),
                         r.getProjectName() != null ? r.getProjectName() : "—",
+                        r.getProjectColor() != null ? r.getProjectColor() : "#64748B",
+                        r.getGlpiTicketId(),
                         r.getMemberName(),
                         r.getDescription(),
                         r.getStartTime(),
@@ -195,8 +174,7 @@ public class ReportService {
                         moneyDouble(r.getRevenue()),
                         moneyDouble(r.getCost()),
                         moneyDouble(r.getRevenue().subtract(r.getCost())),
-                        r.isBillable(),
-                        new ArrayList<>(tagsByEntry.getOrDefault(r.getId(), List.of()))))
+                        r.isBillable()))
                 .toList();
     }
 
@@ -286,32 +264,6 @@ public class ReportService {
                 .toList();
     }
 
-    public List<TeamFinancialResponse> getTeamFinancials(UUID orgId, Instant from, Instant to,
-                                                         UUID projectId, UUID membershipId,
-                                                         Set<UUID> scopeMembershipIds) {
-        return reportRepository.findTeamFinancials(orgId, from, to, projectId, membershipId, scopeMembershipIds)
-                .stream()
-                .map(r -> new TeamFinancialResponse(
-                        r.getTeamId(), r.getTeamName(),
-                        r.getEstimatedSeconds(), r.getActualApprovedSeconds(), r.getActualNotApprovedSeconds(),
-                        r.getRemainingSeconds(), r.getProgressPercent(),
-                        money(r.getCost()), money(r.getRevenue()), money(r.getMargin())))
-                .toList();
-    }
-
-    public List<ClientFinancialResponse> getClientFinancials(UUID orgId, Instant from, Instant to,
-                                                             UUID projectId, UUID membershipId,
-                                                             Set<UUID> scopeMembershipIds) {
-        return reportRepository.findClientFinancials(orgId, from, to, projectId, membershipId, scopeMembershipIds)
-                .stream()
-                .map(r -> new ClientFinancialResponse(
-                        r.getClientId(), r.getClientName(),
-                        r.getEstimatedSeconds(), r.getActualApprovedSeconds(), r.getActualNotApprovedSeconds(),
-                        r.getRemainingSeconds(), r.getProgressPercent(),
-                        money(r.getCost()), money(r.getRevenue()), money(r.getMargin())))
-                .toList();
-    }
-
     public List<ApprovalGroupResponse> getApprovalGrouping(UUID orgId, Instant from, Instant to,
                                                            UUID projectId, UUID membershipId,
                                                            Set<UUID> scopeMembershipIds) {
@@ -340,7 +292,7 @@ public class ReportService {
 
     public String buildCsv(List<ReportDetailedRow> rows) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Projeto;Membro;Descrição;Início;Fim;Horas;Aprovação;Receita;Custo;Margem;Billável;Tags\n");
+        sb.append("Projeto;Membro;Descrição;Início;Fim;Horas;Aprovação;Receita;Custo;Margem;Billável\n");
         for (ReportDetailedRow r : rows) {
             sb.append(csv(r.projectName())).append(';')
               .append(csv(r.memberName())).append(';')
@@ -352,8 +304,7 @@ public class ReportService {
               .append(String.format("%.2f", r.revenue())).append(';')
               .append(String.format("%.2f", r.cost())).append(';')
               .append(String.format("%.2f", r.margin())).append(';')
-              .append(r.billable() ? "Sim" : "Não").append(';')
-              .append(csv(String.join(", ", r.tags()))).append('\n');
+              .append(r.billable() ? "Sim" : "Não").append('\n');
         }
         return sb.toString();
     }

@@ -4,9 +4,7 @@ import io.tasky.api.domain.activity.Activity;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.project.Project;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -27,8 +25,6 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -62,6 +58,9 @@ public class TimeEntry {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "glpi_ticket_id", length = 64)
+    private String glpiTicketId;
 
     @Column(name = "start_time", nullable = false)
     private Instant startTime;
@@ -104,12 +103,6 @@ public class TimeEntry {
 
     @Column(name = "cost_rate_snapshot", precision = 10, scale = 2)
     private BigDecimal costRateSnapshot;
-
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "time_entry_tags", joinColumns = @JoinColumn(name = "time_entry_id"))
-    @Column(name = "tag", length = 50)
-    @Builder.Default
-    private List<String> tags = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

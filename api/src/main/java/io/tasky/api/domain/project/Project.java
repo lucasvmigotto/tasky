@@ -1,6 +1,5 @@
 package io.tasky.api.domain.project;
 
-import io.tasky.api.domain.client.Client;
 import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import jakarta.persistence.Column;
@@ -47,13 +46,13 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_membership_id", nullable = false)
-    private OrganizationMembership managerMembership;
+    @Column(nullable = false, length = 7)
+    @Builder.Default
+    private String color = "#64748B";
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id")
-    private Client client;
+    @JoinColumn(name = "manager_membership_id")
+    private OrganizationMembership managerMembership;
 
     @Column(name = "hourly_rate", precision = 10, scale = 2)
     private BigDecimal hourlyRate;

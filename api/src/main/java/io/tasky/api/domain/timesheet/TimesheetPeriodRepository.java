@@ -30,6 +30,50 @@ public interface TimesheetPeriodRepository extends JpaRepository<TimesheetPeriod
                                   @Param("from") Instant from,
                                   @Param("to") Instant to);
 
+    @Query("""
+        select p from TimesheetPeriod p
+        where p.organization.id = :orgId
+          and p.membership.id = :membershipId
+          and p.periodEnd > :from
+          and p.periodStart < :to
+        order by p.periodStart desc
+        """)
+    List<TimesheetPeriod> findOwnBetween(@Param("orgId") UUID orgId,
+                                         @Param("membershipId") UUID membershipId,
+                                         @Param("from") Instant from,
+                                         @Param("to") Instant to);
+
+    @Query("""
+        select p from TimesheetPeriod p
+        where p.organization.id = :orgId
+          and p.membership.id = :membershipId
+          and p.periodEnd > :from
+        order by p.periodStart desc
+        """)
+    List<TimesheetPeriod> findOwnFrom(@Param("orgId") UUID orgId,
+                                      @Param("membershipId") UUID membershipId,
+                                      @Param("from") Instant from);
+
+    @Query("""
+        select p from TimesheetPeriod p
+        where p.organization.id = :orgId
+          and p.membership.id = :membershipId
+          and p.periodStart < :to
+        order by p.periodStart desc
+        """)
+    List<TimesheetPeriod> findOwnTo(@Param("orgId") UUID orgId,
+                                    @Param("membershipId") UUID membershipId,
+                                    @Param("to") Instant to);
+
+    @Query("""
+        select p from TimesheetPeriod p
+        where p.organization.id = :orgId
+          and p.membership.id = :membershipId
+        order by p.periodStart desc
+        """)
+    List<TimesheetPeriod> findOwnAll(@Param("orgId") UUID orgId,
+                                     @Param("membershipId") UUID membershipId);
+
     @Query(value = """
         SELECT p.id AS "id",
                p.organization_id AS "organizationId",
@@ -68,11 +112,6 @@ public interface TimesheetPeriodRepository extends JpaRepository<TimesheetPeriod
                   SELECT 1 FROM manager_departments md
                   WHERE md.membership_id = :actorMembershipId
                     AND md.department_id = owner.primary_department_id
-              )
-              OR EXISTS (
-                  SELECT 1 FROM leader_teams lt
-                  WHERE lt.membership_id = :actorMembershipId
-                    AND lt.team_id = owner.primary_team_id
               )
           )
         ORDER BY p.submitted_at ASC, p.id ASC

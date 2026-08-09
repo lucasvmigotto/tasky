@@ -1,6 +1,5 @@
 package io.tasky.api.domain.project;
 
-import io.tasky.api.domain.client.ClientRepository;
 import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.department.DepartmentRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
@@ -18,15 +17,18 @@ import java.util.UUID;
 @Transactional
 public class ProjectService {
 
+    private static final String DEFAULT_COLOR = "#64748B";
+    private static final java.util.regex.Pattern HEX_COLOR =
+            java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{6}$");
+
     private final ProjectRepository projectRepository;
     private final ProjectAssignmentRepository assignmentRepository;
     private final CrossDepartmentProjectAccessRepository crossDeptAccessRepository;
     private final DepartmentRepository departmentRepository;
     private final OrganizationMembershipRepository membershipRepository;
-    private final ClientRepository clientRepository;
 
-    public Project createProject(UUID departmentId, String name, String description, UUID managerMembershipId,
-                                  UUID clientId, BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
+    public Project createProject(UUID departmentId, String name, String description, String color, UUID managerMembershipId,
+                                  BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
                                   BigDecimal budgetAmount) {
         if (projectRepository.existsByDepartmentIdAndName(departmentId, name)) {
             throw new IllegalArgumentException("Project name already exists in this department");
@@ -34,20 +36,18 @@ public class ProjectService {
 
         Department dept = departmentRepository.getReferenceById(departmentId);
         UUID orgId = dept.getOrganization().getId();
-        OrganizationMembership manager = membershipRepository.findById(managerMembershipId)
-                .filter(m -> m.getOrganization().getId().equals(orgId))
-                .orElseThrow(() -> new IllegalArgumentException("Manager membership not found"));
+        OrganizationMembership manager = managerMembershipId != null
+                ? membershipRepository.findById(managerMembershipId)
+                        .filter(m -> m.getOrganization().getId().equals(orgId))
+                        .orElseThrow(() -> new IllegalArgumentException("Manager membership not found"))
+                : null;
 
         Project project = Project.builder()
                 .department(dept)
                 .name(name)
                 .description(description)
+                .color(normalizeColor(color))
                 .managerMembership(manager)
-                .client(clientId != null
-                        ? clientRepository.findById(clientId)
-                                .filter(c -> c.getOrganization().getId().equals(orgId))
-                                .orElseThrow(() -> new IllegalArgumentException("Client not found"))
-                        : null)
                 .hourlyRate(hourlyRate)
                 .estimatedSeconds(Math.max(0, estimatedSeconds != null ? estimatedSeconds : 0))
                 .budgetSeconds(budgetSeconds)
@@ -66,8 +66,8 @@ public class ProjectService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
     }
 
-    public Project updateProject(UUID orgId, UUID projectId, String name, String description, UUID managerMembershipId,
-                                  UUID clientId, BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
+    public Project updateProject(UUID orgId, UUID projectId, String name, String description, String color, UUID managerMembershipId,
+                                  BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
                                   BigDecimal budgetAmount, Boolean isActive) {
         Project project = getProject(orgId, projectId);
 
@@ -80,16 +80,14 @@ public class ProjectService {
         if (description != null) {
             project.setDescription(description);
         }
+        if (color != null) {
+            project.setColor(normalizeColor(color));
+        }
         if (managerMembershipId != null) {
             OrganizationMembership manager = membershipRepository.findById(managerMembershipId)
                     .filter(m -> m.getOrganization().getId().equals(orgId))
                     .orElseThrow(() -> new IllegalArgumentException("Manager membership not found"));
             project.setManagerMembership(manager);
-        }
-        if (clientId != null) {
-            project.setClient(clientRepository.findById(clientId)
-                    .filter(c -> c.getOrganization().getId().equals(orgId))
-                    .orElseThrow(() -> new IllegalArgumentException("Client not found")));
         }
         if (hourlyRate != null) {
             project.setHourlyRate(hourlyRate);
@@ -107,6 +105,14 @@ public class ProjectService {
             project.setActive(isActive);
         }
         return projectRepository.save(project);
+    }
+
+    private String normalizeColor(String color) {
+        String normalized = color == null || color.isBlank() ? DEFAULT_COLOR : color.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!HEX_COLOR.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("Project color must be a hexadecimal value such as #3B82F6");
+        }
+        return normalized;
     }
 
     public void deleteProject(UUID orgId, UUID projectId) {

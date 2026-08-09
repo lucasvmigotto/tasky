@@ -12,6 +12,7 @@ public interface TimeEntryProjection {
     UUID getProjectId();
     UUID getActivityId();
     String getDescription();
+    String getGlpiTicketId();
     Instant getStartTime();
     Instant getEndTime();
     Long getDurationSeconds();

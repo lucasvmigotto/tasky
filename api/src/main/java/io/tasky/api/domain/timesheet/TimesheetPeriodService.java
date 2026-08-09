@@ -188,7 +188,16 @@ public class TimesheetPeriodService {
     public List<TimesheetPeriod> listOwn(SecurityUser user, Instant from, Instant to) {
         UUID orgId = user.activeOrganizationId();
         OrganizationMembership actor = currentMembership(user, orgId);
-        return timesheetPeriodRepository.findOwn(orgId, actor.getId(), from, to);
+        if (from != null && to != null) {
+            return timesheetPeriodRepository.findOwnBetween(orgId, actor.getId(), from, to);
+        }
+        if (from != null) {
+            return timesheetPeriodRepository.findOwnFrom(orgId, actor.getId(), from);
+        }
+        if (to != null) {
+            return timesheetPeriodRepository.findOwnTo(orgId, actor.getId(), to);
+        }
+        return timesheetPeriodRepository.findOwnAll(orgId, actor.getId());
     }
 
     @Transactional(readOnly = true)

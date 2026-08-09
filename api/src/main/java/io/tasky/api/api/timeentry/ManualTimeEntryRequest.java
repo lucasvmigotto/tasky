@@ -3,7 +3,6 @@ package io.tasky.api.api.timeentry;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 public record ManualTimeEntryRequest(
@@ -12,6 +11,6 @@ public record ManualTimeEntryRequest(
         UUID projectId,
         UUID activityId,
         String description,
-        Boolean billable,
-        List<String> tags
+        String glpiTicketId,
+        Boolean billable
 ) {}

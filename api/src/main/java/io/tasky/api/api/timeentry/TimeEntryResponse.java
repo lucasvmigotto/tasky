@@ -2,7 +2,6 @@ package io.tasky.api.api.timeentry;
 
 import java.time.Instant;
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 import io.tasky.api.domain.timeentry.TimeEntryApprovalStatus;
 
@@ -14,6 +13,7 @@ public record TimeEntryResponse(
         UUID projectId,
         UUID activityId,
         String description,
+        String glpiTicketId,
         Instant startTime,
         Instant endTime,
         Long durationSeconds,
@@ -27,6 +27,5 @@ public record TimeEntryResponse(
         BigDecimal billingRateSnapshot,
         BigDecimal costRateSnapshot,
         boolean billable,
-        List<String> tags,
         Instant createdAt
 ) {}

@@ -51,55 +51,54 @@ public class ReportController {
             @RequestParam("to") Optional<Instant> to,
             @RequestParam("projectId") Optional<UUID> projectId,
             @RequestParam("membershipId") Optional<UUID> membershipId,
+            @RequestParam("departmentId") Optional<UUID> departmentId,
             @AuthenticationPrincipal SecurityUser user) {
 
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.buildSummary(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null),
+                reportScope(user, orgId, departmentId.orElse(null))));
     }
 
     @GetMapping("/detailed")
     @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
-    public ResponseEntity<PaginatedResponse<ReportDetailedRow>> detailed(
+    public ResponseEntity<List<ReportDetailedRow>> detailed(
             @RequestParam("from") Optional<Instant> from,
             @RequestParam("to") Optional<Instant> to,
             @RequestParam("projectId") Optional<UUID> projectId,
             @RequestParam("membershipId") Optional<UUID> membershipId,
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "100") int size,
+            @RequestParam("departmentId") Optional<UUID> departmentId,
             @AuthenticationPrincipal SecurityUser user) {
 
         UUID orgId = requireFinancialReportsAccess(user);
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 5000));
+        return ResponseEntity.ok(reportService.getDetailed(
+                orgId, from.orElse(null), to.orElse(null),
+                projectId.orElse(null), membershipId.orElse(null),
+                reportScope(user, orgId, departmentId.orElse(null))));
+    }
+
+    @GetMapping("/detailed/page")
+    @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
+    public ResponseEntity<PaginatedResponse<ReportDetailedRow>> detailedPage(
+            @RequestParam("from") Optional<Instant> from,
+            @RequestParam("to") Optional<Instant> to,
+            @RequestParam("projectId") Optional<UUID> projectId,
+            @RequestParam("membershipId") Optional<UUID> membershipId,
+            @RequestParam("departmentId") Optional<UUID> departmentId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
+            @AuthenticationPrincipal SecurityUser user) {
+
+        UUID orgId = requireFinancialReportsAccess(user);
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500));
         Page<ReportDetailedRow> result = reportService.getDetailedPage(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId), pageable);
+                projectId.orElse(null), membershipId.orElse(null),
+                reportScope(user, orgId, departmentId.orElse(null)), pageable);
         return ResponseEntity.ok(new PaginatedResponse<>(
                 result.getContent(), result.getTotalElements(), result.getTotalPages(),
                 result.getSize(), result.getNumber()));
-    }
-
-    @GetMapping("/export")
-    @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
-    public ResponseEntity<String> export(
-            @RequestParam("from") Optional<Instant> from,
-            @RequestParam("to") Optional<Instant> to,
-            @RequestParam("projectId") Optional<UUID> projectId,
-            @RequestParam("membershipId") Optional<UUID> membershipId,
-            @RequestParam("format") Optional<String> format,
-            @AuthenticationPrincipal SecurityUser user) {
-
-        UUID orgId = requireFinancialReportsAccess(user);
-        reportService.requireSupportedExportFormat(format.orElse("csv"));
-        List<ReportDetailedRow> rows = reportService.getDetailed(
-                orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId));
-        String csv = reportService.buildCsv(rows);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=tasky-report.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(csv);
     }
 
     @GetMapping("/workload")
@@ -107,10 +106,13 @@ public class ReportController {
     public ResponseEntity<List<WorkloadMemberResponse>> workload(
             @RequestParam("from") Optional<Instant> from,
             @RequestParam("to") Optional<Instant> to,
+            @RequestParam("departmentId") Optional<UUID> departmentId,
             @AuthenticationPrincipal SecurityUser user) {
+
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getWorkload(
-                orgId, from.orElse(null), to.orElse(null), reportScope(user, orgId)));
+                orgId, from.orElse(null), to.orElse(null),
+                reportScope(user, orgId, departmentId.orElse(null))));
     }
 
     @GetMapping("/financials/projects")
@@ -124,7 +126,7 @@ public class ReportController {
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getProjectFinancials(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId, null)));
     }
 
     @GetMapping("/financials/members")
@@ -138,7 +140,7 @@ public class ReportController {
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getMemberFinancials(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId, null)));
     }
 
     @GetMapping("/financials/activities")
@@ -152,7 +154,7 @@ public class ReportController {
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getActivityFinancials(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId, null)));
     }
 
     @GetMapping("/financials/departments")
@@ -166,35 +168,7 @@ public class ReportController {
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getDepartmentFinancials(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
-    }
-
-    @GetMapping("/financials/teams")
-    @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
-    public ResponseEntity<List<TeamFinancialResponse>> teamFinancials(
-            @RequestParam("from") Optional<Instant> from,
-            @RequestParam("to") Optional<Instant> to,
-            @RequestParam("projectId") Optional<UUID> projectId,
-            @RequestParam("membershipId") Optional<UUID> membershipId,
-            @AuthenticationPrincipal SecurityUser user) {
-        UUID orgId = requireFinancialReportsAccess(user);
-        return ResponseEntity.ok(reportService.getTeamFinancials(
-                orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
-    }
-
-    @GetMapping("/financials/clients")
-    @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
-    public ResponseEntity<List<ClientFinancialResponse>> clientFinancials(
-            @RequestParam("from") Optional<Instant> from,
-            @RequestParam("to") Optional<Instant> to,
-            @RequestParam("projectId") Optional<UUID> projectId,
-            @RequestParam("membershipId") Optional<UUID> membershipId,
-            @AuthenticationPrincipal SecurityUser user) {
-        UUID orgId = requireFinancialReportsAccess(user);
-        return ResponseEntity.ok(reportService.getClientFinancials(
-                orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId, null)));
     }
 
     @GetMapping("/groupings/approval")
@@ -204,11 +178,13 @@ public class ReportController {
             @RequestParam("to") Optional<Instant> to,
             @RequestParam("projectId") Optional<UUID> projectId,
             @RequestParam("membershipId") Optional<UUID> membershipId,
+            @RequestParam("departmentId") Optional<UUID> departmentId,
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getApprovalGrouping(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null),
+                reportScope(user, orgId, departmentId.orElse(null))));
     }
 
     @GetMapping("/groupings/billable")
@@ -218,11 +194,13 @@ public class ReportController {
             @RequestParam("to") Optional<Instant> to,
             @RequestParam("projectId") Optional<UUID> projectId,
             @RequestParam("membershipId") Optional<UUID> membershipId,
+            @RequestParam("departmentId") Optional<UUID> departmentId,
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requireFinancialReportsAccess(user);
         return ResponseEntity.ok(reportService.getBillableGrouping(
                 orgId, from.orElse(null), to.orElse(null),
-                projectId.orElse(null), membershipId.orElse(null), reportScope(user, orgId)));
+                projectId.orElse(null), membershipId.orElse(null),
+                reportScope(user, orgId, departmentId.orElse(null))));
     }
 
     @PostMapping("/saved")
@@ -265,7 +243,7 @@ public class ReportController {
                 orgId, requireMembershipId(user, orgId),
                 from.orElse(null), to.orElse(null),
                 projectId.orElse(null), membershipId.orElse(null),
-                reportScope(user, orgId), format.orElse("csv"));
+                reportScope(user, orgId, null), format.orElse("csv"));
         return ResponseEntity.accepted().body(job);
     }
 
@@ -285,7 +263,7 @@ public class ReportController {
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requireFinancialReportsAccess(user);
         String csv = reportExportService.downloadCsv(
-                orgId, requireMembershipId(user, orgId), isAdmin(user, orgId), jobId, reportScope(user, orgId));
+                orgId, requireMembershipId(user, orgId), isAdmin(user, orgId), jobId, reportScope(user, orgId, null));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=tasky-report.csv")
                 .contentType(MediaType.parseMediaType("text/csv"))
@@ -303,8 +281,8 @@ public class ReportController {
         return orgId;
     }
 
-    private Set<UUID> reportScope(SecurityUser user, UUID orgId) {
-        return permissionService.scopedMembershipIds(user, orgId);
+    private Set<UUID> reportScope(SecurityUser user, UUID orgId, UUID departmentId) {
+        return permissionService.scopedMembershipIdsForDepartment(user, orgId, departmentId);
     }
 
     private UUID requireMembershipId(SecurityUser user, UUID orgId) {

@@ -37,8 +37,8 @@ public class ProjectController {
             @Valid @RequestBody CreateProjectRequest request,
             @AuthenticationPrincipal SecurityUser user) {
 
-        Project project = projectService.createProject(deptId, request.name(), request.description(), request.managerMembershipId(),
-                request.clientId(), request.hourlyRate(), request.estimatedSeconds(), request.budgetSeconds(), request.budgetAmount());
+        Project project = projectService.createProject(deptId, request.name(), request.description(), request.color(), request.managerMembershipId(),
+                request.hourlyRate(), request.estimatedSeconds(), request.budgetSeconds(), request.budgetAmount());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(project));
     }
 
@@ -82,8 +82,8 @@ public class ProjectController {
                 projectId,
                 request.name(),
                 request.description(),
+                request.color(),
                 request.managerMembershipId(),
-                request.clientId(),
                 request.hourlyRate(),
                 request.estimatedSeconds(),
                 request.budgetSeconds(),
@@ -117,8 +117,8 @@ public class ProjectController {
                 project.getDepartment().getId(),
                 project.getName(),
                 project.getDescription(),
-                project.getManagerMembership().getId(),
-                project.getClient() != null ? project.getClient().getId() : null,
+                project.getColor(),
+                project.getManagerMembership() != null ? project.getManagerMembership().getId() : null,
                 project.getHourlyRate(),
                 project.getEstimatedSeconds(),
                 project.getBudgetSeconds(),

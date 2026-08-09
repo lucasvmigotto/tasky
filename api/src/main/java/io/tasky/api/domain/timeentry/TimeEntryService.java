@@ -20,11 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,8 +36,8 @@ public class TimeEntryService {
     private final NotificationService notificationService;
 
     public TimeEntry startEntry(UUID orgId, OrganizationMembership membership,
-                                UUID projectId, UUID activityId, String description,
-                                boolean billable, java.util.List<String> tags) {
+                                UUID projectId, UUID activityId, String description, String glpiTicketId,
+                                boolean billable) {
         Organization org = organizationRepository.getReferenceById(orgId);
         timeEntryRepository.acquireMembershipLock(membership.getId());
 
@@ -60,24 +57,23 @@ public class TimeEntryService {
                 .project(project)
                 .activity(activity)
                 .description(description)
+                .glpiTicketId(normalizeGlpiTicketId(glpiTicketId))
                 .startTime(Instant.now())
                 .billable(billable)
                 .billingRateSnapshot(project != null ? project.getHourlyRate() : null)
                 .costRateSnapshot(membership.getCostRate())
-                .tags(tags != null ? new java.util.ArrayList<>(tags) : new java.util.ArrayList<>())
                 .build();
         return timeEntryRepository.save(entry);
     }
 
     public TimeEntry manualEntry(UUID orgId, OrganizationMembership membership,
                                  Instant startTime, Instant endTime,
-                                 UUID projectId, UUID activityId, String description,
-                                 boolean billable, java.util.List<String> tags) {
+                                 UUID projectId, UUID activityId, String description, String glpiTicketId,
+                                 boolean billable) {
         timeEntryRepository.acquireMembershipLock(membership.getId());
         if (endTime == null || !endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("End time must be after start time");
         }
-        requireNoClosedOrLockedPeriodAt(orgId, membership.getId(), startTime);
         Organization org = organizationRepository.getReferenceById(orgId);
 
         Project project = resolveProject(orgId, projectId);
@@ -92,13 +88,13 @@ public class TimeEntryService {
                 .project(project)
                 .activity(activity)
                 .description(description)
+                .glpiTicketId(normalizeGlpiTicketId(glpiTicketId))
                 .startTime(startTime)
                 .endTime(endTime)
                 .durationSeconds(Duration.between(startTime, endTime).getSeconds())
                 .billable(billable)
                 .billingRateSnapshot(project != null ? project.getHourlyRate() : null)
                 .costRateSnapshot(membership.getCostRate())
-                .tags(tags != null ? new java.util.ArrayList<>(tags) : new java.util.ArrayList<>())
                 .build();
         return timeEntryRepository.save(entry);
     }
@@ -125,7 +121,6 @@ public class TimeEntryService {
 
     public TimeEntry stopEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
-        requirePeriodNotClosedOrLocked(entry);
         if (entry.getEndTime() != null) {
             return entry;
         }
@@ -138,7 +133,6 @@ public class TimeEntryService {
 
     public TimeEntry pauseEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
-        requirePeriodNotClosedOrLocked(entry);
         if (entry.getEndTime() != null) {
             throw new io.tasky.api.api.common.ConflictException("Time entry is already stopped");
         }
@@ -151,7 +145,6 @@ public class TimeEntryService {
 
     public TimeEntry resumeEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
-        requirePeriodNotClosedOrLocked(entry);
         if (entry.getEndTime() != null) {
             throw new io.tasky.api.api.common.ConflictException("Time entry is already stopped");
         }
@@ -174,13 +167,11 @@ public class TimeEntryService {
     }
 
     public TimeEntry updateEntry(UUID orgId, UUID membershipId, UUID entryId,
-                                 UUID projectId, UUID activityId, String description,
-                                 Instant startTime, Instant endTime, Boolean billable,
-                                 java.util.List<String> tags) {
+                                 UUID projectId, UUID activityId, String description, String glpiTicketId,
+                                 Instant startTime, Instant endTime, Boolean billable) {
         timeEntryRepository.acquireMembershipLock(membershipId);
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
 
-        requirePeriodNotClosedOrLocked(entry);
         requireEditable(entry);
 
         Project project = projectId != null ? resolveProject(orgId, projectId) : entry.getProject();
@@ -192,12 +183,11 @@ public class TimeEntryService {
         if (description != null) {
             entry.setDescription(description);
         }
+        if (glpiTicketId != null) {
+            entry.setGlpiTicketId(normalizeGlpiTicketId(glpiTicketId));
+        }
         if (billable != null) {
             entry.setBillable(billable);
-        }
-        if (tags != null) {
-            entry.getTags().clear();
-            entry.getTags().addAll(tags);
         }
 
         Instant start = startTime != null ? startTime : entry.getStartTime();
@@ -208,8 +198,6 @@ public class TimeEntryService {
         entry.setStartTime(start);
         entry.setEndTime(end);
         entry.setDurationSeconds(end != null ? Duration.between(start, end).getSeconds() : null);
-
-        requireNoClosedOrLockedPeriodAt(orgId, membershipId, start);
 
         if (end != null) {
             validateNoOverlap(orgId, membershipId, entryId, start, end);
@@ -276,6 +264,14 @@ public class TimeEntryService {
         return saved;
     }
 
+    private String normalizeGlpiTicketId(String glpiTicketId) {
+        if (glpiTicketId == null || glpiTicketId.isBlank()) {
+            return null;
+        }
+        String normalized = glpiTicketId.trim();
+        return normalized.length() > 64 ? normalized.substring(0, 64) : normalized;
+    }
+
     private void validateNoOverlap(UUID orgId, UUID membershipId, UUID editingId, Instant start, Instant end) {
         List<TimeEntry> overlapping = timeEntryRepository.findOverlapping(
                 orgId, membershipId, start, end, editingId);
@@ -288,8 +284,6 @@ public class TimeEntryService {
 
     public void deleteEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
-        requirePeriodNotClosedOrLocked(entry);
-        requireEditable(entry);
         timeEntryRepository.delete(entry);
     }
 
@@ -337,18 +331,14 @@ public class TimeEntryService {
 
     private PaginatedResponse<TimeEntryResponse> toPage(Page<TimeEntryProjection> page) {
         List<TimeEntryProjection> rows = page.getContent();
-        Map<UUID, List<String>> tagsByEntry = rows.isEmpty() ? Map.of()
-                : timeEntryRepository.findTagRefsByEntryIds(rows.stream().map(TimeEntryProjection::getId).toList()).stream()
-                        .collect(Collectors.groupingBy(TimeEntryTagRef::getEntryId,
-                                Collectors.mapping(TimeEntryTagRef::getTag, Collectors.toList())));
         List<TimeEntryResponse> content = rows.stream()
-                .map(row -> toResponse(row, tagsByEntry.getOrDefault(row.getId(), List.of())))
+                .map(this::toResponse)
                 .toList();
         return new PaginatedResponse<>(content, page.getTotalElements(), page.getTotalPages(),
                 page.getSize(), page.getNumber());
     }
 
-    private TimeEntryResponse toResponse(TimeEntryProjection entry, List<String> tags) {
+    private TimeEntryResponse toResponse(TimeEntryProjection entry) {
         return new TimeEntryResponse(
                 entry.getId(),
                 entry.getOrganizationId(),
@@ -357,6 +347,7 @@ public class TimeEntryService {
                 entry.getProjectId(),
                 entry.getActivityId(),
                 entry.getDescription(),
+                entry.getGlpiTicketId(),
                 entry.getStartTime(),
                 entry.getEndTime(),
                 entry.getDurationSeconds(),
@@ -372,7 +363,6 @@ public class TimeEntryService {
                 entry.getBillingRateSnapshot(),
                 entry.getCostRateSnapshot(),
                 Boolean.TRUE.equals(entry.getBillable()),
-                new ArrayList<>(tags),
                 entry.getCreatedAt()
         );
     }

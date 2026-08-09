@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,9 +38,6 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
                                     @Param("newEnd") Instant newEnd,
                                      @Param("editingId") UUID editingId);
 
-    @Query("select t.id as entryId, tag from TimeEntry t join t.tags tag where t.id in :entryIds")
-    List<TimeEntryTagRef> findTagRefsByEntryIds(@Param("entryIds") Collection<UUID> entryIds);
-
     @Query(value = """
         SELECT e.id AS "id",
                e.organization_id AS "organizationId",
@@ -50,6 +46,7 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
                e.project_id AS "projectId",
                e.activity_id AS "activityId",
                e.description AS "description",
+               e.glpi_ticket_id AS "glpiTicketId",
                e.start_time AS "startTime",
                e.end_time AS "endTime",
                e.duration_seconds AS "durationSeconds",
@@ -68,18 +65,18 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
         JOIN organization_memberships m ON m.id = e.membership_id
         WHERE e.organization_id = :orgId
           AND e.membership_id = :membershipId
-          AND (:from IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
-          AND (:to IS NULL OR e.start_time <= :to)
-          AND (:projectId IS NULL OR e.project_id = :projectId)
+           AND (CAST(:from AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
+           AND (CAST(:to AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.start_time <= :to)
+           AND (CAST(:projectId AS UUID) IS NULL OR e.project_id = :projectId)
         ORDER BY e.start_time DESC, e.id DESC
         """, countQuery = """
         SELECT count(*)
         FROM time_entries e
         WHERE e.organization_id = :orgId
           AND e.membership_id = :membershipId
-          AND (:from IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
-          AND (:to IS NULL OR e.start_time <= :to)
-          AND (:projectId IS NULL OR e.project_id = :projectId)
+           AND (CAST(:from AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
+           AND (CAST(:to AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.start_time <= :to)
+           AND (CAST(:projectId AS UUID) IS NULL OR e.project_id = :projectId)
         """, nativeQuery = true)
     Page<TimeEntryProjection> findPageByMembership(@Param("orgId") UUID orgId,
                                                    @Param("membershipId") UUID membershipId,
@@ -96,6 +93,7 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
                e.project_id AS "projectId",
                e.activity_id AS "activityId",
                e.description AS "description",
+               e.glpi_ticket_id AS "glpiTicketId",
                e.start_time AS "startTime",
                e.end_time AS "endTime",
                e.duration_seconds AS "durationSeconds",
@@ -113,15 +111,15 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
         FROM time_entries e
         JOIN organization_memberships m ON m.id = e.membership_id
         WHERE e.organization_id = :orgId
-          AND (:from IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
-          AND (:to IS NULL OR e.start_time <= :to)
+           AND (CAST(:from AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
+           AND (CAST(:to AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.start_time <= :to)
         ORDER BY e.start_time DESC, e.id DESC
         """, countQuery = """
         SELECT count(*)
         FROM time_entries e
         WHERE e.organization_id = :orgId
-          AND (:from IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
-          AND (:to IS NULL OR e.start_time <= :to)
+           AND (CAST(:from AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.end_time IS NULL OR e.end_time >= :from)
+           AND (CAST(:to AS TIMESTAMP WITH TIME ZONE) IS NULL OR e.start_time <= :to)
         """, nativeQuery = true)
     Page<TimeEntryProjection> findPageForOrganization(@Param("orgId") UUID orgId,
                                                       @Param("from") Instant from,
