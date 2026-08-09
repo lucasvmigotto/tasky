@@ -5,11 +5,11 @@ import io.tasky.api.domain.department.DepartmentRepository;
 import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.organization.OrganizationRepository;
 import io.tasky.api.domain.notification.NotificationService;
-import io.tasky.api.domain.team.Team;
-import io.tasky.api.domain.team.TeamRepository;
 import io.tasky.api.domain.user.User;
 import io.tasky.api.domain.user.UserRepository;
 import io.tasky.api.domain.user.UserService;
+import io.tasky.api.domain.membertype.DepartmentMemberType;
+import io.tasky.api.domain.membertype.DepartmentMemberTypeService;
 import io.tasky.api.domain.session.RefreshSessionService;
 import io.tasky.api.api.common.ConflictException;
 import io.tasky.api.security.PermissionService;
@@ -37,15 +37,14 @@ public class MembershipService {
 
     private final OrganizationMembershipRepository membershipRepository;
     private final ManagerDepartmentRepository managerDepartmentRepository;
-    private final LeaderTeamRepository leaderTeamRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final UserService userService;
     private final DepartmentRepository departmentRepository;
-    private final TeamRepository teamRepository;
     private final PermissionService permissionService;
     private final RefreshSessionService refreshSessionService;
     private final NotificationService notificationService;
+    private final DepartmentMemberTypeService memberTypeService;
 
     private static final Comparator<OrganizationMembership> VISIBLE_MEMBERSHIP_ORDER = Comparator
             .comparing((OrganizationMembership membership) -> membership.getUser().getUsername(),
@@ -54,7 +53,15 @@ public class MembershipService {
 
     public OrganizationMembership inviteUser(
             UUID orgId, String email, Role role,
-            List<UUID> departmentIds, List<UUID> teamIds,
+            List<UUID> departmentIds,
+            OrganizationMembership inviter
+    ) {
+        return inviteUser(orgId, email, role, departmentIds, List.of(), inviter);
+    }
+
+    public OrganizationMembership inviteUser(
+            UUID orgId, String email, Role role,
+            List<UUID> departmentIds, List<UUID> memberTypeIds,
             OrganizationMembership inviter
     ) {
         if (!inviter.isActive() || !inviter.getOrganization().getId().equals(orgId)) {
@@ -64,8 +71,10 @@ public class MembershipService {
             throw new SecurityException("Cannot invite user with role " + role);
         }
 
-        Placement placement = resolvePlacement(orgId, role, departmentIds, teamIds);
+        Placement placement = resolvePlacement(orgId, role, departmentIds);
         validateInviterScope(inviter, role, placement);
+        List<DepartmentMemberType> memberTypes = memberTypeService.requireManyForDepartment(
+                orgId, placement.primaryDepartmentId(), memberTypeIds);
 
         String normalizedEmail = email.trim().toLowerCase(java.util.Locale.ROOT);
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
@@ -74,13 +83,13 @@ public class MembershipService {
         Organization org = organizationRepository.getReferenceById(orgId);
         Instant now = Instant.now();
         OrganizationMembership membership = membershipRepository.findByUserIdAndOrganizationId(user.getId(), orgId)
-                .map(existing -> prepareReinvite(existing, role, placement, inviter, now))
+                .map(existing -> prepareReinvite(existing, role, placement, memberTypes, inviter, now))
                 .orElseGet(() -> OrganizationMembership.builder()
                         .user(user)
                         .organization(org)
                         .role(role)
                         .primaryDepartmentId(placement.primaryDepartmentId())
-                        .primaryTeamId(placement.primaryTeamId())
+                        .memberTypes(new java.util.ArrayList<>(memberTypes))
                         .maxDailyWorkMinutes(480)
                         .invitationStatus(InvitationStatus.PENDING)
                         .invitedAt(now)
@@ -106,16 +115,6 @@ public class MembershipService {
             }
         }
 
-        if (role == Role.leader) {
-            for (Team team : placement.teams()) {
-                leaderTeamRepository.save(LeaderTeam.builder()
-                        .id(new LeaderTeam.LeaderTeamId(membership.getId(), team.getId()))
-                        .membership(membership)
-                        .team(team)
-                        .build());
-            }
-        }
-
         return membership;
     }
 
@@ -127,9 +126,6 @@ public class MembershipService {
             case manager -> scope.departmentIds().isEmpty() ? List.of() : membershipRepository
                     .findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdInOrderByUser_UsernameAscIdAsc(
                             orgId, scope.departmentIds());
-            case leader -> scope.teamIds().isEmpty() ? List.of() : membershipRepository
-                    .findByOrganizationIdAndIsActiveTrueAndPrimaryTeamIdInOrderByUser_UsernameAscIdAsc(
-                            orgId, scope.teamIds());
             case employee -> List.of();
         };
 
@@ -154,7 +150,8 @@ public class MembershipService {
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
     }
 
-    public OrganizationMembership updateSettings(UUID orgId, UUID membershipId, String customUsername, Integer maxDailyWorkMinutes, String timezone) {
+    public OrganizationMembership updateSettings(UUID orgId, UUID membershipId, String customUsername, Integer maxDailyWorkMinutes, String timezone,
+                                                 List<UUID> memberTypeIds) {
         OrganizationMembership membership = getMembership(orgId, membershipId);
 
         if (customUsername != null) {
@@ -165,6 +162,12 @@ public class MembershipService {
         }
         if (timezone != null) {
             membership.setTimezone(timezone.isBlank() ? null : validateTimezone(timezone));
+        }
+        if (memberTypeIds != null) {
+            List<DepartmentMemberType> memberTypes = memberTypeService.requireManyForDepartment(
+                    orgId, membership.getPrimaryDepartmentId(), memberTypeIds);
+            membership.getMemberTypes().clear();
+            membership.getMemberTypes().addAll(memberTypes);
         }
         return membershipRepository.save(membership);
     }
@@ -242,7 +245,12 @@ public class MembershipService {
         refreshSessionService.revokeAllForUser(membership.getUser().getId());
     }
 
-    public OrganizationMembership changeRole(UUID orgId, UUID membershipId, Role role, UUID departmentId, UUID teamId) {
+    public OrganizationMembership changeRole(UUID orgId, UUID membershipId, Role role, UUID departmentId) {
+        return changeRole(orgId, membershipId, role, departmentId, List.of());
+    }
+
+    public OrganizationMembership changeRole(UUID orgId, UUID membershipId, Role role, UUID departmentId,
+                                             List<UUID> memberTypeIds) {
         OrganizationMembership membership = membershipRepository.findByIdAndOrganizationId(membershipId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
         long adminCount = membershipRepository.findByOrganizationIdAndIsActiveTrue(orgId).stream()
@@ -255,14 +263,17 @@ public class MembershipService {
         Placement placement = resolvePlacement(
                 orgId,
                 role,
-                departmentId != null ? List.of(departmentId) : List.of(),
-                teamId != null ? List.of(teamId) : List.of());
+                departmentId != null ? List.of(departmentId) : List.of());
+        if (memberTypeIds != null) {
+            List<DepartmentMemberType> memberTypes = memberTypeService.requireManyForDepartment(
+                    orgId, placement.primaryDepartmentId(), memberTypeIds);
+            membership.getMemberTypes().clear();
+            membership.getMemberTypes().addAll(memberTypes);
+        }
 
         managerDepartmentRepository.deleteByMembershipId(membershipId);
-        leaderTeamRepository.deleteByMembershipId(membershipId);
         membership.setRole(role);
         membership.setPrimaryDepartmentId(placement.primaryDepartmentId());
-        membership.setPrimaryTeamId(placement.primaryTeamId());
         OrganizationMembership saved = membershipRepository.save(membership);
 
         if (role == Role.manager) {
@@ -273,84 +284,50 @@ public class MembershipService {
                         .department(department)
                         .build());
             }
-        } else if (role == Role.leader) {
-            for (Team team : placement.teams()) {
-                leaderTeamRepository.save(LeaderTeam.builder()
-                        .id(new LeaderTeam.LeaderTeamId(saved.getId(), team.getId()))
-                        .membership(saved)
-                        .team(team)
-                        .build());
-            }
         }
 
         refreshSessionService.revokeAllForUser(saved.getUser().getId());
         return saved;
     }
 
-    private Placement resolvePlacement(UUID orgId, Role role, Collection<UUID> departmentIds, Collection<UUID> teamIds) {
+    private Placement resolvePlacement(UUID orgId, Role role, Collection<UUID> departmentIds) {
         Set<UUID> distinctDepartmentIds = new LinkedHashSet<>(departmentIds != null ? departmentIds : List.of());
-        Set<UUID> distinctTeamIds = new LinkedHashSet<>(teamIds != null ? teamIds : List.of());
         List<Department> departments = distinctDepartmentIds.stream()
                 .map(id -> departmentRepository.findByIdAndOrganizationId(id, orgId)
                         .orElseThrow(() -> new IllegalArgumentException("Department not found in this organization")))
                 .toList();
-        List<Team> teams = distinctTeamIds.stream()
-                .map(id -> teamRepository.findById(id)
-                        .filter(team -> team.getDepartment().getOrganization().getId().equals(orgId))
-                        .orElseThrow(() -> new IllegalArgumentException("Team not found in this organization")))
-                .toList();
 
         if (role == Role.admin) {
-            if (!departments.isEmpty() || !teams.isEmpty()) {
+            if (!departments.isEmpty()) {
                 throw new IllegalArgumentException("Organization admins cannot have a scoped placement");
             }
-            return new Placement(List.of(), List.of(), null, null);
+            return new Placement(List.of(), null);
         }
         if (role == Role.manager) {
-            if (departments.isEmpty() || !teams.isEmpty()) {
-                throw new IllegalArgumentException("Department managers require at least one department and no team scope");
+            if (departments.isEmpty()) {
+                throw new IllegalArgumentException("Department managers require at least one department");
             }
-            return new Placement(departments, List.of(), departments.getFirst().getId(), null);
-        }
-        if (role == Role.leader) {
-            if (teams.isEmpty()) {
-                throw new IllegalArgumentException("Team leaders require at least one team");
-            }
-            UUID departmentId = teams.getFirst().getDepartment().getId();
-            if (teams.stream().anyMatch(team -> !team.getDepartment().getId().equals(departmentId))) {
-                throw new IllegalArgumentException("A team leader's teams must belong to the same department");
-            }
-            if (!departments.isEmpty() && (departments.size() != 1 || !departments.getFirst().getId().equals(departmentId))) {
-                throw new IllegalArgumentException("Team does not belong to the selected department");
-            }
-            return new Placement(List.of(teams.getFirst().getDepartment()), teams, departmentId, teams.getFirst().getId());
+            return new Placement(departments, departments.getFirst().getId());
         }
 
-        if (departments.size() != 1 || teams.size() > 1) {
-            throw new IllegalArgumentException("Employees require exactly one department and at most one team");
+        if (departments.size() != 1) {
+            throw new IllegalArgumentException("Employees require exactly one department");
         }
-        if (!teams.isEmpty() && !teams.getFirst().getDepartment().getId().equals(departments.getFirst().getId())) {
-            throw new IllegalArgumentException("Team does not belong to the selected department");
-        }
-        return new Placement(
-                departments,
-                teams,
-                departments.getFirst().getId(),
-                teams.isEmpty() ? null : teams.getFirst().getId());
+        return new Placement(departments, departments.getFirst().getId());
     }
 
     private OrganizationMembership prepareReinvite(
-            OrganizationMembership membership, Role role, Placement placement,
+            OrganizationMembership membership, Role role, Placement placement, List<DepartmentMemberType> memberTypes,
             OrganizationMembership inviter, Instant now) {
         if (membership.getInvitationStatus() == InvitationStatus.PENDING
                 || membership.getInvitationStatus() == InvitationStatus.ACCEPTED) {
             throw new ConflictException("User already has a pending or accepted membership");
         }
         managerDepartmentRepository.deleteByMembershipId(membership.getId());
-        leaderTeamRepository.deleteByMembershipId(membership.getId());
         membership.setRole(role);
         membership.setPrimaryDepartmentId(placement.primaryDepartmentId());
-        membership.setPrimaryTeamId(placement.primaryTeamId());
+        membership.getMemberTypes().clear();
+        membership.getMemberTypes().addAll(memberTypes);
         membership.setInvitationStatus(InvitationStatus.PENDING);
         membership.setInvitedAt(now);
         membership.setExpiresAt(now.plusSeconds(INVITATION_VALID_DAYS * 24 * 3600));
@@ -384,10 +361,7 @@ public class MembershipService {
             return managerDepartmentRepository.existsByMembershipIdAndDepartmentId(
                     requester.getId(), target.getPrimaryDepartmentId());
         }
-        return requester.getRole() == Role.leader
-                && target.getRole() == Role.employee
-                && target.getPrimaryTeamId() != null
-                && leaderTeamRepository.existsByMembershipIdAndTeamId(requester.getId(), target.getPrimaryTeamId());
+        return false;
     }
 
     private MembershipVisibilityScope resolveVisibilityScope(UUID orgId, UUID requesterUserId) {
@@ -399,12 +373,7 @@ public class MembershipService {
                         .map(scope -> scope.getDepartment().getId())
                         .collect(java.util.stream.Collectors.toSet())
                 : Set.of();
-        Set<UUID> teamIds = requester.getRole() == Role.leader
-                ? leaderTeamRepository.findByMembershipId(requester.getId()).stream()
-                        .map(scope -> scope.getTeam().getId())
-                        .collect(java.util.stream.Collectors.toSet())
-                : Set.of();
-        return new MembershipVisibilityScope(requester, departmentIds, teamIds);
+        return new MembershipVisibilityScope(requester, departmentIds);
     }
 
     private boolean isVisible(MembershipVisibilityScope scope, OrganizationMembership target) {
@@ -415,9 +384,7 @@ public class MembershipService {
             return target.getPrimaryDepartmentId() != null
                     && scope.departmentIds().contains(target.getPrimaryDepartmentId());
         }
-        return scope.requester().getRole() == Role.leader
-                && target.getPrimaryTeamId() != null
-                && scope.teamIds().contains(target.getPrimaryTeamId());
+        return false;
     }
 
     private void validateInviterScope(OrganizationMembership inviter, Role targetRole, Placement placement) {
@@ -435,29 +402,16 @@ public class MembershipService {
             }
             return;
         }
-        if (inviter.getRole() == Role.leader) {
-            Set<UUID> ledTeams = leaderTeamRepository.findByMembershipId(inviter.getId()).stream()
-                    .map(scope -> scope.getTeam().getId())
-                    .collect(java.util.stream.Collectors.toSet());
-            if (targetRole != Role.employee || placement.primaryTeamId() == null
-                    || !ledTeams.contains(placement.primaryTeamId())) {
-                throw new SecurityException("Team leaders can only invite employees to teams they lead");
-            }
-            return;
-        }
         throw new SecurityException("Employees cannot invite organization members");
     }
 
     private record Placement(
             List<Department> departments,
-            List<Team> teams,
-            UUID primaryDepartmentId,
-            UUID primaryTeamId
+            UUID primaryDepartmentId
     ) {}
 
     private record MembershipVisibilityScope(
             OrganizationMembership requester,
-            Set<UUID> departmentIds,
-            Set<UUID> teamIds
+            Set<UUID> departmentIds
     ) {}
 }

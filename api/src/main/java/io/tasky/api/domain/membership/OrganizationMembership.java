@@ -2,6 +2,7 @@ package io.tasky.api.domain.membership;
 
 import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.user.User;
+import io.tasky.api.domain.membertype.DepartmentMemberType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +12,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -23,6 +26,8 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -59,8 +64,14 @@ public class OrganizationMembership {
     @Column(name = "primary_department_id")
     private UUID primaryDepartmentId;
 
-    @Column(name = "primary_team_id")
-    private UUID primaryTeamId;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "membership_member_types",
+            joinColumns = @JoinColumn(name = "membership_id"),
+            inverseJoinColumns = @JoinColumn(name = "member_type_id")
+    )
+    @Builder.Default
+    private List<DepartmentMemberType> memberTypes = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "invitation_status", nullable = false, length = 20)

@@ -11,7 +11,6 @@ public record MembershipInvitationResponse(
         String email,
         Role role,
         UUID primaryDepartmentId,
-        UUID primaryTeamId,
         InvitationStatus status,
         Instant invitedAt,
         Instant expiresAt,

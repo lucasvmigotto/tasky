@@ -3,6 +3,7 @@ package io.tasky.api.api.membership;
 import io.tasky.api.domain.membership.Role;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record MembershipResponse(
@@ -14,7 +15,9 @@ public record MembershipResponse(
         String customUsername,
         int maxDailyWorkMinutes,
         UUID primaryDepartmentId,
-        UUID primaryTeamId,
+        List<MemberTypeRef> memberTypes,
         String timezone,
         Instant createdAt
-) {}
+) {
+    public record MemberTypeRef(UUID id, String name) {}
+}

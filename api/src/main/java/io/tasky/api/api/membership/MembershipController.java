@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,6 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/organizations/{orgId}/memberships")
 @RequiredArgsConstructor
+@Transactional
 public class MembershipController {
 
     private final MembershipService membershipService;
@@ -47,7 +49,7 @@ public class MembershipController {
 
         OrganizationMembership membership = membershipService.inviteUser(
                 orgId, request.email(), request.role(),
-                request.departmentIds(), request.teamIds(), inviter
+                request.departmentIds(), request.memberTypeIds(), inviter
         );
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -113,7 +115,8 @@ public class MembershipController {
         }
 
         OrganizationMembership membership = membershipService.updateSettings(
-                activeOrgId, membershipId, request.customUsername(), request.maxDailyWorkMinutes(), request.timezone());
+                activeOrgId, membershipId, request.customUsername(), request.maxDailyWorkMinutes(), request.timezone(),
+                request.memberTypeIds());
         return ResponseEntity.ok(toResponse(membership));
     }
 
@@ -132,7 +135,7 @@ public class MembershipController {
             throw new SecurityException("Only admins can change member roles");
         }
         OrganizationMembership membership = membershipService.changeRole(
-                activeOrgId, membershipId, request.role(), request.departmentId(), request.teamId());
+                activeOrgId, membershipId, request.role(), request.departmentId(), request.memberTypeIds());
         return ResponseEntity.ok(toResponse(membership));
     }
 
@@ -158,6 +161,10 @@ public class MembershipController {
     }
 
     private MembershipResponse toResponse(OrganizationMembership m) {
+        List<MembershipResponse.MemberTypeRef> memberTypes = new java.util.ArrayList<>();
+        for (var type : m.getMemberTypes()) {
+            memberTypes.add(new MembershipResponse.MemberTypeRef(type.getId(), type.getName()));
+        }
         return new MembershipResponse(
                 m.getId(),
                 m.getUser().getId(),
@@ -167,7 +174,7 @@ public class MembershipController {
                 m.getCustomUsername(),
                 m.getMaxDailyWorkMinutes(),
                 m.getPrimaryDepartmentId(),
-                m.getPrimaryTeamId(),
+                memberTypes,
                 m.getTimezone(),
                 m.getCreatedAt()
         );
@@ -179,7 +186,6 @@ public class MembershipController {
                 membership.getUser().getEmail(),
                 membership.getRole(),
                 membership.getPrimaryDepartmentId(),
-                membership.getPrimaryTeamId(),
                 membership.getInvitationStatus(),
                 membership.getInvitedAt(),
                 membership.getExpiresAt(),

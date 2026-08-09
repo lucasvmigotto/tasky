@@ -12,7 +12,6 @@ import java.util.UUID;
 public record SectorOverviewResponse(
         Role role,
         List<DepartmentSummary> departments,
-        List<TeamSummary> teams,
         List<MemberSummary> members,
         List<ProjectSummary> projects,
         Map<ActivityStatus, Long> activityCounts,
@@ -20,14 +19,11 @@ public record SectorOverviewResponse(
 ) {
     public record DepartmentSummary(UUID id, String name) {}
 
-    public record TeamSummary(UUID id, UUID departmentId, String name, long memberCount) {}
-
     public record MemberSummary(
             UUID id,
             String displayName,
             Role role,
             UUID departmentId,
-            UUID teamId,
             long openActivities,
             long estimatedSeconds
     ) {}

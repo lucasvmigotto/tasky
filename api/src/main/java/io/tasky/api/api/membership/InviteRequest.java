@@ -12,5 +12,9 @@ public record InviteRequest(
         @NotBlank @Email String email,
         @NotNull Role role,
         List<UUID> departmentIds,
-        List<UUID> teamIds
-) {}
+        List<UUID> memberTypeIds
+) {
+    public InviteRequest(String email, Role role, List<UUID> departmentIds) {
+        this(email, role, departmentIds, null);
+    }
+}
