@@ -43,7 +43,6 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
     private String adminToken;
     private UUID departmentA;
     private UUID departmentB;
-    private UUID teamA;
 
     @BeforeEach
     void setUp() {
@@ -55,7 +54,6 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
         adminToken = tokenFor(admin.getId(), admin.getEmail(), organization.getId(), Role.admin);
         departmentA = createDepartment(organization, adminToken, "Sistemas");
         departmentB = createDepartment(organization, adminToken, "Comunicação");
-        teamA = createTeam(departmentA, adminToken, "Desenvolvimento");
     }
 
     @AfterEach
@@ -69,7 +67,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
     void managerCanInviteEmployeeOnlyInsideManagedDepartment() {
         User manager = createUserWithSuffix("manager");
         OrganizationMembership managerMembership = invite(
-                adminToken, manager.getEmail(), Role.manager, List.of(departmentA), List.of());
+                adminToken, manager.getEmail(), Role.manager, List.of(departmentA));
         String managerToken = tokenFor(manager.getId(), manager.getEmail(), organization.getId(), Role.manager);
         User employeeA = createUserWithSuffix("employee-a");
 
@@ -77,7 +75,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + managerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(employeeA.getEmail(), Role.employee, List.of(departmentA), List.of()))
+                .body(inviteBody(employeeA.getEmail(), Role.employee, List.of(departmentA)))
                 .retrieve()
                 .toEntity(String.class);
 
@@ -94,7 +92,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + managerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(employeeB.getEmail(), Role.employee, List.of(departmentB), List.of()))
+                .body(inviteBody(employeeB.getEmail(), Role.employee, List.of(departmentB)))
                 .retrieve()
                 .onStatus(status -> status.value() == 403, (request, response) -> {})
                 .toBodilessEntity();
@@ -103,7 +101,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
         assertThat(membershipRepository.existsByUserIdAndOrganizationId(employeeB.getId(), organization.getId())).isFalse();
 
         OrganizationMembership employeeBMembership = invite(
-                adminToken, employeeB.getEmail(), Role.employee, List.of(departmentB), List.of());
+                adminToken, employeeB.getEmail(), Role.employee, List.of(departmentB));
         var crossDepartmentRemoval = restClient.delete()
                 .uri("/api/v1/organizations/{orgId}/memberships/{membershipId}",
                         organization.getId(), employeeBMembership.getId())
@@ -124,37 +122,6 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void leaderCanInviteEmployeeOnlyToLedTeam() {
-        User leader = createUserWithSuffix("leader");
-        invite(adminToken, leader.getEmail(), Role.leader, List.of(departmentA), List.of(teamA));
-        String leaderToken = tokenFor(leader.getId(), leader.getEmail(), organization.getId(), Role.leader);
-        User employee = createUserWithSuffix("team-employee");
-
-        var allowed = restClient.post()
-                .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
-                .header("Authorization", "Bearer " + leaderToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(employee.getEmail(), Role.employee, List.of(departmentA), List.of(teamA)))
-                .retrieve()
-                .toEntity(String.class);
-
-        assertThat(allowed.getStatusCode().value()).isEqualTo(201);
-        assertThat(JsonPath.<String>read(allowed.getBody(), "$.primaryTeamId")).isEqualTo(teamA.toString());
-
-        User unassigned = createUserWithSuffix("unassigned");
-        var denied = restClient.post()
-                .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
-                .header("Authorization", "Bearer " + leaderToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(unassigned.getEmail(), Role.employee, List.of(departmentA), List.of()))
-                .retrieve()
-                .onStatus(status -> status.value() == 403, (request, response) -> {})
-                .toBodilessEntity();
-
-        assertThat(denied.getStatusCode().value()).isEqualTo(403);
-    }
-
-    @Test
     void crossTenantDepartmentIsRejectedWithoutCreatingMembership() {
         User target = createUserWithSuffix("cross-tenant");
         User otherAdmin = users.stream()
@@ -168,7 +135,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(target.getEmail(), Role.employee, List.of(foreignDepartment), List.of()))
+                .body(inviteBody(target.getEmail(), Role.employee, List.of(foreignDepartment)))
                 .retrieve()
                 .onStatus(status -> status.value() == 400, (request, result) -> {})
                 .toBodilessEntity();
@@ -181,7 +148,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
     void changingRoleRemovesStaleManagementScope() {
         User manager = createUserWithSuffix("demoted-manager");
         OrganizationMembership membership = invite(
-                adminToken, manager.getEmail(), Role.manager, List.of(departmentA), List.of());
+                adminToken, manager.getEmail(), Role.manager, List.of(departmentA));
 
         var response = restClient.patch()
                 .uri("/api/v1/organizations/{orgId}/memberships/{membershipId}/role",
@@ -203,13 +170,13 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
     @Test
     void sectorOverviewDerivesManagerScopeWithoutExposingAnotherDepartment() {
         User manager = createUserWithSuffix("overview-manager");
-        invite(adminToken, manager.getEmail(), Role.manager, List.of(departmentA), List.of());
+        invite(adminToken, manager.getEmail(), Role.manager, List.of(departmentA));
         User employeeA = createUserWithSuffix("overview-employee-a");
         User employeeB = createUserWithSuffix("overview-employee-b");
         OrganizationMembership inScope = invite(
-                adminToken, employeeA.getEmail(), Role.employee, List.of(departmentA), List.of(teamA));
+                adminToken, employeeA.getEmail(), Role.employee, List.of(departmentA));
         OrganizationMembership outsideScope = invite(
-                adminToken, employeeB.getEmail(), Role.employee, List.of(departmentB), List.of());
+                adminToken, employeeB.getEmail(), Role.employee, List.of(departmentB));
         String managerToken = tokenFor(manager.getId(), manager.getEmail(), organization.getId(), Role.manager);
 
         String response = restClient.get()
@@ -228,35 +195,10 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void sectorOverviewLimitsLeaderToLedTeam() {
-        User leader = createUserWithSuffix("overview-leader");
-        invite(adminToken, leader.getEmail(), Role.leader, List.of(departmentA), List.of(teamA));
-        User teamEmployee = createUserWithSuffix("overview-team-employee");
-        User otherEmployee = createUserWithSuffix("overview-other-employee");
-        OrganizationMembership teamMember = invite(
-                adminToken, teamEmployee.getEmail(), Role.employee, List.of(departmentA), List.of(teamA));
-        OrganizationMembership otherMember = invite(
-                adminToken, otherEmployee.getEmail(), Role.employee, List.of(departmentA), List.of());
-        String leaderToken = tokenFor(leader.getId(), leader.getEmail(), organization.getId(), Role.leader);
-
-        String response = restClient.get()
-                .uri("/api/v1/me/sector")
-                .header("Authorization", "Bearer " + leaderToken)
-                .retrieve()
-                .body(String.class);
-
-        assertThat(JsonPath.<List<String>>read(response, "$.teams[*].id")).containsExactly(teamA.toString());
-        assertThat(JsonPath.<List<String>>read(response, "$.members[*].id"))
-                .contains(teamMember.getId().toString())
-                .doesNotContain(otherMember.getId().toString());
-        assertThat(response).doesNotContain(teamEmployee.getEmail()).doesNotContain(otherEmployee.getEmail());
-    }
-
-    @Test
-    void sectorOverviewKeepsEmployeeWithoutTeamSelfScoped() {
+    void sectorOverviewKeepsEmployeeSelfScoped() {
         User employee = createUserWithSuffix("overview-self-employee");
         OrganizationMembership membership = invite(
-                adminToken, employee.getEmail(), Role.employee, List.of(departmentA), List.of());
+                adminToken, employee.getEmail(), Role.employee, List.of(departmentA));
         String employeeToken = tokenFor(employee.getId(), employee.getEmail(), organization.getId(), Role.employee);
 
         String response = restClient.get()
@@ -267,7 +209,6 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
 
         assertThat(JsonPath.<List<String>>read(response, "$.departments[*].id"))
                 .containsExactly(departmentA.toString());
-        assertThat(JsonPath.<List<String>>read(response, "$.teams[*].id")).isEmpty();
         assertThat(JsonPath.<List<String>>read(response, "$.members[*].id"))
                 .containsExactly(membership.getId().toString());
         assertThat(response).doesNotContain(employee.getEmail());
@@ -278,7 +219,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
         String email = "first-login-" + UUID.randomUUID().toString().substring(0, 8) + "@orgao.gov.br";
 
         OrganizationMembership membership = invite(
-                adminToken, email, Role.employee, List.of(departmentA), List.of(teamA));
+                adminToken, email, Role.employee, List.of(departmentA));
         User invited = userRepository.findByEmail(email).orElseThrow();
         users.add(invited);
 
@@ -299,7 +240,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(invitedUser.getEmail(), Role.employee, List.of(departmentA), List.of(teamA)))
+                .body(inviteBody(invitedUser.getEmail(), Role.employee, List.of(departmentA)))
                 .retrieve()
                 .body(String.class);
         UUID membershipId = UUID.fromString(JsonPath.read(invitation, "$.id"));
@@ -314,7 +255,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(invitedUser.getEmail(), Role.employee, List.of(departmentA), List.of(teamA)))
+                .body(inviteBody(invitedUser.getEmail(), Role.employee, List.of(departmentA)))
                 .retrieve()
                 .onStatus(status -> status.value() == 409, (request, response) -> {})
                 .toBodilessEntity();
@@ -345,7 +286,7 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(invitedUser.getEmail(), Role.employee, List.of(departmentA), List.of(teamA)))
+                .body(inviteBody(invitedUser.getEmail(), Role.employee, List.of(departmentA)))
                 .retrieve()
                 .body(String.class);
         UUID membershipId = UUID.fromString(JsonPath.read(invitation, "$.id"));
@@ -380,23 +321,12 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
         return UUID.fromString(JsonPath.read(json, "$.id"));
     }
 
-    private UUID createTeam(UUID departmentId, String token, String name) {
-        String json = restClient.post()
-                .uri("/api/v1/departments/{departmentId}/teams", departmentId)
-                .header("Authorization", "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body("{\"name\":\"" + name + "\"}")
-                .retrieve()
-                .body(String.class);
-        return UUID.fromString(JsonPath.read(json, "$.id"));
-    }
-
-    private OrganizationMembership invite(String token, String email, Role role, List<UUID> departments, List<UUID> teams) {
+    private OrganizationMembership invite(String token, String email, Role role, List<UUID> departments) {
         String json = restClient.post()
                 .uri("/api/v1/organizations/{orgId}/memberships/invite", organization.getId())
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(inviteBody(email, role, departments, teams))
+                .body(inviteBody(email, role, departments))
                 .retrieve()
                 .body(String.class);
         UUID membershipId = UUID.fromString(JsonPath.read(json, "$.id"));
@@ -405,11 +335,10 @@ class MembershipScopeIntegrationTest extends BaseIntegrationTest {
         return membershipRepository.findById(membershipId).orElseThrow();
     }
 
-    private String inviteBody(String email, Role role, List<UUID> departments, List<UUID> teams) {
+    private String inviteBody(String email, Role role, List<UUID> departments) {
         String departmentJson = departments.stream().map(id -> "\"" + id + "\"").collect(java.util.stream.Collectors.joining(","));
-        String teamJson = teams.stream().map(id -> "\"" + id + "\"").collect(java.util.stream.Collectors.joining(","));
         return """
-                {"email":"%s","role":"%s","departmentIds":[%s],"teamIds":[%s]}
-                """.formatted(email, role, departmentJson, teamJson);
+                {"email":"%s","role":"%s","departmentIds":[%s]}
+                """.formatted(email, role, departmentJson);
     }
 }

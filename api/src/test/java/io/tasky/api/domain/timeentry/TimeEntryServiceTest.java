@@ -40,20 +40,19 @@ class TimeEntryServiceTest {
 
         assertThrows(ConflictException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
-                "changed", null, null, null, null));
+                "changed", null, null, null, null, null));
 
         verify(timeEntryRepository, never()).save(fixture.entry);
     }
 
     @Test
-    void deleteApprovedEntry_isRejected() {
+    void ownerCanDeleteEntry_regardlessOfApprovalStatus() {
         Fixture fixture = fixture(TimeEntryApprovalStatus.APPROVED, Instant.now());
         when(timeEntryRepository.findById(fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
 
-        assertThrows(ConflictException.class,
-                () -> service.deleteEntry(fixture.orgId, fixture.membershipId, fixture.entry.getId()));
+        service.deleteEntry(fixture.orgId, fixture.membershipId, fixture.entry.getId());
 
-        verify(timeEntryRepository, never()).delete(fixture.entry);
+        verify(timeEntryRepository).delete(fixture.entry);
     }
 
     @Test
@@ -86,7 +85,7 @@ class TimeEntryServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), otherProject.getId(), null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
     }
 
     private Fixture fixture(TimeEntryApprovalStatus status, Instant endTime) {

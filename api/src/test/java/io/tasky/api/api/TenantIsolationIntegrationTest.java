@@ -100,39 +100,6 @@ class TenantIsolationIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void orgB_cannotListClients_ofOrgA() {
-        var response = restClient.get()
-                .uri("/api/v1/organizations/{orgId}/clients", orgA.getId())
-                .header("Authorization", "Bearer " + tokenB)
-                .retrieve()
-                .onStatus(s -> s.value() == 403 || s.value() == 404, (req, res) -> {})
-                .toBodilessEntity();
-        assertThat(response.getStatusCode().value()).isIn(403, 404);
-    }
-
-    @Test
-    void orgB_cannotListLabels_ofOrgA() {
-        var response = restClient.get()
-                .uri("/api/v1/organizations/{orgId}/labels", orgA.getId())
-                .header("Authorization", "Bearer " + tokenB)
-                .retrieve()
-                .onStatus(s -> s.value() == 403 || s.value() == 404, (req, res) -> {})
-                .toBodilessEntity();
-        assertThat(response.getStatusCode().value()).isIn(403, 404);
-    }
-
-    @Test
-    void orgB_cannotListTeams_ofDeptA() {
-        var response = restClient.get()
-                .uri("/api/v1/departments/{deptId}/teams", deptAId)
-                .header("Authorization", "Bearer " + tokenB)
-                .retrieve()
-                .onStatus(s -> s.value() == 403 || s.value() == 404, (req, res) -> {})
-                .toBodilessEntity();
-        assertThat(response.getStatusCode().value()).isIn(403, 404);
-    }
-
-    @Test
     void orgB_cannotManageDeptOfOrgA() {
         var response = restClient.put()
                 .uri("/api/v1/organizations/{orgId}/departments/{deptId}", orgA.getId(), deptAId)

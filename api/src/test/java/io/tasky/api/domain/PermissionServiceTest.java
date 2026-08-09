@@ -25,56 +25,35 @@ class PermissionServiceTest extends BaseIntegrationTest {
         var user = user(UUID.randomUUID(), UUID.randomUUID(), Role.admin);
         assertThat(permissionService.canInviteRole(user.role(), Role.admin)).isTrue();
         assertThat(permissionService.canInviteRole(user.role(), Role.manager)).isTrue();
-        assertThat(permissionService.canInviteRole(user.role(), Role.leader)).isTrue();
         assertThat(permissionService.canInviteRole(user.role(), Role.employee)).isTrue();
     }
 
     @Test
-    void managerCanInviteOnlyLeadersAndEmployees() {
+    void managerCanInviteOnlyEmployees() {
         assertThat(permissionService.canInviteRole(Role.manager, Role.admin)).isFalse();
         assertThat(permissionService.canInviteRole(Role.manager, Role.manager)).isFalse();
-        assertThat(permissionService.canInviteRole(Role.manager, Role.leader)).isTrue();
         assertThat(permissionService.canInviteRole(Role.manager, Role.employee)).isTrue();
-    }
-
-    @Test
-    void leaderCanInviteOnlyEmployees() {
-        assertThat(permissionService.canInviteRole(Role.leader, Role.admin)).isFalse();
-        assertThat(permissionService.canInviteRole(Role.leader, Role.manager)).isFalse();
-        assertThat(permissionService.canInviteRole(Role.leader, Role.leader)).isFalse();
-        assertThat(permissionService.canInviteRole(Role.leader, Role.employee)).isTrue();
     }
 
     @Test
     void employeeCannotInviteAnyone() {
         assertThat(permissionService.canInviteRole(Role.employee, Role.admin)).isFalse();
         assertThat(permissionService.canInviteRole(Role.employee, Role.manager)).isFalse();
-        assertThat(permissionService.canInviteRole(Role.employee, Role.leader)).isFalse();
         assertThat(permissionService.canInviteRole(Role.employee, Role.employee)).isFalse();
     }
 
     @Test
     void adminCanCreateActivityForEveryoneExceptAdmin() {
         assertThat(permissionService.canCreateActivityFor(Role.admin, Role.manager)).isTrue();
-        assertThat(permissionService.canCreateActivityFor(Role.admin, Role.leader)).isTrue();
         assertThat(permissionService.canCreateActivityFor(Role.admin, Role.employee)).isTrue();
         assertThat(permissionService.canCreateActivityFor(Role.admin, Role.admin)).isFalse();
     }
 
     @Test
-    void managerCanCreateActivityForLeaderAndEmployee() {
-        assertThat(permissionService.canCreateActivityFor(Role.manager, Role.leader)).isTrue();
+    void managerCanCreateActivityForEmployeeOnly() {
         assertThat(permissionService.canCreateActivityFor(Role.manager, Role.employee)).isTrue();
         assertThat(permissionService.canCreateActivityFor(Role.manager, Role.admin)).isFalse();
         assertThat(permissionService.canCreateActivityFor(Role.manager, Role.manager)).isFalse();
-    }
-
-    @Test
-    void leaderCanCreateActivityForEmployeeOnly() {
-        assertThat(permissionService.canCreateActivityFor(Role.leader, Role.employee)).isTrue();
-        assertThat(permissionService.canCreateActivityFor(Role.leader, Role.admin)).isFalse();
-        assertThat(permissionService.canCreateActivityFor(Role.leader, Role.manager)).isFalse();
-        assertThat(permissionService.canCreateActivityFor(Role.leader, Role.leader)).isFalse();
     }
 
     @Test

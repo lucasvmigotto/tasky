@@ -1,6 +1,5 @@
 package io.tasky.api.domain.activity;
 
-import io.tasky.api.domain.label.LabelRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.membership.Role;
@@ -41,8 +40,6 @@ class ActivityServiceTest {
     @Mock
     private OrganizationMembershipRepository membershipRepository;
     @Mock
-    private LabelRepository labelRepository;
-    @Mock
     private PermissionService permissionService;
 
     @InjectMocks
@@ -55,7 +52,7 @@ class ActivityServiceTest {
                 activityService.createActivity(
                         UUID.randomUUID(), "Test", "Desc", (short) 1,
                         Instant.now().plusSeconds(3600), Instant.now(),
-                        UUID.randomUUID(), null, null, user
+                        UUID.randomUUID(), null, user
                 ));
     }
 
@@ -66,7 +63,7 @@ class ActivityServiceTest {
                 activityService.createActivity(
                         UUID.randomUUID(), "Test", "Desc", (short) 4,
                         Instant.now(), Instant.now().plusSeconds(3600),
-                        UUID.randomUUID(), null, null, user
+                        UUID.randomUUID(), null, user
                 ));
     }
 
@@ -78,7 +75,7 @@ class ActivityServiceTest {
                 activityService.createActivity(
                         UUID.randomUUID(), "Test", "Desc", (short) 1,
                         now, now,
-                        UUID.randomUUID(), null, null, user
+                        UUID.randomUUID(), null, user
                 ));
     }
 
