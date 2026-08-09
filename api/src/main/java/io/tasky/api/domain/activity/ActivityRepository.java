@@ -12,7 +12,6 @@ import io.tasky.api.domain.sector.SectorMemberWorkload;
 import io.tasky.api.domain.notification.ReminderCandidate;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,14 +26,6 @@ public interface ActivityRepository extends JpaRepository<Activity, UUID>, JpaSp
     List<Activity> findTop20ByProject_Department_Organization_IdAndTitleContainingIgnoreCaseOrderByTitleAsc(
             UUID organizationId, String title);
     List<Activity> findByParentActivityId(UUID parentActivityId);
-
-    @Query("""
-            select al.activity.id as activityId, al.label.id as labelId
-            from Activity a
-            join a.labels al
-            where a.id in :activityIds
-            """)
-    List<ActivityLabelRef> findActivityLabelRefs(@Param("activityIds") Collection<UUID> activityIds);
 
     Optional<Activity> findByIdAndProject_Department_Organization_Id(UUID id, UUID organizationId);
 

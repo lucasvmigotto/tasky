@@ -10,7 +10,6 @@ public record UpdateInternalRequestRequest(
         @Size(max = 5000) String description,
         String priority,
         UUID responsibleDepartmentId,
-        UUID responsibleTeamId,
         UUID assigneeMembershipId,
         Instant desiredDueDate
 ) {}

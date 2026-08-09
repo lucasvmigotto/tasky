@@ -16,7 +16,6 @@ public record UpdateActivityRequest(
         UUID assignedToMembershipId,
         UUID parentActivityId,
         Long estimatedSeconds,
-        List<UUID> labelIds,
         ActivityStatus status,
         Integer position,
         ActivityTaskType taskType,

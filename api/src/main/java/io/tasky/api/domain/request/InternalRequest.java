@@ -5,7 +5,6 @@ import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.project.Project;
-import io.tasky.api.domain.team.Team;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -75,10 +74,6 @@ public class InternalRequest {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "responsible_department_id")
     private Department responsibleDepartment;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "responsible_team_id")
-    private Team responsibleTeam;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_membership_id")

@@ -2,7 +2,6 @@ package io.tasky.api.security;
 
 import io.tasky.api.domain.activity.ActivityRepository;
 import io.tasky.api.domain.department.DepartmentRepository;
-import io.tasky.api.domain.membership.LeaderTeamRepository;
 import io.tasky.api.domain.membership.ManagerDepartmentRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
@@ -11,7 +10,6 @@ import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
 import io.tasky.api.domain.project.ProjectAssignmentRepository;
 import io.tasky.api.domain.project.CrossDepartmentProjectAccessRepository;
-import io.tasky.api.domain.team.TeamRepository;
 import io.tasky.api.domain.timesheet.TimesheetPeriod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -30,9 +28,7 @@ public class PermissionService {
 
     private final OrganizationMembershipRepository membershipRepository;
     private final ManagerDepartmentRepository managerDepartmentRepository;
-    private final LeaderTeamRepository leaderTeamRepository;
     private final DepartmentRepository departmentRepository;
-    private final TeamRepository teamRepository;
     private final ProjectRepository projectRepository;
     private final ProjectAssignmentRepository projectAssignmentRepository;
     private final CrossDepartmentProjectAccessRepository crossDepartmentProjectAccessRepository;
@@ -41,23 +37,20 @@ public class PermissionService {
     private static final Map<Role, Set<Role>> ROLE_HIERARCHY = new EnumMap<>(Role.class);
 
     static {
-        ROLE_HIERARCHY.put(Role.admin, Set.of(Role.admin, Role.manager, Role.leader, Role.employee));
-        ROLE_HIERARCHY.put(Role.manager, Set.of(Role.manager, Role.leader, Role.employee));
-        ROLE_HIERARCHY.put(Role.leader, Set.of(Role.leader, Role.employee));
+        ROLE_HIERARCHY.put(Role.admin, Set.of(Role.admin, Role.manager, Role.employee));
+        ROLE_HIERARCHY.put(Role.manager, Set.of(Role.manager, Role.employee));
         ROLE_HIERARCHY.put(Role.employee, Set.of(Role.employee));
     }
 
     public boolean canInviteRole(Role inviterRole, Role targetRole) {
         if (inviterRole == Role.admin) return true;
-        if (inviterRole == Role.manager) return targetRole == Role.leader || targetRole == Role.employee;
-        if (inviterRole == Role.leader) return targetRole == Role.employee;
+        if (inviterRole == Role.manager) return targetRole == Role.employee;
         return false;
     }
 
     public boolean canCreateActivityFor(Role creatorRole, Role targetRole) {
         if (creatorRole == Role.admin) return targetRole != Role.admin;
-        if (creatorRole == Role.manager) return targetRole == Role.leader || targetRole == Role.employee;
-        if (creatorRole == Role.leader) return targetRole == Role.employee;
+        if (creatorRole == Role.manager) return targetRole == Role.employee;
         return false;
     }
 
@@ -79,34 +72,12 @@ public class PermissionService {
                 .orElse(false);
     }
 
-    public boolean isLeaderOfTeam(UUID userId, UUID teamId) {
-        return getMembershipByUserAndTeam(userId, teamId)
-                .map(m -> {
-                    if (m.getRole() == Role.admin) return true;
-                    if (m.getRole() == Role.manager) {
-                        UUID deptId = teamRepository.findById(teamId)
-                                .map(t -> t.getDepartment().getId())
-                                .orElse(null);
-                        return deptId != null && managerDepartmentRepository.existsByMembershipIdAndDepartmentId(m.getId(), deptId);
-                    }
-                    if (m.getRole() == Role.leader) {
-                        return leaderTeamRepository.existsByMembershipIdAndTeamId(m.getId(), teamId);
-                    }
-                    return false;
-                })
-                .orElse(false);
-    }
-
     public boolean canManageOrganization(SecurityUser user, UUID orgId) {
         return isAdmin(user.id(), orgId);
     }
 
     public boolean canManageDepartment(SecurityUser user, UUID deptId) {
         return isManagerOfDepartment(user.id(), deptId);
-    }
-
-    public boolean canManageTeam(SecurityUser user, UUID teamId) {
-        return isLeaderOfTeam(user.id(), teamId);
     }
 
     public boolean canManageMembership(SecurityUser user, UUID membershipId) {
@@ -132,10 +103,7 @@ public class PermissionService {
             return managerDepartmentRepository.existsByMembershipIdAndDepartmentId(
                     actor.getId(), target.getPrimaryDepartmentId());
         }
-        return actor.getRole() == Role.leader
-                && target.getRole() == Role.employee
-                && target.getPrimaryTeamId() != null
-                && leaderTeamRepository.existsByMembershipIdAndTeamId(actor.getId(), target.getPrimaryTeamId());
+        return false;
     }
 
     public boolean canCreateProject(SecurityUser user, UUID deptId) {
@@ -158,7 +126,8 @@ public class PermissionService {
                 .map(project -> getMembership(user.id(), orgId)
                         .map(membership -> {
                             if (membership.getRole() == Role.admin
-                                    || project.getManagerMembership().getId().equals(membership.getId())
+                                    || (project.getManagerMembership() != null
+                                        && project.getManagerMembership().getId().equals(membership.getId()))
                                     || projectAssignmentRepository.existsByProjectIdAndMembershipId(projectId, membership.getId())
                                     || managerDepartmentRepository.existsByMembershipIdAndDepartmentId(
                                             membership.getId(), project.getDepartment().getId())) {
@@ -214,9 +183,6 @@ public class PermissionService {
                     if (m.getRole() == Role.manager) {
                         return !managerDepartmentRepository.findByMembershipId(m.getId()).isEmpty();
                     }
-                    if (m.getRole() == Role.leader) {
-                        return !leaderTeamRepository.findByMembershipId(m.getId()).isEmpty();
-                    }
                     return true;
                 })
                 .orElse(false);
@@ -264,14 +230,29 @@ public class PermissionService {
         if (!managedDepartmentIds.isEmpty()) {
             projectRepository.findByDepartmentIdIn(managedDepartmentIds).forEach(p -> ids.add(p.getId()));
         }
-        Set<UUID> accessibleDepartmentIds = new HashSet<>(managedDepartmentIds);
-        leaderTeamRepository.findDepartmentIdsByMembershipId(membership.getId())
-                .forEach(accessibleDepartmentIds::add);
-        if (!accessibleDepartmentIds.isEmpty()) {
-            crossDepartmentProjectAccessRepository.findProjectIdsByDepartmentIdIn(accessibleDepartmentIds)
+        if (!managedDepartmentIds.isEmpty()) {
+            crossDepartmentProjectAccessRepository.findProjectIdsByDepartmentIdIn(managedDepartmentIds)
                     .forEach(ids::add);
         }
         return ids;
+    }
+
+    public Set<UUID> scopedMembershipIdsForDepartment(SecurityUser user, UUID orgId, UUID departmentId) {
+        if (departmentId == null) {
+            return scopedMembershipIds(user, orgId);
+        }
+        OrganizationMembership actor = getMembership(user.id(), orgId)
+                .orElseThrow(() -> new SecurityException("Not a member of this organization"));
+        if (actor.getRole() != Role.admin) {
+            return scopedMembershipIds(user, orgId);
+        }
+        if (!departmentRepository.findByIdAndOrganizationId(departmentId, orgId).isPresent()) {
+            throw new IllegalArgumentException("Department not found in this organization");
+        }
+        return membershipRepository.findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdIn(orgId, Set.of(departmentId))
+                .stream()
+                .map(OrganizationMembership::getId)
+                .collect(Collectors.toSet());
     }
 
     public Set<UUID> scopedMembershipIds(SecurityUser user, UUID orgId) {
@@ -293,16 +274,6 @@ public class PermissionService {
                     .collect(Collectors.toSet());
             if (!departmentIds.isEmpty()) {
                 membershipRepository.findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdIn(orgId, departmentIds)
-                        .forEach(m -> scoped.add(m.getId()));
-            }
-            return scoped;
-        }
-        if (actor.getRole() == Role.leader) {
-            Set<UUID> teamIds = leaderTeamRepository.findByMembershipId(actor.getId()).stream()
-                    .map(leaderTeam -> leaderTeam.getTeam().getId())
-                    .collect(Collectors.toSet());
-            if (!teamIds.isEmpty()) {
-                membershipRepository.findByOrganizationIdAndIsActiveTrueAndPrimaryTeamIdIn(orgId, teamIds)
                         .forEach(m -> scoped.add(m.getId()));
             }
             return scoped;
@@ -345,24 +316,16 @@ public class PermissionService {
         if (actor.getRole() == Role.admin) {
             return true;
         }
-        if (actor.getRole() == Role.manager
+        return actor.getRole() == Role.manager
                 && target.getPrimaryDepartmentId() != null
                 && managerDepartmentRepository.existsByMembershipIdAndDepartmentId(
-                        actor.getId(), target.getPrimaryDepartmentId())) {
-            return true;
-        }
-        return actor.getRole() == Role.leader
-                && target.getPrimaryTeamId() != null
-                && leaderTeamRepository.existsByMembershipIdAndTeamId(actor.getId(), target.getPrimaryTeamId());
+                        actor.getId(), target.getPrimaryDepartmentId());
     }
 
     private Set<UUID> accessibleDepartmentIds(OrganizationMembership membership) {
         Set<UUID> departmentIds = new java.util.HashSet<>();
         managerDepartmentRepository.findByMembershipId(membership.getId()).stream()
                 .map(managerDepartment -> managerDepartment.getDepartment().getId())
-                .forEach(departmentIds::add);
-        leaderTeamRepository.findByMembershipId(membership.getId()).stream()
-                .map(leaderTeam -> leaderTeam.getTeam().getDepartment().getId())
                 .forEach(departmentIds::add);
         return departmentIds;
     }
@@ -378,12 +341,6 @@ public class PermissionService {
     public Optional<OrganizationMembership> getMembershipByUserAndDepartment(UUID userId, UUID deptId) {
         return departmentRepository.findById(deptId)
                 .flatMap(dept -> membershipRepository.findByUserIdAndOrganizationIdAndIsActiveTrue(userId, dept.getOrganization().getId()));
-    }
-
-    public Optional<OrganizationMembership> getMembershipByUserAndTeam(UUID userId, UUID teamId) {
-        return teamRepository.findById(teamId)
-                .flatMap(team -> departmentRepository.findById(team.getDepartment().getId())
-                        .flatMap(dept -> membershipRepository.findByUserIdAndOrganizationIdAndIsActiveTrue(userId, dept.getOrganization().getId())));
     }
 
     private UUID getOrgIdFromDept(UUID deptId) {

@@ -12,6 +12,5 @@ public record CreateInternalRequestRequest(
         String priority,
         UUID requestingDepartmentId,
         UUID responsibleDepartmentId,
-        UUID responsibleTeamId,
         Instant desiredDueDate
 ) {}

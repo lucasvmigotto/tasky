@@ -8,8 +8,6 @@ import io.tasky.api.api.activity.ActivityResponse;
 import io.tasky.api.api.common.ConflictException;
 import io.tasky.api.api.common.PaginatedResponse;
 import io.tasky.api.config.AppConfig;
-import io.tasky.api.domain.label.Label;
-import io.tasky.api.domain.label.LabelRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.membership.MembershipService;
@@ -61,7 +59,6 @@ public class ActivityService {
     private final ProjectRepository projectRepository;
     private final MembershipService membershipService;
     private final OrganizationMembershipRepository membershipRepository;
-    private final LabelRepository labelRepository;
     private final PermissionService permissionService;
     private final NotificationService notificationService;
 
@@ -73,12 +70,11 @@ public class ActivityService {
             Instant startDatetime,
             Instant endDatetime,
             UUID assignedToMembershipId,
-            List<UUID> labelIds,
             List<UUID> parentActivityIds,
             SecurityUser creator
     ) {
         return createActivity(projectId, title, description, weight, startDatetime, endDatetime,
-                assignedToMembershipId, null, null, labelIds, parentActivityIds, creator);
+                assignedToMembershipId, null, null, parentActivityIds, creator);
     }
 
     public Activity createActivity(
@@ -91,12 +87,11 @@ public class ActivityService {
             UUID assignedToMembershipId,
             UUID parentActivityId,
             Long estimatedSeconds,
-            List<UUID> labelIds,
             List<UUID> parentActivityIds,
             SecurityUser creator
     ) {
         return createActivity(projectId, title, description, weight, startDatetime, endDatetime,
-                assignedToMembershipId, parentActivityId, estimatedSeconds, labelIds, parentActivityIds, creator,
+                assignedToMembershipId, parentActivityId, estimatedSeconds, parentActivityIds, creator,
                 null, null, null);
     }
 
@@ -110,7 +105,6 @@ public class ActivityService {
             UUID assignedToMembershipId,
             UUID parentActivityId,
             Long estimatedSeconds,
-            List<UUID> labelIds,
             List<UUID> parentActivityIds,
             SecurityUser creator,
             ActivityTaskType taskType,
@@ -164,18 +158,6 @@ public class ActivityService {
                 .build();
 
         activity = activityRepository.save(activity);
-
-        if (labelIds != null && !labelIds.isEmpty()) {
-            Set<ActivityLabel> activityLabels = new HashSet<>();
-            for (UUID labelId : labelIds) {
-                Label label = labelRepository.findById(labelId)
-                        .filter(l -> l.getOrganization().getId().equals(orgId))
-                        .orElseThrow(() -> new IllegalArgumentException("Label not found"));
-                activityLabels.add(new ActivityLabel(activity, label));
-            }
-            activity.setLabels(activityLabels);
-            activity = activityRepository.save(activity);
-        }
 
         if (parentActivityIds != null) {
             for (UUID parentId : parentActivityIds) {
@@ -285,7 +267,6 @@ public class ActivityService {
             UUID assignedToMembershipId,
             UUID parentActivityId,
             Long estimatedSeconds,
-            List<UUID> labelIds,
             ActivityStatus status,
             Integer position,
             ActivityTaskType taskType,
@@ -294,7 +275,7 @@ public class ActivityService {
             SecurityUser actor
     ) {
         return updateActivity(orgId, activityId, title, description, weight, startDatetime, endDatetime,
-                assignedToMembershipId, parentActivityId, estimatedSeconds, labelIds, status, position,
+                assignedToMembershipId, parentActivityId, estimatedSeconds, status, position,
                 taskType, priority, dueDate, null, actor);
     }
 
@@ -309,7 +290,6 @@ public class ActivityService {
             UUID assignedToMembershipId,
             UUID parentActivityId,
             Long estimatedSeconds,
-            List<UUID> labelIds,
             ActivityStatus status,
             Integer position,
             ActivityTaskType taskType,
@@ -373,16 +353,6 @@ public class ActivityService {
         }
         if (dueDate != null) {
             activity.setDueDate(dueDate);
-        }
-
-        if (labelIds != null) {
-            activity.getLabels().clear();
-            for (UUID labelId : labelIds) {
-                Label label = labelRepository.findById(labelId)
-                        .filter(l -> l.getOrganization().getId().equals(orgId))
-                        .orElseThrow(() -> new IllegalArgumentException("Label not found"));
-                activity.getLabels().add(new ActivityLabel(activity, label));
-            }
         }
 
         if (status != null || position != null) {
@@ -635,22 +605,18 @@ public class ActivityService {
         List<UUID> ids = activities.stream().map(Activity::getId).toList();
         Map<UUID, ActivityChecklistCount> counts = checklistRepository.countChecklistByActivityIds(ids).stream()
                 .collect(Collectors.toMap(ActivityChecklistCount::getActivityId, Function.identity()));
-        Map<UUID, List<UUID>> labelIdsByActivity = activityRepository.findActivityLabelRefs(ids).stream()
-                .collect(Collectors.groupingBy(ActivityLabelRef::getActivityId,
-                        Collectors.mapping(ActivityLabelRef::getLabelId, Collectors.toList())));
         Map<UUID, List<UUID>> parentIdsByActivity = dependencyRepository.findParentRefsByChildActivityIdIn(ids).stream()
                 .collect(Collectors.groupingBy(ActivityDependencyRef::getChildActivityId,
                         Collectors.mapping(ActivityDependencyRef::getParentActivityId, Collectors.toList())));
         return activities.stream()
                 .map(activity -> toResponse(activity,
                         counts.get(activity.getId()),
-                        labelIdsByActivity.getOrDefault(activity.getId(), List.of()),
                         parentIdsByActivity.getOrDefault(activity.getId(), List.of())))
                 .toList();
     }
 
     private ActivityResponse toResponse(Activity activity, ActivityChecklistCount checklistCount,
-                                        List<UUID> labelIds, List<UUID> parentIds) {
+                                        List<UUID> parentIds) {
         int checklistTotal = checklistCount != null ? (int) checklistCount.getTotal() : 0;
         int checklistCompleted = checklistCount != null ? (int) checklistCount.getCompleted() : 0;
 
@@ -672,7 +638,6 @@ public class ActivityService {
                 activity.getEstimatedSeconds(),
                 activity.getCreatedBy().getId(),
                 activity.getAssignedTo() != null ? activity.getAssignedTo().getId() : null,
-                labelIds,
                 parentIds,
                 checklistTotal,
                 checklistCompleted,

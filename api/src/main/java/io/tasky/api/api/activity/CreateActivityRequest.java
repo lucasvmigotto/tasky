@@ -18,7 +18,6 @@ public record CreateActivityRequest(
         @NotNull UUID assignedToMembershipId,
         UUID parentActivityId,
         Long estimatedSeconds,
-        List<UUID> labelIds,
         List<UUID> parentActivityIds,
         ActivityTaskType taskType,
         ActivityPriority priority,

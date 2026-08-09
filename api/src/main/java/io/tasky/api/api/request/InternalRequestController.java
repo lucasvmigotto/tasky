@@ -51,7 +51,6 @@ public class InternalRequestController {
                 parsePriority(request.priority()),
                 request.requestingDepartmentId(),
                 request.responsibleDepartmentId(),
-                request.responsibleTeamId(),
                 request.desiredDueDate());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
     }
@@ -106,7 +105,6 @@ public class InternalRequestController {
                 request.title(), request.description(),
                 parsePriority(request.priority()),
                 request.responsibleDepartmentId(),
-                request.responsibleTeamId(),
                 request.assigneeMembershipId(),
                 request.desiredDueDate());
         return ResponseEntity.ok(toResponse(updated));
@@ -129,7 +127,7 @@ public class InternalRequestController {
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requiredOrgId(user);
         InternalRequest updated = requestService.update(
-                orgId, requestId, null, null, null, null, null,
+                orgId, requestId, null, null, null, null,
                 request.assigneeMembershipId(), null);
         return ResponseEntity.ok(toResponse(updated));
     }
@@ -244,7 +242,6 @@ public class InternalRequestController {
                 request.getRequester() != null ? request.getRequester().getId() : null,
                 request.getRequestingDepartment() != null ? request.getRequestingDepartment().getId() : null,
                 request.getResponsibleDepartment() != null ? request.getResponsibleDepartment().getId() : null,
-                request.getResponsibleTeam() != null ? request.getResponsibleTeam().getId() : null,
                 request.getAssignee() != null ? request.getAssignee().getId() : null,
                 request.getDesiredDueDate(),
                 request.getProject() != null ? request.getProject().getId() : null,

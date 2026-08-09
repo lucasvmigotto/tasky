@@ -14,7 +14,6 @@ public record InternalRequestResponse(
         UUID requesterMembershipId,
         UUID requestingDepartmentId,
         UUID responsibleDepartmentId,
-        UUID responsibleTeamId,
         UUID assigneeMembershipId,
         Instant desiredDueDate,
         UUID projectId,

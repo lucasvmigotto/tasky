@@ -11,8 +11,6 @@ import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
 import io.tasky.api.domain.project.ProjectService;
-import io.tasky.api.domain.team.Team;
-import io.tasky.api.domain.team.TeamRepository;
 import io.tasky.api.security.SecurityUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,7 +33,6 @@ public class InternalRequestService {
     private final RequestCommentRepository commentRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final DepartmentRepository departmentRepository;
-    private final TeamRepository teamRepository;
     private final ProjectRepository projectRepository;
     private final ActivityRepository activityRepository;
     private final ProjectService projectService;
@@ -45,7 +42,7 @@ public class InternalRequestService {
                                   String title, String description,
                                   RequestPriority priority,
                                   UUID requestingDepartmentId, UUID responsibleDepartmentId,
-                                  UUID responsibleTeamId, Instant desiredDueDate) {
+                                  Instant desiredDueDate) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Title is required");
         }
@@ -54,7 +51,6 @@ public class InternalRequestService {
 
         Department requestingDept = resolveDepartment(orgId, requestingDepartmentId);
         Department responsibleDept = resolveDepartment(orgId, responsibleDepartmentId);
-        Team responsibleTeam = resolveTeam(orgId, responsibleTeamId, responsibleDept);
 
         int year = Year.now().getValue();
         long seq = requestRepository.nextSequence(orgId, year);
@@ -70,7 +66,6 @@ public class InternalRequestService {
                 .requester(requester)
                 .requestingDepartment(requestingDept)
                 .responsibleDepartment(responsibleDept)
-                .responsibleTeam(responsibleTeam)
                 .desiredDueDate(desiredDueDate)
                 .build();
         request = requestRepository.save(request);
@@ -117,7 +112,7 @@ public class InternalRequestService {
     public InternalRequest update(UUID orgId, UUID requestId,
                                   String title, String description,
                                   RequestPriority priority,
-                                  UUID responsibleDepartmentId, UUID responsibleTeamId,
+                                  UUID responsibleDepartmentId,
                                   UUID assigneeMembershipId, Instant desiredDueDate) {
         InternalRequest request = get(orgId, requestId);
         requireEditableStatus(request);
@@ -133,9 +128,6 @@ public class InternalRequestService {
         }
         if (responsibleDepartmentId != null) {
             request.setResponsibleDepartment(resolveDepartment(orgId, responsibleDepartmentId));
-        }
-        if (responsibleTeamId != null) {
-            request.setResponsibleTeam(resolveTeam(orgId, responsibleTeamId, request.getResponsibleDepartment()));
         }
         if (assigneeMembershipId != null) {
             request.setAssignee(membershipRepository.findById(assigneeMembershipId)
@@ -212,13 +204,13 @@ public class InternalRequestService {
             throw new IllegalArgumentException("A responsible department is required to convert to a project");
         }
         UUID deptId = request.getResponsibleDepartment().getId();
-        UUID managerId = request.getAssignee() != null ? request.getAssignee().getId() : request.getRequester().getId();
         Project project = projectService.createProject(
                 deptId,
                 name != null && !name.isBlank() ? name.trim() : request.getTitle().trim(),
                 description != null ? description : request.getDescription(),
-                managerId,
-                null, null, null, null, null);
+                null,
+                null,
+                null, null, null, null);
         request.setProject(project);
         RequestStatus previous = request.getStatus();
         request.setStatus(RequestStatus.PLANNED);
@@ -296,20 +288,5 @@ public class InternalRequestService {
         return departmentRepository.findById(departmentId)
                 .filter(d -> d.getOrganization().getId().equals(orgId))
                 .orElseThrow(() -> new IllegalArgumentException("Department not found"));
-    }
-
-    private Team resolveTeam(UUID orgId, UUID teamId, Department responsibleDepartment) {
-        if (teamId == null) {
-            return null;
-        }
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new IllegalArgumentException("Team not found"));
-        if (!team.getDepartment().getOrganization().getId().equals(orgId)) {
-            throw new IllegalArgumentException("Team not found");
-        }
-        if (responsibleDepartment != null && !team.getDepartment().getId().equals(responsibleDepartment.getId())) {
-            throw new IllegalArgumentException("Team does not belong to the responsible department");
-        }
-        return team;
     }
 }
