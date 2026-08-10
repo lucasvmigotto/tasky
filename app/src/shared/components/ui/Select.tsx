@@ -4,6 +4,7 @@ import { cn } from '@/shared/lib/cn'
 export interface SelectOption {
   value: string
   label: string
+  color?: string
 }
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
@@ -41,8 +42,8 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           )}
           {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+            <option key={option.value} value={option.value} style={option.color ? { color: option.color } : undefined}>
+              {option.color ? `● ${option.label}` : option.label}
             </option>
           ))}
         </select>

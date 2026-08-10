@@ -51,11 +51,6 @@ function DependencyNode({
             <Badge variant="secondary" className="text-[10px]">
               W{activity.weight}
             </Badge>
-            {activity.labelIds?.slice(0, 2).map((labelId) => (
-              <Badge key={labelId} variant="outline" className="text-[10px]">
-                {labelId.slice(0, 8)}
-              </Badge>
-            ))}
           </div>
         </div>
       </div>
@@ -92,7 +87,7 @@ export function DependencyTree({
         >
           {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           <Link2 className="size-4" />
-          Dependencies ({parentDeps.length + childDeps.length})
+          Dependências ({parentDeps.length + childDeps.length})
         </button>
 
         <AnimatePresence>
@@ -105,7 +100,7 @@ export function DependencyTree({
             >
               {parentDeps.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Depends on</p>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Depende de</p>
                   <div className="space-y-2">
                     {parentDeps.map((dep) => {
                       const parent = getActivityById(dep.parentActivityId, allActivities)
@@ -137,7 +132,7 @@ export function DependencyTree({
 
               {childDeps.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Blocks</p>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Bloqueia</p>
                   <div className="space-y-2">
                     {childDeps.map((dep) => {
                       const child = getActivityById(dep.childActivityId, allActivities)
@@ -158,14 +153,14 @@ export function DependencyTree({
 
               {parentDeps.length === 0 && childDeps.length === 0 && (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                  No dependencies yet.
+                  Nenhuma dependência ainda.
                 </p>
               )}
 
               {onAddDependency && (
                 <Button variant="outline" size="sm" className="w-full" onClick={onAddDependency}>
                   <Link2 className="mr-1.5 size-3.5" />
-                  Add dependency
+                  Adicionar dependência
                 </Button>
               )}
             </motion.div>

@@ -40,9 +40,9 @@ function Sidebar({ items, isCollapsed, collapsed, onToggle, isMobile, isOpen, lo
         actualMobile && 'fixed inset-y-0 left-0 z-50 w-64',
       )}
     >
-      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
+      <div className="flex h-14 items-center justify-between gap-2 border-b border-sidebar-border px-3">
         {(!actualCollapsed || actualMobile) && (
-          <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
             {logo || (
               <span className="text-lg font-bold tracking-tight">TaskY</span>
             )}
@@ -56,7 +56,8 @@ function Sidebar({ items, isCollapsed, collapsed, onToggle, isMobile, isOpen, lo
         {!actualMobile && onToggle && (
           <button
             onClick={onToggle}
-            className="rounded-md p-1 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="shrink-0 rounded-md p-1 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            aria-label={actualCollapsed ? 'Expandir menu' : 'Recolher menu'}
           >
             {actualCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
           </button>

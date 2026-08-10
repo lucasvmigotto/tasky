@@ -50,15 +50,29 @@ interface DropdownMenuTriggerProps extends HTMLAttributes<HTMLDivElement> {
   asChild?: boolean
 }
 
-function DropdownMenuTrigger({ children, className, ...props }: DropdownMenuTriggerProps) {
+function DropdownMenuTrigger({ children, className, onClick, onKeyDown, ...props }: DropdownMenuTriggerProps) {
   const { open, setOpen, triggerRef } = useDropdownMenuContext()
 
   return (
     <div
       ref={triggerRef}
       className={cn('inline-block cursor-pointer', className)}
-      onClick={() => setOpen(!open)}
       {...props}
+      role={props.role ?? 'button'}
+      tabIndex={props.tabIndex ?? 0}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onClick={(event) => {
+        onClick?.(event)
+        setOpen(!open)
+      }}
+      onKeyDown={(event) => {
+        onKeyDown?.(event)
+        if (!event.defaultPrevented && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault()
+          setOpen(!open)
+        }
+      }}
     >
       {children}
     </div>
@@ -159,7 +173,7 @@ interface DropdownMenuItemProps extends HTMLAttributes<HTMLDivElement> {
   inset?: boolean
 }
 
-function DropdownMenuItem({ className, inset, ...props }: DropdownMenuItemProps) {
+function DropdownMenuItem({ className, inset, onClick, onKeyDown, ...props }: DropdownMenuItemProps) {
   const { setOpen } = useDropdownMenuContext()
 
   return (
@@ -169,11 +183,20 @@ function DropdownMenuItem({ className, inset, ...props }: DropdownMenuItemProps)
         inset && 'pl-8',
         className,
       )}
+      {...props}
+      role={props.role ?? 'menuitem'}
+      tabIndex={props.tabIndex ?? 0}
       onClick={(e) => {
-        props.onClick?.(e)
+        onClick?.(e)
         setOpen(false)
       }}
-      {...props}
+      onKeyDown={(event) => {
+        onKeyDown?.(event)
+        if (!event.defaultPrevented && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault()
+          event.currentTarget.click()
+        }
+      }}
     />
   )
 }

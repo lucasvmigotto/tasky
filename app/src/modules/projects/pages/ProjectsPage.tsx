@@ -40,7 +40,7 @@ const DEPT_ICON_COLORS: Record<string, string> = {
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 
 const itemVariants = {
@@ -68,7 +68,7 @@ export default function ProjectsPage() {
     return projects.filter((p) => p.name.toLowerCase().includes(q))
   }, [projects, search])
 
-  const getDeptName = (deptId: string) => departments?.find((d) => d.id === deptId)?.name ?? 'Unknown'
+  const getDeptName = (deptId: string) => departments?.find((d) => d.id === deptId)?.name ?? 'Desconhecido'
 
   if (isLoading) {
     return (
@@ -85,17 +85,17 @@ export default function ProjectsPage() {
   if (error) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Projects" description="View and manage projects" />
-        <EmptyState icon={FolderKanban} title="Failed to load projects" description={error.message} />
+        <PageHeader title="Projetos" description="Ver e gerenciar projetos" />
+        <EmptyState icon={FolderKanban} title="Falha ao carregar projetos" description={error.message} />
       </div>
     )
   }
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Projects" description="View and manage your projects">
+      <PageHeader title="Projetos" description="Veja e gerencie seus projetos">
         <Input
-          placeholder="Search projects..."
+          placeholder="Buscar projetos..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-48"
@@ -105,8 +105,8 @@ export default function ProjectsPage() {
       {filtered.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
-          title={search ? 'No projects match your search' : 'No projects yet'}
-          description={search ? 'Try a different search term.' : 'Projects help you organize activities and track time.'}
+          title={search ? 'Nenhum projeto corresponde à busca' : 'Nenhum projeto ainda'}
+          description={search ? 'Tente um termo de busca diferente.' : 'Projetos ajudam a organizar atividades e registrar o tempo.'}
         />
       ) : (
         <motion.div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" variants={containerVariants}>

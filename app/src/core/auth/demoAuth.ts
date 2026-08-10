@@ -23,12 +23,16 @@ export function getDemoAuth(): DemoAuthData {
       name: 'TaskY Labs',
       slug: 'tasky-labs',
       role: 'admin' as Role,
+      timezone: 'America/Sao_Paulo',
+      workWeekStartsOn: 1,
     },
     {
       id: 'org-002',
       name: 'Agilize',
       slug: 'agilize',
       role: 'employee' as Role,
+      timezone: 'America/Sao_Paulo',
+      workWeekStartsOn: 1,
     },
   ]
 

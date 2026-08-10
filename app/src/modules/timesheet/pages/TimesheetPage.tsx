@@ -1,25 +1,24 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   ChevronLeft,
   ChevronRight,
   Calendar,
   Plus,
-  Copy,
-  Save,
   Clock,
   Trash2,
   GripVertical,
   Timer,
   ArrowRight,
-  X,
   FileText,
-  AlignLeft,
+  Ticket,
+  Loader2,
+  FolderKanban,
+  Search,
 } from 'lucide-react'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { Card } from '@/shared/components/ui/Card'
 import { Button } from '@/shared/components/ui/Button'
-import { Select } from '@/shared/components/ui/Select'
 import { Separator } from '@/shared/components/ui/Separator'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/shared/components/ui/Tooltip'
 import { Badge } from '@/shared/components/ui/Badge'
@@ -33,31 +32,20 @@ import {
   DialogDescription,
 } from '@/shared/components/ui/Dialog'
 import { cn } from '@/shared/lib/cn'
-import { useHoursMask } from '@/shared/hooks/useHoursMask'
+import { useHoursMask, hoursToMaskDigits } from '@/shared/hooks/useHoursMask'
 import { useAuthStore } from '@/core/auth/authStore'
-import { useActivityQuery, useProjects } from '@/core/api/hooks'
+import { useTimeEntries, useProjects, useCreateManualTimeEntry, useUpdateTimeEntry, useDeleteTimeEntry } from '@/core/api/hooks'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { EmptyState } from '@/shared/components/ui/EmptyState'
+import { toast } from 'sonner'
 import type { UUID } from '@/core/api/types'
+import { dateKeyInTimeZone, getEffectiveTimeZone, zonedDateTimeToIso } from '@/shared/lib/timezone'
+import { useTimeTrackerStore } from '@/core/tracker/timeTrackerStore'
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 const FULL_DAY_NAMES = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
 
-const PROJECT_COLORS = [
-  { dot: 'bg-[#3b82f6]', text: 'text-[#60a5fa]', border: 'border-[#3b82f6]/30', bg: 'bg-[#3b82f6]/10' },
-  { dot: 'bg-[#8b5cf6]', text: 'text-[#a78bfa]', border: 'border-[#8b5cf6]/30', bg: 'bg-[#8b5cf6]/10' },
-  { dot: 'bg-[#10b981]', text: 'text-[#34d399]', border: 'border-[#10b981]/30', bg: 'bg-[#10b981]/10' },
-  { dot: 'bg-[#f59e0b]', text: 'text-[#fbbf24]', border: 'border-[#f59e0b]/30', bg: 'bg-[#f59e0b]/10' },
-  { dot: 'bg-[#ef4444]', text: 'text-[#f87171]', border: 'border-[#ef4444]/30', bg: 'bg-[#ef4444]/10' },
-  { dot: 'bg-[#06b6d4]', text: 'text-[#22d3ee]', border: 'border-[#06b6d4]/30', bg: 'bg-[#06b6d4]/10' },
-  { dot: 'bg-[#ec4899]', text: 'text-[#f472b6]', border: 'border-[#ec4899]/30', bg: 'bg-[#ec4899]/10' },
-  { dot: 'bg-[#84cc16]', text: 'text-[#a3e635]', border: 'border-[#84cc16]/30', bg: 'bg-[#84cc16]/10' },
-]
-
-function getProjectColor(index: number) {
-  if (index < 0) return PROJECT_COLORS[0]
-  return PROJECT_COLORS[index % PROJECT_COLORS.length]
-}
+const FALLBACK_PROJECT_COLOR = '#64748B'
 
 function addDays(date: Date, days: number): Date {
   const d = new Date(date)
@@ -128,10 +116,13 @@ function HHMMToDecimal(value: string): number {
 
 export default function TimesheetPage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()))
-  const [showAddRow, setShowAddRow] = useState(false)
-  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [addProjectOpen, setAddProjectOpen] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
   const activeOrg = useAuthStore((s) => s.activeOrg)
   const orgId = activeOrg?.id ?? null
+  const timeZone = getEffectiveTimeZone(activeOrg?.timezone)
+  const trackerEntry = useTimeTrackerStore((s) => s.entry)
+  const trackerElapsed = useTimeTrackerStore((s) => s.elapsed)
 
   const weekEnd = useMemo(() => {
     const end = new Date(currentWeekStart)
@@ -140,33 +131,36 @@ export default function TimesheetPage() {
     return end
   }, [currentWeekStart])
 
-  const { data: activities } = useActivityQuery(
-    orgId ? { from: currentWeekStart.toISOString(), to: weekEnd.toISOString() } : null
-  )
+  const queryRange = useMemo(() => ({
+    from: zonedDateTimeToIso(dateKeyInTimeZone(currentWeekStart, timeZone), '00:00', timeZone),
+    to: zonedDateTimeToIso(dateKeyInTimeZone(weekEnd, timeZone), '23:59', timeZone),
+  }), [currentWeekStart, timeZone, weekEnd])
+
   const { data: projects } = useProjects(orgId as UUID)
+  const { data: timeEntries = [] } = useTimeEntries(
+    orgId ? queryRange : null
+  )
+  const createManualTimeEntry = useCreateManualTimeEntry()
+  const updateTimeEntry = useUpdateTimeEntry()
+  const deleteTimeEntry = useDeleteTimeEntry()
 
   const [entries, setEntries] = useState<any[]>([])
-  const [initialized, setInitialized] = useState(false)
+  const [extraRows, setExtraRows] = useState<{ id: string; projectId: string }[]>([])
 
-  // Sync activities to entries on load
-  if (activities && !initialized) {
-    const newEntries = activities
-      .filter((a) => {
-        const d = new Date(a.startDatetime)
-        return d >= currentWeekStart && d <= weekEnd
-      })
-      .map((a) => ({
-        id: a.id,
-        projectId: a.projectId,
-        date: new Date(a.startDatetime).toISOString().split('T')[0],
-        hours: parseFloat(((new Date(a.endDatetime).getTime() - new Date(a.startDatetime).getTime()) / 3600000).toFixed(2)),
-        description: a.title,
-        startTime: new Date(a.startDatetime).toLocaleTimeString(),
-        endTime: new Date(a.endDatetime).toLocaleTimeString(),
-      }))
-    setEntries(newEntries)
-    setInitialized(true)
-  }
+  // Sync API time entries into the grid
+  useEffect(() => {
+    const mapped = timeEntries.map((e) => ({
+      id: e.id,
+      projectId: e.projectId ?? '',
+      date: dateKeyInTimeZone(e.startTime, timeZone),
+      hours: parseFloat((((e.id === trackerEntry?.id ? trackerElapsed : e.durationSeconds) ?? 0) / 3600).toFixed(2)),
+      description: e.description || 'Sem descrição',
+      glpiTicketId: e.glpiTicketId,
+      startTime: e.startTime,
+      endTime: e.endTime,
+    }))
+    setEntries(mapped)
+  }, [timeEntries, timeZone, trackerElapsed, trackerEntry?.id])
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -175,36 +169,51 @@ export default function TimesheetPage() {
   const [modalDayIndex, setModalDayIndex] = useState(0)
   const [modalDate, setModalDate] = useState('')
 
-  // Form state
+  // Confirmação de exclusão (apontamento ou dia inteiro)
+  const [confirmDelete, setConfirmDelete] = useState<
+    { kind: 'entry'; entryId: string } | { kind: 'day'; projectId: string; date: string } | null
+  >(null)
+
+  // Form state (add + edit use the same form)
   const [formDescription, setFormDescription] = useState('')
+  const [formGlpiTicketId, setFormGlpiTicketId] = useState('')
   const hoursMask = useHoursMask()
+
+  // Entry being edited (null = adding a new one)
+  const [editingEntry, setEditingEntry] = useState<any | null>(null)
 
   const weekDates = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i))
   }, [currentWeekStart])
 
-  const weekDatesISO = useMemo(() => weekDates.map((d) => d.toISOString().split('T')[0]), [weekDates])
+  const weekDatesISO = useMemo(() => weekDates.map((d) => dateKeyInTimeZone(d, timeZone)), [timeZone, weekDates])
 
   const weekLabel = getWeekDateRangeLabel(currentWeekStart)
 
   const projectList = useMemo(() => {
-    const ids = [...new Set(entries.map((e) => e.projectId))]
+    const ids = [...new Set([...entries.map((e) => e.projectId), ...extraRows.map((r) => r.projectId)])]
     return ids.map((id) => {
       const p = projects?.find((proj) => proj.id === id)
-      return { id, name: p?.name ?? 'Desconhecido' }
+      return { id, name: p?.name ?? 'Desconhecido', color: p?.color ?? FALLBACK_PROJECT_COLOR }
     })
-  }, [entries, projects])
+  }, [entries, extraRows, projects])
 
   const allProjects = useMemo(() => {
-    const existingIds = new Set(entries.map((e) => e.projectId))
+    const existingIds = new Set([...entries.map((e) => e.projectId), ...extraRows.map((r) => r.projectId)])
     return (projects ?? [])
       .filter((p) => !existingIds.has(p.id))
-      .map((p) => ({ value: p.id, label: p.name }))
-  }, [projectList])
+      .map((p) => ({ value: p.id, label: p.name, color: p.color }))
+  }, [entries, extraRows, projects])
 
-  const projectOptions = useMemo(() => {
-    return (projects ?? []).map((p) => ({ value: p.id, label: p.name }))
-  }, [projects])
+  const projectNameById = (id: string) => projects?.find((p) => p.id === id)?.name ?? 'projeto'
+
+  const orderedAddProjects = useMemo(() => {
+    const q = projectSearch.trim().toLowerCase()
+    return allProjects
+      .slice()
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .filter((p) => !q || p.label.toLowerCase().includes(q))
+  }, [allProjects, projectSearch])
 
   function getEntries(projectId: string, date: string): any[] {
     return entries.filter((e) => e.projectId === projectId && e.date === date)
@@ -233,58 +242,132 @@ export default function TimesheetPage() {
   const goCurrentWeek = useCallback(() => setCurrentWeekStart(startOfWeek(new Date())), [])
 
   function openCellModal(projectId: string, projectName: string, dayIndex: number) {
+    const date = weekDatesISO[dayIndex]
     setModalProjectId(projectId)
     setModalProjectName(projectName)
     setModalDayIndex(dayIndex)
-    setModalDate(weekDatesISO[dayIndex])
-    setFormDescription('')
-    hoursMask.reset()
+    setModalDate(date)
+
+    const existing = getEntries(projectId, date)
+      .slice()
+      .sort((a, b) => String(b.startTime).localeCompare(String(a.startTime)))
+    if (existing.length > 0) {
+      loadEntryIntoForm(existing[0])
+    } else {
+      setEditingEntry(null)
+      setFormDescription('')
+      setFormGlpiTicketId('')
+      hoursMask.reset()
+    }
     setModalOpen(true)
   }
 
-  function addEntry() {
+  function loadEntryIntoForm(entry: any) {
+    setEditingEntry(entry)
+    setFormDescription(entry.description === 'Sem descrição' ? '' : entry.description)
+    setFormGlpiTicketId(entry.glpiTicketId ?? '')
+    hoursMask.setDigits(hoursToMaskDigits(entry.hours || 0))
+  }
+
+  async function addEntry() {
     const hours = hoursMask.getDecimal()
-    if (hours <= 0) return
-    const newEntry: any = {
-      id: `e-${Date.now()}`,
-      projectId: modalProjectId,
-      date: modalDate,
-      hours,
-      description: formDescription.trim() || 'Sem descrição',
-      startTime: null,
-      endTime: null,
+    if (hours <= 0 || !modalProjectId) return
+    try {
+      const startTime = zonedDateTimeToIso(modalDate, '09:00', timeZone)
+      const end = new Date(startTime)
+      end.setSeconds(end.getSeconds() + hours * 3600)
+      await createManualTimeEntry.mutateAsync({
+        projectId: modalProjectId,
+        description: formDescription.trim() || 'Sem descrição',
+        glpiTicketId: formGlpiTicketId.trim() || undefined,
+        startTime,
+        endTime: end.toISOString(),
+      })
+      toast.success('Horas adicionadas')
+      setEditingEntry(null)
+      setFormDescription('')
+      setFormGlpiTicketId('')
+      hoursMask.reset()
+      setModalOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao adicionar registro')
     }
-    setEntries((prev) => [...prev, newEntry])
-    setFormDescription('')
-    hoursMask.reset()
   }
 
-  function removeEntry(entryId: string) {
-    setEntries((prev) => prev.filter((e) => e.id !== entryId))
+  function requestDeleteEntry(entryId: string) {
+    setConfirmDelete({ kind: 'entry', entryId })
   }
 
-  function addProjectRow() {
-    if (!selectedProjectId) return
-    const project = projects?.find((p) => p.id === selectedProjectId)
-    if (!project) return
-    setEntries((prev) => [
-      ...prev,
-      {
-        id: `e-${Date.now()}`,
-        projectId: project.id,
-        date: weekDatesISO[0],
-        hours: 0,
-        description: '',
-        startTime: null,
-        endTime: null,
-      },
-    ])
-    setSelectedProjectId('')
-    setShowAddRow(false)
+  function requestDeleteDay(projectId: string, date: string) {
+    setConfirmDelete({ kind: 'day', projectId, date })
+  }
+
+  async function handleConfirmDelete() {
+    if (!confirmDelete) return
+    try {
+      if (confirmDelete.kind === 'entry') {
+        await deleteTimeEntry.mutateAsync(confirmDelete.entryId)
+      } else {
+        const ids = getEntries(confirmDelete.projectId, confirmDelete.date).map((e) => e.id)
+        await Promise.all(ids.map((id) => deleteTimeEntry.mutateAsync(id)))
+      }
+      toast.success('Excluído com sucesso')
+      setConfirmDelete(null)
+      setEditingEntry(null)
+      setFormDescription('')
+      setFormGlpiTicketId('')
+      hoursMask.reset()
+      setModalOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao excluir')
+    }
+  }
+
+  function openEdit(entry: any) {
+    loadEntryIntoForm(entry)
+  }
+
+  async function saveEdit() {
+    if (!editingEntry) return
+    const hours = hoursMask.getDecimal()
+    if (hours <= 0) {
+      toast.error('Informe uma quantidade de horas válida')
+      return
+    }
+    try {
+      const startTime = editingEntry.startTime
+      const end = new Date(startTime)
+      end.setSeconds(end.getSeconds() + hours * 3600)
+      await updateTimeEntry.mutateAsync({
+        entryId: editingEntry.id,
+        data: {
+          description: formDescription.trim() || undefined,
+          glpiTicketId: formGlpiTicketId.trim() || undefined,
+          startTime,
+          endTime: end.toISOString(),
+        },
+      })
+      toast.success('Registro atualizado')
+      setEditingEntry(null)
+      setFormDescription('')
+      setFormGlpiTicketId('')
+      hoursMask.reset()
+      setModalOpen(false)
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao atualizar registro')
+    }
+  }
+
+  function selectProjectToAdd(projectId: string) {
+    if (!projectId) return
+    if (extraRows.some((r) => r.projectId === projectId)) return
+    setExtraRows((prev) => [...prev, { id: `row-${Date.now()}`, projectId }])
+    setProjectSearch('')
+    setAddProjectOpen(false)
   }
 
   function removeProjectRow(projectId: string) {
-    setEntries((prev) => prev.filter((e) => e.projectId !== projectId))
+    setExtraRows((prev) => prev.filter((r) => r.projectId !== projectId))
   }
 
   const modalEntries = modalOpen ? getEntries(modalProjectId, modalDate) : []
@@ -295,7 +378,7 @@ export default function TimesheetPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Planilha de Horas</h1>
+           <h1 className="text-2xl font-bold tracking-tight text-foreground">Minha Semana</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">Semana de {weekLabel}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -355,7 +438,7 @@ export default function TimesheetPage() {
               <AnimatePresence>
                 {projectList.map((project, rowIndex) => {
                   const rowTotal = totalPerRow[rowIndex]
-                  const color = getProjectColor(rowIndex)
+                  const color = project.color
 
                   return (
                     <motion.tr
@@ -369,7 +452,7 @@ export default function TimesheetPage() {
                       {/* Projeto */}
                       <td className="sticky left-0 z-10 bg-card px-4 py-2.5">
                         <div className="flex items-center gap-3">
-                          <div className={cn('size-2.5 rounded-full shrink-0', color.dot)} />
+                           <div className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                           <div className="flex min-w-0 flex-col">
                             <span className="truncate text-sm font-medium text-foreground">{project.name}</span>
                             <span className="text-[10px] text-muted-foreground/60">{decimalToHHMM(rowTotal)} esta semana</span>
@@ -388,16 +471,16 @@ export default function TimesheetPage() {
                         return (
                           <td
                             key={dayIndex}
-                            className={cn('px-1.5 py-2', today && 'bg-[#1e3a5f]/10')}
+                            className={cn('relative px-1.5 py-2', today && 'bg-[#1e3a5f]/10')}
                             onClick={() => openCellModal(project.id, project.name, dayIndex)}
                           >
                             <div
                               className={cn(
-                                'group/cell relative flex h-10 cursor-pointer flex-col items-center justify-center rounded-md border px-2 text-sm tabular-nums outline-none transition-all',
+                                'group/cell relative flex h-10 flex-col items-center justify-center rounded-md border px-2 text-sm tabular-nums outline-none transition-all',
                                 hasValue
                                   ? 'border-border/60 bg-muted/30 font-medium text-foreground'
                                   : 'border-border/20 bg-transparent text-muted-foreground/30',
-                                'hover:border-border/50 hover:bg-muted/20',
+                                'cursor-pointer hover:border-border/50 hover:bg-muted/20',
                                 today && hasValue && 'border-[#3b82f6]/30',
                               )}
                             >
@@ -410,9 +493,23 @@ export default function TimesheetPage() {
                                 </span>
                               )}
                               {hasValue && (
-                                <div className={cn('absolute bottom-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full', color.dot)} />
+                                 <div className="absolute bottom-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full" style={{ backgroundColor: color }} />
                               )}
                             </div>
+                            {hasValue && (
+                              <button
+                                type="button"
+                                title="Excluir horas deste dia"
+                                aria-label={`Excluir horas de ${project.name}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  requestDeleteDay(project.id, date)
+                                }}
+                                className="absolute right-0.5 top-0.5 z-10 flex size-5 items-center justify-center rounded text-muted-foreground/30 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            )}
                           </td>
                         )
                       })}
@@ -426,35 +523,20 @@ export default function TimesheetPage() {
 
                       {/* Remover */}
                       <td className="px-2 py-2.5">
-                        <button
-                          onClick={() => removeProjectRow(project.id)}
-                          className="flex size-8 items-center justify-center rounded-md text-muted-foreground/20 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        {extraRows.some((row) => row.projectId === project.id) && !entries.some((entry) => entry.projectId === project.id) && (
+                          <button
+                            type="button"
+                            aria-label={`Remover linha do projeto ${project.name}`}
+                            onClick={() => removeProjectRow(project.id)}
+                            className="flex size-8 items-center justify-center rounded-md text-muted-foreground/20 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
                       </td>
                     </motion.tr>
                   )
                 })}
-              </AnimatePresence>
-
-              {/* Adicionar projeto */}
-              <AnimatePresence>
-                {showAddRow && (
-                  <motion.tr initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="border-b border-border/20 bg-muted/10">
-                    <td colSpan={11} className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="min-w-[200px] flex-1">
-                          <Select options={projectOptions} placeholder="Selecione um projeto..." value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} />
-                        </div>
-                        <Button size="sm" onClick={addProjectRow} disabled={!selectedProjectId}>
-                          <Plus className="mr-1 size-3.5" /> Adicionar
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setShowAddRow(false)}>Cancelar</Button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                )}
               </AnimatePresence>
 
               {/* Total geral */}
@@ -486,7 +568,7 @@ export default function TimesheetPage() {
 
         <Separator className="bg-border/30" />
         <div className="flex items-center justify-between px-4 py-3">
-          <Button variant="ghost" size="sm" onClick={() => setShowAddRow(true)} disabled={projectOptions.length === 0} className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="sm" onClick={() => { setProjectSearch(''); setAddProjectOpen(true) }} disabled={allProjects.length === 0} className="text-muted-foreground hover:text-foreground">
             <Plus className="mr-1.5 size-4" /> Adicionar projeto
           </Button>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -539,7 +621,7 @@ export default function TimesheetPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              <div className={cn('size-2.5 rounded-full', getProjectColor(projectList.findIndex((p) => p.id === modalProjectId)).dot)} />
+               <div className="size-2.5 rounded-full" style={{ backgroundColor: projectList.find((p) => p.id === modalProjectId)?.color ?? FALLBACK_PROJECT_COLOR }} />
               {modalProjectName}
             </DialogTitle>
             <DialogDescription>
@@ -559,22 +641,36 @@ export default function TimesheetPage() {
               modalEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="group relative rounded-lg border border-border/40 bg-muted/20 p-3 transition-colors hover:bg-muted/30"
+                  className={cn(
+                    'flex items-start justify-between gap-2 rounded-lg border border-border/40 bg-muted/20 p-3 transition-colors hover:bg-muted/30',
+                    editingEntry?.id === entry.id && 'border-primary/40 bg-primary/5',
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{entry.description}</p>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        <span className="font-semibold tabular-nums text-primary">{decimalToHHMM(entry.hours)}</span>
-                      </div>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(entry)}
+                    className="min-w-0 flex-1 text-left"
+                    title="Editar registro"
+                  >
+                    <p className="text-sm font-medium text-foreground">{entry.description}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-semibold tabular-nums text-primary">{decimalToHHMM(entry.hours)}</span>
+                      {entry.glpiTicketId && (
+                        <span className="inline-flex items-center gap-1">
+                          <Ticket className="size-3" />
+                          #{entry.glpiTicketId}
+                        </span>
+                      )}
                     </div>
-                    <button
-                      onClick={() => removeEntry(entry.id)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/30 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => requestDeleteEntry(entry.id)}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    title="Excluir registro"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
                 </div>
               ))
             )}
@@ -602,15 +698,128 @@ export default function TimesheetPage() {
               onChange={(e) => setFormDescription(e.target.value)}
               className="min-h-[60px]"
             />
+            <Input
+              label="Chamado GLPI (opcional)"
+              placeholder="Ex.: 1234"
+              value={formGlpiTicketId}
+              onChange={(e) => setFormGlpiTicketId(e.target.value)}
+            />
             <div className="flex justify-end gap-2">
+              {editingEntry && (
+                <Button variant="destructive" size="sm" onClick={() => requestDeleteEntry(editingEntry.id)}>
+                  <Trash2 className="mr-1 size-3.5" /> Excluir
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>
                 Fechar
               </Button>
-              <Button size="sm" onClick={addEntry} disabled={!hoursMask.digits}>
-                <Plus className="mr-1 size-3.5" /> Adicionar registro
-              </Button>
+              {editingEntry && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingEntry(null)
+                    setFormDescription('')
+                    setFormGlpiTicketId('')
+                    hoursMask.reset()
+                  }}
+                >
+                  Cancelar edição
+                </Button>
+              )}
+              {editingEntry ? (
+                <Button size="sm" onClick={saveEdit} disabled={updateTimeEntry.isPending || !hoursMask.digits}>
+                  Atualizar
+                </Button>
+              ) : (
+                <Button size="sm" onClick={addEntry} disabled={!hoursMask.digits}>
+                  <Plus className="mr-1 size-3.5" /> Adicionar registro
+                </Button>
+              )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de exclusão */}
+      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Excluir horas?</DialogTitle>
+            <DialogDescription>
+              {confirmDelete?.kind === 'day'
+                ? `As horas de ${projectNameById(confirmDelete.projectId)} no dia ${formatDateDDMM(new Date(confirmDelete.date))} serão excluídas (${getEntries(confirmDelete.projectId, confirmDelete.date).length} registro(s)). Esta ação não pode ser desfeita.`
+                : 'Este apontamento será excluído. Esta ação não pode ser desfeita.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleConfirmDelete} disabled={deleteTimeEntry.isPending}>
+              {deleteTimeEntry.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adicionar projeto */}
+      <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar projeto</DialogTitle>
+            <DialogDescription>
+              {allProjects.length === 0
+                ? 'Escolha um projeto para lançar horas nesta semana.'
+                : `${allProjects.length} projeto${allProjects.length !== 1 ? 's' : ''} disponíve${allProjects.length !== 1 ? 'is' : 'l'}.`}
+            </DialogDescription>
+          </DialogHeader>
+          {allProjects.length === 0 ? (
+            <div className="mt-4">
+              <EmptyState
+                icon={FolderKanban}
+                title="Nenhum projeto disponível"
+                description="Todos os projetos já estão na sua semana."
+              />
+            </div>
+          ) : (
+            <>
+              <div className="relative mt-4">
+                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar projeto..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+              <Separator className="my-4" />
+              {orderedAddProjects.length === 0 ? (
+                <EmptyState
+                  icon={Search}
+                  title="Nenhum projeto encontrado"
+                  description={`Nada corresponde a "${projectSearch}".`}
+                />
+              ) : (
+                <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto">
+                  {orderedAddProjects.map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => selectProjectToAdd(p.value)}
+                      className="flex items-center gap-3 rounded-lg border border-border/40 p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
+                    >
+                      <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
+                      <span className="flex-1 truncate text-sm font-medium text-foreground">{p.label}</span>
+                      <Plus className="size-4 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

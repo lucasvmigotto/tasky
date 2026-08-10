@@ -25,7 +25,7 @@ class UserServiceTest {
     @Test
     void getOrCreateUser_createsNewUser() {
         when(userRepository.findByGoogleSub("google123")).thenReturn(Optional.empty());
-        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase("test@gmail.com")).thenReturn(Optional.empty());
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 

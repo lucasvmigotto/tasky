@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -45,9 +46,26 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(nullable = false, length = 7)
+    @Builder.Default
+    private String color = "#64748B";
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_membership_id", nullable = false)
+    @JoinColumn(name = "manager_membership_id")
     private OrganizationMembership managerMembership;
+
+    @Column(name = "hourly_rate", precision = 10, scale = 2)
+    private BigDecimal hourlyRate;
+
+    @Column(name = "estimated_seconds", nullable = false)
+    @Builder.Default
+    private long estimatedSeconds = 0;
+
+    @Column(name = "budget_seconds")
+    private Long budgetSeconds;
+
+    @Column(name = "budget_amount", precision = 12, scale = 2)
+    private BigDecimal budgetAmount;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive;

@@ -1,19 +1,28 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { Clock, ArrowRight, LogIn } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
 import { getConfig } from '@/core/config/runtimeConfig'
+import { startGoogleLogin } from '@/core/auth/googleOAuth'
 import { ROUTES } from '@/core/config/routes'
 
 const isDemoMode = getConfig().demoMode === 'true'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const loginWithDemo = useAuthStore((s) => s.loginWithDemo)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(ROUTES.MY_WORK, { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   async function handleDemoLogin() {
     await loginWithDemo()
-    navigate(ROUTES.DASHBOARD, { replace: true })
+    navigate(ROUTES.MY_WORK, { replace: true })
   }
 
   return (
@@ -64,7 +73,7 @@ export default function LoginPage() {
             transition={{ delay: 0.4, duration: 0.4 }}
             className="mt-2 text-sm text-zinc-500"
           >
-            Controle de horas e gestão de projetos
+            Trabalho, projetos e horas para equipes internas
           </motion.p>
         </motion.div>
 
@@ -118,6 +127,7 @@ export default function LoginPage() {
 
                 <button
                   type="button"
+                  onClick={startGoogleLogin}
                   className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-800/50 px-5 py-3 text-sm font-medium text-zinc-300 shadow-sm transition-all duration-200 hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100 active:scale-[0.98]"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
@@ -141,6 +151,7 @@ export default function LoginPage() {
                 </div>
                 <button
                   type="button"
+                  onClick={startGoogleLogin}
                   className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-800/50 px-5 py-3 text-sm font-medium text-zinc-300 shadow-sm transition-all duration-200 hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">

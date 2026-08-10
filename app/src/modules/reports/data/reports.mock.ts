@@ -33,16 +33,10 @@ export interface MemberProductivityPoint {
   activities: number
 }
 
-export interface LabelDistributionPoint {
-  label: string
-  count: number
-}
-
 export interface ReportData {
   weeklyHours: WeeklyHoursPoint[]
   projectHours: ProjectHoursPoint[]
   memberProductivity: MemberProductivityPoint[]
-  labelDistribution: LabelDistributionPoint[]
   dailyAverage: number
 }
 
@@ -72,16 +66,6 @@ export const demoReportData: ReportData = {
     { name: 'Pedro Almeida', hours: 16, activities: 3 },
     { name: 'Marina Lima', hours: 18.5, activities: 4 },
     { name: 'Lucas Ferreira', hours: 9.5, activities: 2 },
-  ],
-  labelDistribution: [
-    { label: 'Funcionalidade', count: 8 },
-    { label: 'Correcao', count: 4 },
-    { label: 'Rotina', count: 5 },
-    { label: 'Melhoria', count: 3 },
-    { label: 'Ideia', count: 2 },
-    { label: 'Urgente', count: 1 },
-    { label: 'Bug', count: 3 },
-    { label: 'Documentacao', count: 2 },
   ],
   dailyAverage: 6.5,
 }

@@ -1,0 +1,4 @@
+window.__TASKY_CONFIG__ = {
+  DEMO_MODE: '${DEMO_MODE}',
+  GOOGLE_CLIENT_ID: '${GOOGLE_CLIENT_ID}'
+}

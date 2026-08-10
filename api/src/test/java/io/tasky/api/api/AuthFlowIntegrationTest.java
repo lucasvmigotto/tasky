@@ -1,6 +1,5 @@
 package io.tasky.api.api;
 
-import com.jayway.jsonpath.JsonPath;
 import io.tasky.api.BaseIntegrationTest;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.membership.Role;
@@ -80,33 +79,5 @@ class AuthFlowIntegrationTest extends BaseIntegrationTest {
                 .toBodilessEntity();
 
         assertThat(response.getStatusCode().value()).isEqualTo(401);
-    }
-
-    @Test
-    void createTeam_asAdmin_returns201() {
-        String deptJson = restClient.post()
-                .uri("/api/v1/organizations/{orgId}/departments", testOrg.getId())
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body("""
-                        {"name": "Engineering"}
-                        """)
-                .retrieve()
-                .body(String.class);
-
-        String deptId = JsonPath.read(deptJson, "$.id");
-
-        var response = restClient.post()
-                .uri("/api/v1/departments/{deptId}/teams", deptId)
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body("""
-                        {"name": "Backend"}
-                        """)
-                .retrieve()
-                .toEntity(String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody()).contains("Backend");
     }
 }

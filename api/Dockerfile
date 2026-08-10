@@ -1,4 +1,4 @@
-FROM dhi.io/eclipse-temurin:21-jdk-debian13-dev AS builder
+FROM eclipse-temurin:21-jdk AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN --mount=type=bind,source=gradlew,target=gradlew \
     --mount=type=bind,source=api/src,target=api/src \
     ./gradlew :api:build --no-daemon -x test
 
-FROM dhi.io/eclipse-temurin:21-debian13
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 

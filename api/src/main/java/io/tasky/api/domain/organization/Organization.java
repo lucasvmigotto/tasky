@@ -36,6 +36,14 @@ public class Organization {
     @Column(nullable = false, unique = true, length = 100)
     private String slug;
 
+    @Column(nullable = false, length = 64)
+    @Builder.Default
+    private String timezone = "UTC";
+
+    @Column(name = "work_week_starts_on", nullable = false)
+    @Builder.Default
+    private short workWeekStartsOn = 1;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

@@ -1,0 +1,3 @@
+ALTER TABLE time_entries
+    ADD COLUMN paused_seconds BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN paused_at TIMESTAMP WITH TIME ZONE;

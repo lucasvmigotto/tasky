@@ -1,10 +1,10 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
     show-sql: true
   flyway:
-    enabled: false
+    enabled: true
   security:
     oauth2:
       resourceserver:
@@ -17,7 +17,9 @@ tasky:
     secret: dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItaHMyNTYtYWxnb3JpdGhtCg==
     expiration-hours: 24
   cors:
-    allowed-origins: "*"
+    allowed-origins: "http://localhost:5173,http://127.0.0.1:5173"
+  google:
+    client-id: test-client-id.apps.googleusercontent.com
 
 logging:
   level:

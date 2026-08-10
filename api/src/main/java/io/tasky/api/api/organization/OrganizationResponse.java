@@ -6,5 +6,7 @@ public record OrganizationResponse(
         String id,
         String name,
         String slug,
+        String timezone,
+        short workWeekStartsOn,
         Instant createdAt
 ) {}

@@ -19,6 +19,8 @@ public record AuthResponse(
             String id,
             String name,
             String slug,
-            String role
+            String role,
+            String timezone,
+            short workWeekStartsOn
     ) {}
 }

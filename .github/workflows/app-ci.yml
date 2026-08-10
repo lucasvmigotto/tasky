@@ -16,11 +16,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1'
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --frozen-lock-file
         working-directory: app/
 
       - name: Run lint
@@ -33,12 +37,24 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=$(jq -r '.version' app/package.json)" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="$(jq -r '.version' app/package.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag
+        env:
+          TAG: app-${{ steps.version.outputs.version }}
         run: |
-          git tag app-${{ steps.version.outputs.version }}
-          git push origin app-${{ steps.version.outputs.version }}
+          REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          if [ -z "$REMOTE_SHA" ]; then
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+          elif [ "$REMOTE_SHA" != "$GITHUB_SHA" ]; then
+            echo "Tag $TAG already points to $REMOTE_SHA, not $GITHUB_SHA" >&2
+            exit 1
+          else
+            echo "Tag $TAG already points to this commit"
+          fi
 
   build-and-push:
     needs: lint
@@ -53,19 +69,14 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=$(jq -r '.version' app/package.json)" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="$(jq -r '.version' app/package.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Log in to Docker Hub Container registry
         uses: docker/login-action@v3
         with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.DOCKER_HUB_PAT }}
-
-      - name: Log in to Docker Hardened Images Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: dhi.io
-          username: ${{ github.actor }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PAT }}
 
       - name: Log in to GitHub Container registry
@@ -77,10 +88,10 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ github.repository }}-app
+            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-app
             ghcr.io/${{ github.repository }}-app
 
       - name: Build and push Docker image
@@ -90,11 +101,13 @@ jobs:
           context: app/
           file: app/Dockerfile
           push: true
+          sbom: true
+          provenance: mode=max
           labels: ${{ steps.meta.outputs.labels }}
           tags: |
-            ${{ github.repository }}-app:${{ steps.version.outputs.version }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-app:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository }}-app:${{ steps.version.outputs.version }}
-            ${{ github.repository }}-app:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-app:latest
             ghcr.io/${{ github.repository }}-app:latest
 
       - name: Generate artifact attestation
@@ -113,7 +126,9 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=$(jq -r '.version' app/package.json)" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="$(jq -r '.version' app/package.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         env:
@@ -121,4 +136,8 @@ jobs:
         run: |
           V=${{ steps.version.outputs.version }}
           git archive --format=zip -o "source-${V}.zip" HEAD app/
-          gh release create "app-$V" --title "app-v$V" --notes "Release app-v$V" "source-${V}.zip"
+          if gh release view "app-$V" >/dev/null 2>&1; then
+            gh release upload "app-$V" "source-${V}.zip" --clobber
+          else
+            gh release create "app-$V" --title "app-v$V" --notes "Release app-v$V" "source-${V}.zip"
+          fi

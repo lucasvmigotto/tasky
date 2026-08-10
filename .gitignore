@@ -1,5 +1,6 @@
 ### Gradle ###
 .gradle/
+/build/
 api/build/
 !**/api/src/main/**/build/
 !**/api/src/test/**/build/
