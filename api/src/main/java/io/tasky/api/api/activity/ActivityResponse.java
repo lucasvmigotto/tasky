@@ -25,6 +25,7 @@ public record ActivityResponse(
         long estimatedSeconds,
         UUID createdBy,
         UUID assignedTo,
+        List<UUID> assigneeIds,
         List<UUID> parentIds,
         int checklistTotal,
         int checklistCompleted,

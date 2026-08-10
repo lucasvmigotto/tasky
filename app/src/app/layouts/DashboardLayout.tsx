@@ -15,6 +15,9 @@ import {
   Folders,
   Clock,
   ChevronDown,
+  Settings2,
+  ClipboardList,
+  Kanban,
 } from 'lucide-react'
 import type { Role } from '@/core/auth/permissions'
 import type { SidebarNavItem } from '@/shared/components/layout/Sidebar'
@@ -33,6 +36,9 @@ interface NavEntry extends SidebarNavItem {
 
 const ALL_NAV_ITEMS: NavEntry[] = [
   { key: 'my-work', label: 'Meu Trabalho', href: ROUTES.MY_WORK, icon: LayoutDashboard },
+  { key: 'requests', label: 'Demandas', href: ROUTES.REQUESTS, icon: ClipboardList },
+  { key: 'projects', label: 'Projetos', href: ROUTES.PROJECTS, icon: Folders },
+  { key: 'activities', label: 'Atividades', href: ROUTES.ACTIVITIES, icon: Kanban },
   { key: 'timesheet', label: 'Minha Semana', href: ROUTES.TIMESHEET, icon: CalendarDays },
   { key: 'my-report', label: 'Meu Relatório', href: ROUTES.REPORTS, icon: BarChart3 },
   { key: 'sector-report', label: 'Relatório do Setor', href: ROUTES.REPORTS, icon: BarChart3 },
@@ -43,6 +49,7 @@ const ADMIN_CHILDREN: NavEntry[] = [
   { key: 'admin-members', label: 'Membros', href: ROUTES.ADMIN.MEMBERS, icon: Users },
   { key: 'admin-departments', label: 'Departamentos', href: ROUTES.ADMIN.DEPARTMENTS, icon: Building2 },
   { key: 'admin-projects', label: 'Projetos', href: ROUTES.ADMIN.PROJECTS, icon: Folders },
+  { key: 'admin-settings', label: 'Configurações', href: ROUTES.ADMIN.SETTINGS, icon: Settings2 },
 ]
 
 function filterByRole(items: NavEntry[], role: Role): NavEntry[] {
@@ -59,6 +66,7 @@ function filterAdminChildren(children: NavEntry[], role: Role): NavEntry[] {
       'admin-members': 'manager',
       'admin-departments': 'admin',
       'admin-projects': 'manager',
+      'admin-settings': 'super_admin',
     }
     const minRole = roles[item.key]
     if (!minRole) return true

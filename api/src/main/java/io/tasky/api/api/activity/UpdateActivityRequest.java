@@ -21,5 +21,6 @@ public record UpdateActivityRequest(
         ActivityTaskType taskType,
         ActivityPriority priority,
         Instant dueDate,
-        Long expectedVersion
+        Long expectedVersion,
+        List<UUID> assigneeMembershipIds
 ) {}

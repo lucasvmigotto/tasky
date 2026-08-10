@@ -112,7 +112,7 @@ public class SectorOverviewService {
     }
 
     private List<Project> resolveProjects(OrganizationMembership current, Scope scope, Set<UUID> departmentIds) {
-        if (current.getRole() == Role.admin || current.getRole() == Role.manager) {
+        if (current.getRole().isManagerLevel()) {
             return projectRepository.findByDepartmentIdInAndIsActiveTrue(departmentIds);
         }
         List<Project> departmentProjects = projectRepository.findByDepartmentIdInAndIsActiveTrue(departmentIds);
@@ -129,7 +129,7 @@ public class SectorOverviewService {
     }
 
     private Scope resolveScope(OrganizationMembership membership, UUID organizationId) {
-        if (membership.getRole() == Role.admin) {
+        if (membership.getRole().isAdminLevel()) {
             return new Scope(
                     departmentRepository.findByOrganizationId(organizationId).stream().map(Department::getId).collect(Collectors.toSet()));
         }

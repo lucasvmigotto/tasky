@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarClock, ChartGantt, CheckSquare, Columns3, List, Plus, Search, User } from 'lucide-react'
+import { CalendarClock, ChartGantt, CheckSquare, Columns3, List, Plus, Search, Settings2, User } from 'lucide-react'
 import { toast } from 'sonner'
-import { useMoveActivity } from '@/core/api/hooks'
-import type { ActivityResponse, ActivityStatus, MembershipResponse, ProjectResponse, UUID } from '@/core/api/types'
+import { useMoveActivity, useProjectColumns, useCreateProjectColumn, useUpdateProjectColumn, useDeleteProjectColumn, useReorderProjectColumns } from '@/core/api/hooks'
+import type { ActivityResponse, ActivityStatus, MembershipResponse, ProjectColumn, ProjectResponse, UUID } from '@/core/api/types'
 import { ROUTES, buildRoute } from '@/core/config/routes'
 import { GanttChart } from '@/shared/components/activities/GanttChart'
 import { PRIORITY_LABELS, STATUS_LABELS, TASK_TYPE_LABELS } from '@/shared/components/kanban/ActivityCard'
@@ -14,18 +14,22 @@ import { Button } from '@/shared/components/ui/Button'
 import { DataTable } from '@/shared/components/ui/DataTable'
 import { Input } from '@/shared/components/ui/Input'
 import { Select } from '@/shared/components/ui/Select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/shared/components/ui/Dialog'
 import { formatDate } from '@/shared/lib/formatters'
 
 type WorkspaceView = 'list' | 'board' | 'timeline'
 
 const VIEWS: WorkspaceView[] = ['list', 'board', 'timeline']
-const KANBAN_COLUMNS: KanbanColumnDef[] = [
+const DEFAULT_COLUMNS: KanbanColumnDef[] = [
   { key: 'TODO', label: STATUS_LABELS.TODO, accent: 'text-sky-400' },
   { key: 'IN_PROGRESS', label: STATUS_LABELS.IN_PROGRESS, accent: 'text-amber-400' },
+  { key: 'IN_TESTING', label: STATUS_LABELS.IN_TESTING, accent: 'text-violet-400' },
   { key: 'BLOCKED', label: STATUS_LABELS.BLOCKED, accent: 'text-red-400' },
   { key: 'DONE', label: STATUS_LABELS.DONE, accent: 'text-emerald-400' },
   { key: 'CANCELED', label: STATUS_LABELS.CANCELED, accent: 'text-muted-foreground' },
 ]
+
+const STATUS_OPTIONS: ActivityStatus[] = ['TODO', 'IN_PROGRESS', 'IN_TESTING', 'BLOCKED', 'DONE', 'CANCELED']
 
 interface ProjectActivitiesWorkspaceProps {
   project: ProjectResponse
@@ -45,12 +49,26 @@ export function ProjectActivitiesWorkspace({ project, activities, members, isLoa
   const [assignee, setAssignee] = useState('ALL')
   const moveActivity = useMoveActivity()
 
+  const { data: columns = [] } = useProjectColumns(project.id)
+
+  const boardColumns: KanbanColumnDef[] = useMemo(() => {
+    if (columns.length > 0) {
+      return columns.map((column) => ({
+        key: column.lifecycleStatus,
+        label: column.name,
+        accent: 'text-foreground',
+        color: column.color,
+      }))
+    }
+    return DEFAULT_COLUMNS
+  }, [columns])
+
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('pt-BR')
     return activities
       .filter((activity) => !query || activity.title.toLocaleLowerCase('pt-BR').includes(query))
       .filter((activity) => status === 'ALL' || activity.status === status)
-      .filter((activity) => assignee === 'ALL' || activity.assignedTo === assignee)
+      .filter((activity) => assignee === 'ALL' || (activity.assigneeIds ?? []).includes(assignee))
       .sort((a, b) => a.status.localeCompare(b.status) || a.position - b.position || a.startDatetime.localeCompare(b.startDatetime))
   }, [activities, assignee, search, status])
 
@@ -70,10 +88,14 @@ export function ProjectActivitiesWorkspace({ project, activities, members, isLoa
     next.set('view', nextView)
     setSearchParams(next, { replace: true })
   }
-  const moveTo = async (activityId: string, data: { status: ActivityStatus; position?: number }) => {
+  const moveTo = async (activityId: string, data: { status?: ActivityStatus; position?: number; expectedVersion?: number }) => {
     try {
-      await moveActivity.mutateAsync({ activityId: activityId as UUID, data })
-      toast.success(`Atividade movida para ${STATUS_LABELS[data.status]}`)
+      const column = columns.find((candidate) => candidate.lifecycleStatus === data.status)
+      const payload = column
+        ? { columnId: column.id, position: data.position, expectedVersion: data.expectedVersion }
+        : { status: data.status, position: data.position, expectedVersion: data.expectedVersion }
+      await moveActivity.mutateAsync({ activityId: activityId as UUID, data: payload })
+      toast.success(`Atividade movida para ${column?.name ?? STATUS_LABELS[data.status ?? 'TODO']}`)
     } catch (cause: any) {
       toast.error(cause?.message || 'Não foi possível mover a atividade')
       throw cause
@@ -94,6 +116,7 @@ export function ProjectActivitiesWorkspace({ project, activities, members, isLoa
               <ViewButton active={view === 'board'} onClick={() => changeView('board')} icon={Columns3}>Quadro</ViewButton>
               <ViewButton active={view === 'timeline'} onClick={() => changeView('timeline')} icon={ChartGantt}>Timeline</ViewButton>
             </div>
+            <ColumnsManagerDialog projectId={project.id} columns={columns} />
             <Button
               type="button"
               size="sm"
@@ -123,7 +146,7 @@ export function ProjectActivitiesWorkspace({ project, activities, members, isLoa
             onChange={(event) => setStatus(event.target.value as ActivityStatus | 'ALL')}
             options={[
               { value: 'ALL', label: 'Todos os status' },
-              ...KANBAN_COLUMNS.map((column) => ({ value: column.key, label: column.label })),
+              ...boardColumns.map((column) => ({ value: column.key, label: column.label })),
             ]}
           />
           <Select
@@ -147,7 +170,7 @@ export function ProjectActivitiesWorkspace({ project, activities, members, isLoa
       >
         {view === 'board' ? (
           <KanbanBoard
-            columns={KANBAN_COLUMNS}
+            columns={boardColumns}
             items={filtered}
             onMove={moveTo}
             onOpen={openActivity}
@@ -183,6 +206,112 @@ export function ProjectActivitiesWorkspace({ project, activities, members, isLoa
         )}
       </QueryState>
     </section>
+  )
+}
+
+function ColumnsManagerDialog({ projectId, columns }: { projectId: UUID; columns: ProjectColumn[] }) {
+  const createColumn = useCreateProjectColumn(projectId)
+  const updateColumn = useUpdateProjectColumn(projectId)
+  const deleteColumn = useDeleteProjectColumn(projectId)
+  const reorderColumns = useReorderProjectColumns(projectId)
+  const [name, setName] = useState('')
+  const [color, setColor] = useState('#38bdf8')
+  const [lifecycleStatus, setLifecycleStatus] = useState<ActivityStatus>('TODO')
+
+  const handleAdd = async () => {
+    if (!name.trim()) return
+    try {
+      await createColumn.mutateAsync({ name: name.trim(), color, lifecycleStatus })
+      setName('')
+      toast.success('Coluna criada')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao criar coluna')
+    }
+  }
+
+  const moveColumn = async (columnId: UUID, direction: -1 | 1) => {
+    const ordered = [...columns].sort((a, b) => a.position - b.position)
+    const index = ordered.findIndex((c) => c.id === columnId)
+    const target = index + direction
+    if (target < 0 || target >= ordered.length) return
+    const next = [...ordered]
+    const [item] = next.splice(index, 1)
+    next.splice(target, 0, item)
+    try {
+      await reorderColumns.mutateAsync(next.map((c) => c.id))
+      toast.success('Ordem atualizada')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao reordenar')
+    }
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" size="sm" variant="outline" className="shrink-0">
+          <Settings2 className="size-4" aria-hidden="true" />
+          Colunas
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Colunas do quadro</DialogTitle>
+          <DialogDescription>Configure o fluxo do projeto: cada coluna corresponde a um status de ciclo de vida.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4 py-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_6rem_9rem_auto]">
+            <Input label="Nome" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Testes" />
+            <Input label="Cor" type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+            <Select
+              label="Status"
+              value={lifecycleStatus}
+              onChange={(e) => setLifecycleStatus(e.target.value as ActivityStatus)}
+              options={STATUS_OPTIONS.map((value) => ({ value, label: STATUS_LABELS[value] }))}
+            />
+            <div className="flex items-end">
+              <Button onClick={handleAdd} disabled={!name.trim() || createColumn.isPending}>
+                <Plus className="size-4" />
+                Adicionar
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {[...columns].sort((a, b) => a.position - b.position).map((column, index) => (
+              <div key={column.id} className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/10 p-2">
+                <span className="size-3 rounded-full" style={{ backgroundColor: column.color }} aria-hidden="true" />
+                <Input
+                  className="h-9 flex-1"
+                  value={column.name}
+                  onChange={(e) => updateColumn.mutateAsync({ columnId: column.id, data: { name: e.target.value } }).catch(() => undefined)}
+                />
+                <Input
+                  className="h-9 w-14 p-1"
+                  type="color"
+                  value={column.color}
+                  onChange={(e) => updateColumn.mutateAsync({ columnId: column.id, data: { color: e.target.value } }).catch(() => undefined)}
+                />
+                <Badge variant="secondary" className="w-28 justify-center">{STATUS_LABELS[column.lifecycleStatus]}</Badge>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => moveColumn(column.id, -1)} aria-label="Subir">↑</Button>
+                  <Button size="sm" variant="ghost" disabled={index === columns.length - 1} onClick={() => moveColumn(column.id, 1)} aria-label="Descer">↓</Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => deleteColumn.mutateAsync(column.id).catch((e: any) => toast.error(e?.message || 'Falha ao remover'))}
+                    aria-label={`Remover ${column.name}`}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {columns.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma coluna. Adicione a primeira acima.</p>}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

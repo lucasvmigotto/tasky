@@ -14,6 +14,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -25,6 +27,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -46,6 +50,18 @@ public class InternalRequest {
 
     @Column(name = "request_key", nullable = false)
     private String requestKey;
+
+    @Column(name = "glpi_ticket_id")
+    private String glpiTicketId;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "request_assignees",
+            joinColumns = @JoinColumn(name = "request_id"),
+            inverseJoinColumns = @JoinColumn(name = "membership_id")
+    )
+    @Builder.Default
+    private List<OrganizationMembership> assignees = new ArrayList<>();
 
     @Column(nullable = false)
     private String title;

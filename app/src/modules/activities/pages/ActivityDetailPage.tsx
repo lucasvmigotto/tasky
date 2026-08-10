@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, User, FolderKanban, Trash2, Link2, Loader2, MessageSq
 import { ROUTES, buildRoute } from '@/core/config/routes'
 import { useAuthStore } from '@/core/auth/authStore'
 import { canEditActivity } from '@/core/auth/permissions'
-import { useActivity, useActivities, useProjects, useMemberships, useDeleteActivity, useAddDependency, useRemoveDependency, useActivityFeed, useMentionCandidates, useCreateActivityComment, useDeleteActivityComment, useActivityAttachments, useCreateActivityAttachment, useDeleteActivityAttachment, useActivityChecklist, useAddActivityChecklistItem, useToggleActivityChecklistItem, useDeleteActivityChecklistItem, useUpdateActivity } from '@/core/api/hooks'
+import { useActivity, useActivities, useProjects, useMemberships, useDeleteActivity, useAddDependency, useRemoveDependency, useActivityFeed, useMentionCandidates, useCreateActivityComment, useDeleteActivityComment, useActivityAttachments, useCreateActivityAttachment, useDeleteActivityAttachment, useActivityChecklist, useAddActivityChecklistItem, useToggleActivityChecklistItem, useDeleteActivityChecklistItem, useUpdateActivity, uploadFile } from '@/core/api/hooks'
 import { DependencyTree } from '@/shared/components/activities/DependencyTree'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
@@ -96,6 +96,7 @@ export default function ActivityDetailPage() {
   const [attachmentUrl, setAttachmentUrl] = useState('')
   const [attachmentType, setAttachmentType] = useState('application/octet-stream')
   const [attachmentSize, setAttachmentSize] = useState(0)
+  const [uploadingFile, setUploadingFile] = useState(false)
   const [showAddDep, setShowAddDep] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [checklistText, setChecklistText] = useState('')
@@ -224,6 +225,32 @@ export default function ActivityDetailPage() {
       toast.success('Anexo removido')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao remover anexo')
+    }
+  }
+
+  const handleUploadAttachment = async (file: File) => {
+    if (!activityId) return
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('O arquivo excede o limite de 20 MB')
+      return
+    }
+    setUploadingFile(true)
+    try {
+      const stored = await uploadFile(file)
+      await createAttachment.mutateAsync({
+        activityId: activityId as UUID,
+        data: {
+          fileName: stored.fileName,
+          contentType: stored.contentType,
+          sizeBytes: stored.sizeBytes,
+          storedFileId: stored.id,
+        },
+      })
+      toast.success('Anexo enviado')
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao enviar arquivo')
+    } finally {
+      setUploadingFile(false)
     }
   }
 
@@ -562,6 +589,22 @@ export default function ActivityDetailPage() {
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Paperclip className="size-4" /> Anexos</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border/60 p-4">
+                <p className="text-sm text-muted-foreground">Envie imagens, PDFs ou documentos direto do computador.</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf,.docx,text/markdown,text/plain"
+                    className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) void handleUploadAttachment(file)
+                      e.target.value = ''
+                    }}
+                  />
+                  {uploadingFile && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                </div>
+              </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Input label="Nome do arquivo" value={attachmentName} onChange={(e) => setAttachmentName(e.target.value)} placeholder="briefing.pdf" />
                 <Input label="URL segura" type="url" value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder="https://..." />
@@ -570,26 +613,40 @@ export default function ActivityDetailPage() {
               </div>
               <Button size="sm" onClick={handleCreateAttachment} disabled={!attachmentName.trim() || !attachmentUrl.trim() || createAttachment.isPending}>
                 {createAttachment.isPending ? <Loader2 className="size-3 animate-spin" /> : <Paperclip className="size-3" />}
-                Registrar anexo
+                Registrar link externo
               </Button>
               <div className="space-y-2">
                 {attachments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum anexo registrado.</p>
                 ) : attachments.map((attachment) => {
-                  const safeUrl = safeHttpsUrl(attachment.url)
+                  const isImage = attachment.contentType.startsWith('image/')
+                  const localUrl = attachment.url.startsWith('/api/v1/files/') ? attachment.url : null
                   return (
-                  <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 p-3">
-                    <div className="min-w-0">
-                      {safeUrl ? (
-                        <a className="flex items-center gap-1 truncate text-sm font-medium text-primary hover:underline" href={safeUrl} target="_blank" rel="noopener noreferrer">
-                          {attachment.fileName} <ExternalLink className="size-3" />
-                        </a>
-                      ) : <span className="truncate text-sm font-medium text-muted-foreground">{attachment.fileName}</span>}
-                      <p className="text-xs text-muted-foreground">{attachment.contentType} • {attachment.sizeBytes} bytes • {attachment.uploadedByName}</p>
+                  <div key={attachment.id} className="flex flex-col gap-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+                    {isImage && (
+                      <img
+                        src={localUrl ?? safeHttpsUrl(attachment.url) ?? ''}
+                        alt={attachment.fileName}
+                        className="max-h-64 rounded-md border border-border/50 object-contain"
+                      />
+                    )}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        {isImage || localUrl ? (
+                          <a className="flex items-center gap-1 truncate text-sm font-medium text-primary hover:underline" href={(localUrl ?? safeHttpsUrl(attachment.url)) ?? undefined} target="_blank" rel="noopener noreferrer">
+                            {attachment.fileName} <ExternalLink className="size-3" />
+                          </a>
+                        ) : safeHttpsUrl(attachment.url) ? (
+                          <a className="flex items-center gap-1 truncate text-sm font-medium text-primary hover:underline" href={safeHttpsUrl(attachment.url) ?? undefined} target="_blank" rel="noopener noreferrer">
+                            {attachment.fileName} <ExternalLink className="size-3" />
+                          </a>
+                        ) : <span className="truncate text-sm font-medium text-muted-foreground">{attachment.fileName}</span>}
+                        <p className="text-xs text-muted-foreground">{attachment.contentType} • {attachment.sizeBytes} bytes • {attachment.uploadedByName}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteAttachment(attachment.id)}>
+                        Remover
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteAttachment(attachment.id)}>
-                      Remover
-                    </Button>
                   </div>
                   )
                 })}

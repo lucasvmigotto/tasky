@@ -46,6 +46,7 @@ type ViewMode = 'list' | 'kanban'
 const KANBAN_COLUMNS: { key: ActivityStatus; accent: string }[] = [
   { key: 'TODO', accent: 'bg-sky-500/10 text-sky-400' },
   { key: 'IN_PROGRESS', accent: 'bg-amber-500/10 text-amber-400' },
+  { key: 'IN_TESTING', accent: 'bg-violet-500/10 text-violet-400' },
   { key: 'BLOCKED', accent: 'bg-red-500/10 text-red-400' },
   { key: 'DONE', accent: 'bg-emerald-500/10 text-emerald-400' },
   { key: 'CANCELED', accent: 'bg-muted text-muted-foreground' },
@@ -96,10 +97,10 @@ export default function ActivitiesPage() {
   const getMemberName = (id: string) => members?.find((m) => m.id === id)?.username ?? id
   const getProjectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? id
 
-  const moveTo = async (activityId: string, data: { status: ActivityStatus; position?: number }) => {
+  const moveTo = async (activityId: string, data: { status?: ActivityStatus; position?: number }) => {
     try {
       await moveActivity.mutateAsync({ activityId: activityId as UUID, data })
-      toast.success(`Atividade movida para ${STATUS_LABELS[data.status]}`)
+      if (data.status) toast.success(`Atividade movida para ${STATUS_LABELS[data.status]}`)
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao mover atividade')
       throw e

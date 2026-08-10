@@ -40,7 +40,7 @@ class TimeEntryServiceTest {
 
         assertThrows(ConflictException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
-                "changed", null, null, null, null, null));
+                "changed", null, null, null, null));
 
         verify(timeEntryRepository, never()).save(fixture.entry);
     }
@@ -85,7 +85,7 @@ class TimeEntryServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), otherProject.getId(), null,
-                null, null, null, null, null, null));
+                null, null, null, null, null));
     }
 
     private Fixture fixture(TimeEntryApprovalStatus status, Instant endTime) {

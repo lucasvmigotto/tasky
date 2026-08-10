@@ -7,6 +7,7 @@ import { formatDate } from '@/shared/lib/formatters'
 export const STATUS_LABELS: Record<ActivityStatus, string> = {
   TODO: 'A Fazer',
   IN_PROGRESS: 'Em Andamento',
+  IN_TESTING: 'Em Testes',
   DONE: 'Concluído',
   BLOCKED: 'Bloqueado',
   CANCELED: 'Cancelado',
@@ -152,6 +153,11 @@ export function ActivityCard({
         <span className="flex min-w-0 items-center gap-1 truncate" title={memberName}>
           <User className="size-3 shrink-0" aria-hidden="true" />
           <span className="truncate">{memberName}</span>
+          {activity.assigneeIds && activity.assigneeIds.length > 1 && (
+            <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+              +{activity.assigneeIds.length - 1}
+            </span>
+          )}
         </span>
         <span className="max-w-24 truncate" title={projectName}>{projectName}</span>
       </div>

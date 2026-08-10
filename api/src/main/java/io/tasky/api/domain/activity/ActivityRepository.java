@@ -31,6 +31,26 @@ public interface ActivityRepository extends JpaRepository<Activity, UUID>, JpaSp
 
     List<Activity> findByProjectIdAndProject_Department_Organization_Id(UUID projectId, UUID organizationId);
 
+    List<Activity> findByRequestIdAndProject_Department_Organization_IdOrderByPositionAscIdAsc(
+            UUID requestId, UUID organizationId);
+
+    @Query("""
+        select a from Activity a
+        join a.assignees assignee
+        where assignee.id = :membershipId and a.project.id = :projectId
+        """)
+    List<Activity> findByProjectIdAndAssigneeMembershipId(
+            @Param("projectId") UUID projectId,
+            @Param("membershipId") UUID membershipId);
+
+    @Query("""
+        select a.id as activityId, assignee.id as membershipId
+        from Activity a
+        join a.assignees assignee
+        where a.id in :activityIds
+        """)
+    List<ActivityAssigneeRef> findAssigneeRefsByActivityIds(@Param("activityIds") List<UUID> activityIds);
+
     List<Activity> findByProjectIdAndStatusOrderByPositionAscIdAsc(UUID projectId, ActivityStatus status);
 
     @Query("""

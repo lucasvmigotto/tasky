@@ -10,6 +10,7 @@ import io.tasky.api.domain.user.UserService;
 import io.tasky.api.security.GoogleTokenVerifier;
 import io.tasky.api.security.JwtTokenProvider;
 import io.tasky.api.security.SecurityUser;
+import io.tasky.api.security.SuperAdminService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -42,6 +43,7 @@ public class AuthController {
     private final OrganizationMembershipRepository membershipRepository;
     private final MembershipService membershipService;
     private final RefreshSessionService refreshSessionService;
+    private final SuperAdminService superAdminService;
     private final Environment environment;
 
     @PostMapping("/google")
@@ -53,6 +55,7 @@ public class AuthController {
 
         User user = userService.getOrCreateUser(payload.email(), payload.sub(), payload.name(), payload.picture());
         membershipService.acceptPendingInvitations(user, payload.email());
+        superAdminService.ensureSuperAdmin(user);
 
         List<OrganizationMembership> memberships = membershipRepository.findByUserIdAndIsActiveTrue(user.getId());
 
@@ -125,6 +128,8 @@ public class AuthController {
         }
 
         setRefreshCookie(httpResponse, result.rawToken());
+
+        superAdminService.ensureSuperAdmin(result.user());
 
         String token;
         if (result.org() != null && result.membership() != null) {
@@ -206,6 +211,8 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
         setRefreshCookie(httpResponse, result.rawToken());
+
+        superAdminService.ensureSuperAdmin(membership.getUser());
 
         String token = jwtTokenProvider.createToken(
                 user.id(), user.email(), org.getId(), membership.getRole());

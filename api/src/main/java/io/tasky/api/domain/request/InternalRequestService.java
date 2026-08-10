@@ -1,8 +1,11 @@
 package io.tasky.api.domain.request;
 
 import io.tasky.api.api.common.ConflictException;
+import io.tasky.api.config.ConfigRegistry;
+import io.tasky.api.config.ConfigService;
 import io.tasky.api.domain.activity.Activity;
 import io.tasky.api.domain.activity.ActivityRepository;
+import io.tasky.api.domain.activity.ActivityService;
 import io.tasky.api.domain.audit.AuditService;
 import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.department.DepartmentRepository;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.Year;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,15 +40,23 @@ public class InternalRequestService {
     private final ProjectRepository projectRepository;
     private final ActivityRepository activityRepository;
     private final ProjectService projectService;
+    private final ActivityService activityService;
+    private final ConfigService configService;
     private final AuditService auditService;
 
     public InternalRequest create(UUID orgId, SecurityUser user,
                                   String title, String description,
+                                  String glpiTicketId,
                                   RequestPriority priority,
                                   UUID requestingDepartmentId, UUID responsibleDepartmentId,
-                                  Instant desiredDueDate) {
+                                  Instant desiredDueDate,
+                                  List<UUID> assigneeMembershipIds) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Title is required");
+        }
+        if (configService.getBoolean(orgId, ConfigRegistry.KEY_REQUESTS_GLPI_REQUIRED)
+                && (glpiTicketId == null || glpiTicketId.isBlank())) {
+            throw new IllegalArgumentException("GLPI ticket number is required");
         }
         OrganizationMembership requester = membershipRepository.findByUserIdAndOrganizationIdAndIsActiveTrue(user.id(), orgId)
                 .orElseThrow(() -> new SecurityException("Not a member of this organization"));
@@ -59,6 +71,7 @@ public class InternalRequestService {
         InternalRequest request = InternalRequest.builder()
                 .organization(requester.getOrganization())
                 .requestKey(key)
+                .glpiTicketId(glpiTicketId != null && !glpiTicketId.isBlank() ? glpiTicketId.trim() : null)
                 .title(title.trim())
                 .description(description)
                 .priority(priority != null ? priority : RequestPriority.NORMAL)
@@ -68,9 +81,12 @@ public class InternalRequestService {
                 .responsibleDepartment(responsibleDept)
                 .desiredDueDate(desiredDueDate)
                 .build();
+        if (assigneeMembershipIds != null && !assigneeMembershipIds.isEmpty()) {
+            request.getAssignees().addAll(resolveAssignees(orgId, assigneeMembershipIds));
+        }
         request = requestRepository.save(request);
         auditService.record(orgId, user.id(), requester.getId(), "internal_request", request.getId(),
-                "CREATE", null, "status=NEW,key=" + key, null);
+                "CREATE", null, "status=NEW,key=" + key + ",glpi=" + glpiTicketId, null);
         return request;
     }
 
@@ -86,7 +102,10 @@ public class InternalRequestService {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("priority"), priority));
         }
         if (assigneeId != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("assignee").get("id"), assigneeId));
+            spec = spec.and((root, query, cb) -> {
+                query.distinct(true);
+                return cb.equal(root.join("assignees").get("id"), assigneeId);
+            });
         }
         if (responsibleDepartmentId != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("responsibleDepartment").get("id"), responsibleDepartmentId));
@@ -97,7 +116,10 @@ public class InternalRequestService {
                     .findByUserIdAndOrganizationIdAndIsActiveTrue(user.id(), orgId)
                     .orElseThrow(() -> new SecurityException("Not a member of this organization"));
             UUID membershipId = membership.getId();
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("assignee").get("id"), membershipId));
+            spec = spec.and((root, query, cb) -> {
+                query.distinct(true);
+                return cb.equal(root.join("assignees").get("id"), membershipId);
+            });
         }
 
         return requestRepository.findAll(spec, pageable);
@@ -111,9 +133,12 @@ public class InternalRequestService {
 
     public InternalRequest update(UUID orgId, UUID requestId,
                                   String title, String description,
+                                  String glpiTicketId,
                                   RequestPriority priority,
                                   UUID responsibleDepartmentId,
-                                  UUID assigneeMembershipId, Instant desiredDueDate) {
+                                  UUID assigneeMembershipId,
+                                  List<UUID> assigneeMembershipIds,
+                                  Instant desiredDueDate) {
         InternalRequest request = get(orgId, requestId);
         requireEditableStatus(request);
 
@@ -122,6 +147,9 @@ public class InternalRequestService {
         }
         if (description != null) {
             request.setDescription(description);
+        }
+        if (glpiTicketId != null) {
+            request.setGlpiTicketId(glpiTicketId.isBlank() ? null : glpiTicketId.trim());
         }
         if (priority != null) {
             request.setPriority(priority);
@@ -134,8 +162,92 @@ public class InternalRequestService {
                     .filter(m -> m.getOrganization().getId().equals(orgId))
                     .orElseThrow(() -> new IllegalArgumentException("Assignee membership not found")));
         }
+        if (assigneeMembershipIds != null) {
+            request.getAssignees().clear();
+            request.getAssignees().addAll(resolveAssignees(orgId, assigneeMembershipIds));
+        }
         request.setDesiredDueDate(desiredDueDate);
         return requestRepository.save(request);
+    }
+
+    public List<Activity> getTasks(UUID orgId, UUID requestId) {
+        get(orgId, requestId);
+        return activityRepository.findByRequestIdAndProject_Department_Organization_IdOrderByPositionAscIdAsc(requestId, orgId);
+    }
+
+    public List<Activity> createTasks(UUID orgId, UUID requestId, List<TaskItem> items, SecurityUser user) {
+        InternalRequest request = get(orgId, requestId);
+        requireEditableStatus(request);
+        if (request.getProject() == null) {
+            throw new IllegalArgumentException("Link the demand to a project before creating tasks");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("At least one task is required");
+        }
+        OrganizationMembership creator = membershipRepository.findByUserIdAndOrganizationIdAndIsActiveTrue(user.id(), orgId)
+                .orElseThrow(() -> new SecurityException("Not a member of this organization"));
+        int defaultWeight = configService.getInt(orgId, ConfigRegistry.KEY_TASKS_DEFAULT_WEIGHT);
+        Instant now = Instant.now();
+
+        List<Activity> created = new ArrayList<>();
+        for (TaskItem item : items) {
+            if (item.title() == null || item.title().isBlank()) {
+                throw new IllegalArgumentException("Every task needs a title");
+            }
+            UUID ownerId = item.assigneeMembershipIds() != null && !item.assigneeMembershipIds().isEmpty()
+                    ? item.assigneeMembershipIds().get(0)
+                    : creator.getId();
+            List<UUID> extras = item.assigneeMembershipIds() != null && item.assigneeMembershipIds().size() > 1
+                    ? item.assigneeMembershipIds().subList(1, item.assigneeMembershipIds().size())
+                    : List.of();
+
+            Instant start = now;
+            Instant end = item.dueDate() != null && item.dueDate().isAfter(start.plusSeconds(3600))
+                    ? item.dueDate()
+                    : start.plusSeconds(7200);
+
+            Activity activity = activityService.createActivity(
+                    request.getProject().getId(),
+                    item.title(),
+                    item.description(),
+                    item.weight() != null && item.weight() > 0 ? item.weight() : (short) defaultWeight,
+                    start,
+                    end,
+                    ownerId,
+                    null,
+                    item.estimatedSeconds(),
+                    List.of(),
+                    user,
+                    io.tasky.api.domain.activity.ActivityTaskType.TASK,
+                    item.priority() != null ? item.priority() : io.tasky.api.domain.activity.ActivityPriority.NORMAL,
+                    item.dueDate(),
+                    extras);
+            activity.setRequest(request);
+            created.add(activityRepository.save(activity));
+        }
+        if (request.getStatus() == RequestStatus.NEW || request.getStatus() == RequestStatus.TRIAGE
+                || request.getStatus() == RequestStatus.PLANNED) {
+            request.setStatus(RequestStatus.IN_PROGRESS);
+        }
+        requestRepository.save(request);
+        auditService.record(orgId, user.id(), creator.getId(), "internal_request", requestId,
+                "CREATE_TASKS", null, "tasks=" + created.size(), null);
+        return created;
+    }
+
+    public record TaskItem(String title, String description,
+                           io.tasky.api.domain.activity.ActivityPriority priority,
+                           Short weight, Long estimatedSeconds, Instant dueDate,
+                           List<UUID> assigneeMembershipIds) {}
+
+    private List<OrganizationMembership> resolveAssignees(UUID orgId, List<UUID> assigneeMembershipIds) {
+        List<OrganizationMembership> resolved = new ArrayList<>();
+        for (UUID membershipId : assigneeMembershipIds) {
+            resolved.add(membershipRepository.findById(membershipId)
+                    .filter(m -> m.getOrganization().getId().equals(orgId))
+                    .orElseThrow(() -> new IllegalArgumentException("Assignee membership not found")));
+        }
+        return resolved;
     }
 
     public InternalRequest changeStatus(UUID orgId, UUID requestId, RequestStatus status) {

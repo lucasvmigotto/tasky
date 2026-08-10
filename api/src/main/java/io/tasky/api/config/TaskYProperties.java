@@ -10,7 +10,8 @@ public record TaskYProperties(
         Jwt jwt,
         Cors cors,
         Google google,
-        Reminders reminders
+        Reminders reminders,
+        Platform platform
 ) {
 
     public record Jwt(
@@ -32,5 +33,9 @@ public record TaskYProperties(
             Duration openTimerAge,
             Duration pendingApprovalAge,
             int batchSize
+    ) {}
+
+    public record Platform(
+            List<String> superAdminEmails
     ) {}
 }

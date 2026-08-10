@@ -1,6 +1,9 @@
 package io.tasky.api.api.request;
 
 import io.tasky.api.api.common.PaginatedResponse;
+import io.tasky.api.api.activity.ActivityResponse;
+import io.tasky.api.domain.activity.Activity;
+import io.tasky.api.domain.activity.ActivityService;
 import io.tasky.api.domain.request.InternalRequest;
 import io.tasky.api.domain.request.InternalRequestService;
 import io.tasky.api.domain.request.RequestComment;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +43,7 @@ import java.util.UUID;
 public class InternalRequestController {
 
     private final InternalRequestService requestService;
+    private final ActivityService activityService;
 
     @PostMapping
     public ResponseEntity<InternalRequestResponse> create(
@@ -48,10 +53,12 @@ public class InternalRequestController {
         InternalRequest created = requestService.create(
                 orgId, user,
                 request.title(), request.description(),
+                request.glpiTicketId(),
                 parsePriority(request.priority()),
                 request.requestingDepartmentId(),
                 request.responsibleDepartmentId(),
-                request.desiredDueDate());
+                request.desiredDueDate(),
+                request.assigneeMembershipIds());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
     }
 
@@ -103,9 +110,11 @@ public class InternalRequestController {
         InternalRequest updated = requestService.update(
                 orgId, requestId,
                 request.title(), request.description(),
+                request.glpiTicketId(),
                 parsePriority(request.priority()),
                 request.responsibleDepartmentId(),
                 request.assigneeMembershipId(),
+                request.assigneeMembershipIds(),
                 request.desiredDueDate());
         return ResponseEntity.ok(toResponse(updated));
     }
@@ -127,9 +136,33 @@ public class InternalRequestController {
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requiredOrgId(user);
         InternalRequest updated = requestService.update(
-                orgId, requestId, null, null, null, null,
-                request.assigneeMembershipId(), null);
+                orgId, requestId, null, null, null, null, null,
+                request.assigneeMembershipId(), null, null);
         return ResponseEntity.ok(toResponse(updated));
+    }
+
+    @GetMapping("/{requestId}/tasks")
+    public ResponseEntity<List<ActivityResponse>> tasks(
+            @PathVariable UUID requestId,
+            @AuthenticationPrincipal SecurityUser user) {
+        UUID orgId = requiredOrgId(user);
+        List<Activity> activities = requestService.getTasks(orgId, requestId);
+        return ResponseEntity.ok(toActivityResponses(activities));
+    }
+
+    @PostMapping("/{requestId}/tasks")
+    public ResponseEntity<List<ActivityResponse>> createTasks(
+            @PathVariable UUID requestId,
+            @Valid @RequestBody CreateRequestTasksRequest request,
+            @AuthenticationPrincipal SecurityUser user) {
+        UUID orgId = requiredOrgId(user);
+        List<InternalRequestService.TaskItem> items = request.items().stream()
+                .map(item -> new InternalRequestService.TaskItem(
+                        item.title(), item.description(), item.priority(), item.weight(),
+                        item.estimatedSeconds(), item.dueDate(), item.assigneeMembershipIds()))
+                .toList();
+        List<Activity> activities = requestService.createTasks(orgId, requestId, items, user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toActivityResponses(activities));
     }
 
     @PatchMapping("/{requestId}/link-project")
@@ -231,10 +264,22 @@ public class InternalRequestController {
     }
 
     private InternalRequestResponse toResponse(InternalRequest request) {
+        List<UUID> assigneeIds = new ArrayList<>();
+        if (request.getAssignee() != null) {
+            assigneeIds.add(request.getAssignee().getId());
+        }
+        if (request.getAssignees() != null) {
+            for (io.tasky.api.domain.membership.OrganizationMembership assignee : request.getAssignees()) {
+                if (!assigneeIds.contains(assignee.getId())) {
+                    assigneeIds.add(assignee.getId());
+                }
+            }
+        }
         return new InternalRequestResponse(
                 request.getId(),
                 request.getOrganization().getId(),
                 request.getRequestKey(),
+                request.getGlpiTicketId(),
                 request.getTitle(),
                 request.getDescription(),
                 request.getPriority() != null ? request.getPriority().name() : null,
@@ -243,6 +288,7 @@ public class InternalRequestController {
                 request.getRequestingDepartment() != null ? request.getRequestingDepartment().getId() : null,
                 request.getResponsibleDepartment() != null ? request.getResponsibleDepartment().getId() : null,
                 request.getAssignee() != null ? request.getAssignee().getId() : null,
+                assigneeIds,
                 request.getDesiredDueDate(),
                 request.getProject() != null ? request.getProject().getId() : null,
                 request.getActivity() != null ? request.getActivity().getId() : null,
@@ -251,6 +297,10 @@ public class InternalRequestController {
                 request.getCreatedAt(),
                 request.getUpdatedAt()
         );
+    }
+
+    private List<ActivityResponse> toActivityResponses(List<Activity> activities) {
+        return activities.stream().map(activityService::toActivityResponse).toList();
     }
 
     private RequestCommentResponse toCommentResponse(RequestComment comment) {

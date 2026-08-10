@@ -2,6 +2,7 @@ package io.tasky.api.domain.activity;
 
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.project.Project;
+import io.tasky.api.domain.request.InternalRequest;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +12,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -23,6 +26,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -45,6 +50,20 @@ public class Activity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_activity_id")
     private Activity parentActivity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_id")
+    private InternalRequest request;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "activity_assignees",
+            joinColumns = @JoinColumn(name = "activity_id"),
+            inverseJoinColumns = @JoinColumn(name = "membership_id")
+    )
+    @Builder.Default
+    private List<OrganizationMembership> assignees = new ArrayList<>();
+
 
     @Column(nullable = false)
     private String title;

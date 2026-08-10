@@ -1,7 +1,7 @@
 import type { Role } from '@/core/auth/permissions'
 
 export type FibonacciWeight = 1 | 2 | 3 | 5 | 8 | 13
-export type ActivityStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELED'
+export type ActivityStatus = 'TODO' | 'IN_PROGRESS' | 'IN_TESTING' | 'DONE' | 'BLOCKED' | 'CANCELED'
 export type ActivityTaskType = 'TASK' | 'BUG' | 'IMPROVEMENT' | 'SUPPORT' | 'MEETING' | 'MILESTONE'
 export type ActivityPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 export type RecurrenceFrequency = 'DAILY' | 'WEEKLY'
@@ -16,6 +16,37 @@ export function isValidFibonacciWeight(w: number): w is FibonacciWeight {
 
 export type UUID = string
 export type ISO8601 = string
+
+export type SettingValueType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON' | 'SECRET'
+
+export interface SettingValue {
+  key: string
+  label: string
+  description: string
+  valueType: SettingValueType
+  options: string[] | null
+  min: number | null
+  max: number | null
+  value: string | null
+  isSet: boolean
+  isOverride: boolean
+}
+
+export interface SettingsGroup {
+  name: string
+  settings: SettingValue[]
+}
+
+export interface SettingsResponse {
+  scope: 'GLOBAL' | 'ORGANIZATION'
+  orgId: UUID | null
+  groups: SettingsGroup[]
+}
+
+export interface UpdateSettingPayload {
+  value?: string
+  clear?: boolean
+}
 
 export interface User {
   id: UUID
@@ -312,6 +343,7 @@ export interface CreateActivityRequest {
   taskType?: ActivityTaskType
   priority?: ActivityPriority
   dueDate?: ISO8601
+  assigneeMembershipIds?: UUID[]
 }
 
 export interface AddDependencyRequest {
@@ -336,6 +368,7 @@ export interface ActivityResponse {
   estimatedSeconds: number
   createdBy: UUID
   assignedTo: UUID
+  assigneeIds: UUID[]
   parentIds: UUID[]
   checklistTotal: number
   checklistCompleted: number
@@ -407,6 +440,7 @@ export interface UpdateActivityRequest {
   priority?: ActivityPriority
   dueDate?: ISO8601
   expectedVersion?: number
+  assigneeMembershipIds?: UUID[]
 }
 
 export interface ActivityRecurrenceResponse {
@@ -452,9 +486,25 @@ export interface GeneratedActivityResponse {
 }
 
 export interface MoveActivityRequest {
-  status: ActivityStatus
+  status?: ActivityStatus
+  columnId?: UUID
   position?: number
   expectedVersion?: number
+}
+
+export interface ProjectColumn {
+  id: UUID
+  projectId: UUID
+  name: string
+  position: number
+  color: string
+  lifecycleStatus: ActivityStatus
+}
+
+export interface CreateProjectColumnRequest {
+  name: string
+  color?: string
+  lifecycleStatus: ActivityStatus
 }
 
 export interface ReorderActivitiesRequest {
@@ -531,7 +581,67 @@ export interface CreateActivityAttachmentRequest {
   fileName: string
   contentType: string
   sizeBytes: number
+  url?: string
+  storedFileId?: UUID
+}
+
+export interface StoredFileResponse {
+  id: UUID
+  fileName: string
+  contentType: string
+  sizeBytes: number
   url: string
+}
+
+export interface DocumentResponse {
+  id: UUID
+  organizationId: UUID
+  projectId: UUID | null
+  requestId: UUID | null
+  activityId: UUID | null
+  title: string
+  slug: string
+  contentMd: string
+  status: string
+  authorMembershipId: UUID
+  authorName: string
+  version: number
+  attachmentCount: number
+  createdAt: ISO8601
+  updatedAt: ISO8601
+}
+
+export interface DocumentVersionResponse {
+  id: UUID
+  versionNo: number
+  contentMd: string
+  changelog: string | null
+  createdByMembershipId: UUID
+  createdAt: ISO8601
+}
+
+export interface DocumentAttachmentResponse {
+  id: UUID
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  url: string | null
+  uploadedByMembershipId: UUID
+  createdAt: ISO8601
+}
+
+export interface CreateDocumentRequest {
+  projectId?: UUID
+  requestId?: UUID
+  activityId?: UUID
+  title: string
+  contentMd?: string
+}
+
+export interface UpdateDocumentRequest {
+  title?: string
+  contentMd?: string
+  changelog?: string
 }
 
 export interface ChangeRoleRequest {
@@ -979,6 +1089,7 @@ export interface InternalRequest {
   id: UUID
   organizationId: UUID
   requestKey: string
+  glpiTicketId: string | null
   title: string
   description: string | null
   priority: RequestPriority
@@ -987,6 +1098,7 @@ export interface InternalRequest {
   requestingDepartmentId: UUID | null
   responsibleDepartmentId: UUID | null
   assigneeMembershipId: UUID | null
+  assigneeMembershipIds: UUID[]
   desiredDueDate: ISO8601 | null
   projectId: UUID | null
   activityId: UUID | null
@@ -999,19 +1111,37 @@ export interface InternalRequest {
 export interface CreateInternalRequest {
   title: string
   description?: string
+  glpiTicketId?: string
   priority?: RequestPriority
   requestingDepartmentId?: UUID
   responsibleDepartmentId?: UUID
   desiredDueDate?: ISO8601
+  assigneeMembershipIds?: UUID[]
 }
 
 export interface UpdateInternalRequest {
   title?: string
   description?: string
+  glpiTicketId?: string
   priority?: RequestPriority
   responsibleDepartmentId?: UUID
   assigneeMembershipId?: UUID
+  assigneeMembershipIds?: UUID[]
   desiredDueDate?: ISO8601
+}
+
+export interface RequestTaskItem {
+  title: string
+  description?: string
+  priority?: ActivityPriority
+  weight?: number
+  estimatedSeconds?: number
+  dueDate?: ISO8601
+  assigneeMembershipIds?: UUID[]
+}
+
+export interface CreateRequestTasksPayload {
+  items: RequestTaskItem[]
 }
 
 export interface InternalRequestQueryParams {

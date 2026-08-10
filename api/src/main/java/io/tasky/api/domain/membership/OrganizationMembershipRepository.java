@@ -26,4 +26,5 @@ public interface OrganizationMembershipRepository extends JpaRepository<Organiza
             UUID organizationId, Set<UUID> departmentIds);
     List<OrganizationMembership> findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdInOrderByUser_UsernameAscIdAsc(
             UUID organizationId, Set<UUID> departmentIds);
+    List<OrganizationMembership> findByUserEmailIgnoreCaseAndIsActiveTrue(String email);
 }

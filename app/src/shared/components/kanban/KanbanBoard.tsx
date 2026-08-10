@@ -22,6 +22,7 @@ export interface KanbanColumnDef {
   key: ActivityStatus
   label: string
   accent: string
+  color?: string
 }
 
 interface KanbanBoardProps {
@@ -190,7 +191,7 @@ function KanbanColumn({ column, items, statuses, onOpen, onMoveTo, getMemberName
     >
       <header className="flex items-center justify-between">
         <h2 id={`kanban-${column.key}`} className={cn('flex items-center gap-2 text-sm font-semibold', column.accent)}>
-          <span className="size-2 rounded-full bg-current" aria-hidden="true" />
+          <span className="size-2 rounded-full" style={{ backgroundColor: column.color ?? 'currentColor' }} aria-hidden="true" />
           {column.label}
         </h2>
         <span className="text-xs text-muted-foreground">{items.length}</span>

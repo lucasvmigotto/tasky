@@ -4,6 +4,7 @@ import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.department.DepartmentRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
+import io.tasky.api.domain.projectcolumn.ProjectColumnService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class ProjectService {
     private final CrossDepartmentProjectAccessRepository crossDeptAccessRepository;
     private final DepartmentRepository departmentRepository;
     private final OrganizationMembershipRepository membershipRepository;
+    private final ProjectColumnService columnService;
 
     public Project createProject(UUID departmentId, String name, String description, String color, UUID managerMembershipId,
                                   BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
@@ -54,7 +56,9 @@ public class ProjectService {
                 .budgetAmount(budgetAmount)
                 .isActive(true)
                 .build();
-        return projectRepository.save(project);
+        project = projectRepository.save(project);
+        columnService.seedDefaults(project);
+        return project;
     }
 
     public List<Project> getProjectsByOrganization(UUID orgId) {

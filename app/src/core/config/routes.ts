@@ -22,6 +22,7 @@ export const ROUTES = {
     MEMBERS: '/admin/members',
     DEPARTMENTS: '/admin/departments',
     PROJECTS: '/admin/projects',
+    SETTINGS: '/admin/settings',
   },
 } as const
 

@@ -14,6 +14,10 @@ import io.tasky.api.domain.membership.MembershipService;
 import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
+import io.tasky.api.domain.projectcolumn.ProjectColumn;
+import io.tasky.api.domain.projectcolumn.ProjectColumnRepository;
+import io.tasky.api.domain.storage.StoredFile;
+import io.tasky.api.domain.storage.StoredFileRepository;
 import io.tasky.api.security.PermissionService;
 import io.tasky.api.security.SecurityUser;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +61,8 @@ public class ActivityService {
     private final ActivityChecklistItemRepository checklistRepository;
     private final ActivityDependencyRepository dependencyRepository;
     private final ProjectRepository projectRepository;
+    private final ProjectColumnRepository projectColumnRepository;
+    private final StoredFileRepository storedFileRepository;
     private final MembershipService membershipService;
     private final OrganizationMembershipRepository membershipRepository;
     private final PermissionService permissionService;
@@ -111,6 +117,28 @@ public class ActivityService {
             ActivityPriority priority,
             Instant dueDate
     ) {
+        return createActivity(projectId, title, description, weight, startDatetime, endDatetime,
+                assignedToMembershipId, parentActivityId, estimatedSeconds, parentActivityIds, creator,
+                taskType, priority, dueDate, null);
+    }
+
+    public Activity createActivity(
+            UUID projectId,
+            String title,
+            String description,
+            short weight,
+            Instant startDatetime,
+            Instant endDatetime,
+            UUID assignedToMembershipId,
+            UUID parentActivityId,
+            Long estimatedSeconds,
+            List<UUID> parentActivityIds,
+            SecurityUser creator,
+            ActivityTaskType taskType,
+            ActivityPriority priority,
+            Instant dueDate,
+            List<UUID> assigneeMembershipIds
+    ) {
         if (startDatetime.isAfter(endDatetime) || startDatetime.equals(endDatetime)) {
             throw new IllegalArgumentException("Start datetime must be before end datetime");
         }
@@ -158,6 +186,19 @@ public class ActivityService {
                 .build();
 
         activity = activityRepository.save(activity);
+
+        if (assigneeMembershipIds != null) {
+            for (UUID assigneeMembershipId : assigneeMembershipIds) {
+                if (assigneeMembershipId.equals(assignedTo.getId())) {
+                    continue;
+                }
+                OrganizationMembership extra = membershipService.getVisibleActiveMembership(orgId, creator.id(), assigneeMembershipId);
+                if (!permissionService.canCreateActivityFor(creatorMembership.getRole(), extra.getRole())) {
+                    throw new SecurityException("Cannot assign activity to user with role " + extra.getRole());
+                }
+                activity.getAssignees().add(extra);
+            }
+        }
 
         if (parentActivityIds != null) {
             for (UUID parentId : parentActivityIds) {
@@ -298,6 +339,31 @@ public class ActivityService {
             Long expectedVersion,
             SecurityUser actor
     ) {
+        return updateActivity(orgId, activityId, title, description, weight, startDatetime, endDatetime,
+                assignedToMembershipId, parentActivityId, estimatedSeconds, status, position,
+                taskType, priority, dueDate, expectedVersion, null, actor);
+    }
+
+    public Activity updateActivity(
+            UUID orgId,
+            UUID activityId,
+            String title,
+            String description,
+            Short weight,
+            Instant startDatetime,
+            Instant endDatetime,
+            UUID assignedToMembershipId,
+            UUID parentActivityId,
+            Long estimatedSeconds,
+            ActivityStatus status,
+            Integer position,
+            ActivityTaskType taskType,
+            ActivityPriority priority,
+            Instant dueDate,
+            Long expectedVersion,
+            List<UUID> assigneeMembershipIds,
+            SecurityUser actor
+    ) {
         Activity activity = getActivity(orgId, activityId);
         if (expectedVersion != null && activity.getVersion() != expectedVersion) {
             throw new ConflictException("Activity was modified concurrently; expected version " + expectedVersion
@@ -335,6 +401,21 @@ public class ActivityService {
             OrganizationMembership assigned = resolveAssignmentTarget(
                     orgId, assignedToMembershipId, actor, actorMembership);
             activity.setAssignedTo(assigned);
+        }
+
+        if (assigneeMembershipIds != null) {
+            OrganizationMembership actorMembership = permissionService.getMembership(actor.id(), orgId)
+                    .orElseThrow(() -> new SecurityException("Not a member of this organization"));
+            List<OrganizationMembership> resolved = new ArrayList<>();
+            for (UUID assigneeMembershipId : assigneeMembershipIds) {
+                OrganizationMembership member = membershipService.getVisibleActiveMembership(orgId, actor.id(), assigneeMembershipId);
+                if (!permissionService.canCreateActivityFor(actorMembership.getRole(), member.getRole())) {
+                    throw new SecurityException("Cannot assign activity to user with role " + member.getRole());
+                }
+                resolved.add(member);
+            }
+            activity.getAssignees().clear();
+            activity.getAssignees().addAll(resolved);
         }
 
         if (estimatedSeconds != null) {
@@ -473,6 +554,17 @@ public class ActivityService {
         return saved;
     }
 
+    public Activity moveActivityToColumn(UUID orgId, UUID activityId, UUID columnId, Integer position,
+                                         Long expectedVersion, SecurityUser actor) {
+        ProjectColumn column = projectColumnRepository.findByProjectIdAndId(activityProjectId(orgId, activityId), columnId)
+                .orElseThrow(() -> new IllegalArgumentException("Column not found"));
+        return moveActivity(orgId, activityId, column.getLifecycleStatus(), position, expectedVersion, actor);
+    }
+
+    private UUID activityProjectId(UUID orgId, UUID activityId) {
+        return getActivity(orgId, activityId).getProject().getId();
+    }
+
     private void applyStatus(Activity activity, ActivityStatus status, Integer position) {
         if (status == null) {
             throw new IllegalArgumentException("Status is required");
@@ -608,15 +700,19 @@ public class ActivityService {
         Map<UUID, List<UUID>> parentIdsByActivity = dependencyRepository.findParentRefsByChildActivityIdIn(ids).stream()
                 .collect(Collectors.groupingBy(ActivityDependencyRef::getChildActivityId,
                         Collectors.mapping(ActivityDependencyRef::getParentActivityId, Collectors.toList())));
+        Map<UUID, List<UUID>> assigneeIdsByActivity = activityRepository.findAssigneeRefsByActivityIds(ids).stream()
+                .collect(Collectors.groupingBy(ActivityAssigneeRef::getActivityId,
+                        Collectors.mapping(ActivityAssigneeRef::getMembershipId, Collectors.toList())));
         return activities.stream()
                 .map(activity -> toResponse(activity,
                         counts.get(activity.getId()),
-                        parentIdsByActivity.getOrDefault(activity.getId(), List.of())))
+                        parentIdsByActivity.getOrDefault(activity.getId(), List.of()),
+                        assigneeIdsByActivity.getOrDefault(activity.getId(), List.of())))
                 .toList();
     }
 
     private ActivityResponse toResponse(Activity activity, ActivityChecklistCount checklistCount,
-                                        List<UUID> parentIds) {
+                                        List<UUID> parentIds, List<UUID> assigneeIds) {
         int checklistTotal = checklistCount != null ? (int) checklistCount.getTotal() : 0;
         int checklistCompleted = checklistCount != null ? (int) checklistCount.getCompleted() : 0;
 
@@ -638,12 +734,24 @@ public class ActivityService {
                 activity.getEstimatedSeconds(),
                 activity.getCreatedBy().getId(),
                 activity.getAssignedTo() != null ? activity.getAssignedTo().getId() : null,
+                mergedAssigneeIds(activity, assigneeIds),
                 parentIds,
                 checklistTotal,
                 checklistCompleted,
                 activity.getCreatedAt(),
                 activity.getVersion()
         );
+    }
+
+    private List<UUID> mergedAssigneeIds(Activity activity, List<UUID> assigneeIds) {
+        LinkedHashSet<UUID> ids = new LinkedHashSet<>();
+        if (activity.getAssignedTo() != null) {
+            ids.add(activity.getAssignedTo().getId());
+        }
+        if (assigneeIds != null) {
+            ids.addAll(assigneeIds);
+        }
+        return new ArrayList<>(ids);
     }
 
     @Transactional(readOnly = true)
@@ -845,6 +953,7 @@ public class ActivityService {
         return switch (status) {
             case TODO -> "A fazer";
             case IN_PROGRESS -> "Em andamento";
+            case IN_TESTING -> "Em testes";
             case DONE -> "Concluida";
             case BLOCKED -> "Bloqueada";
             case CANCELED -> "Cancelada";
@@ -946,24 +1055,39 @@ public class ActivityService {
     }
 
     public ActivityAttachment addAttachment(UUID orgId, UUID activityId, OrganizationMembership uploader,
-                                            String fileName, String contentType, long sizeBytes, String url) {
+                                            String fileName, String contentType, long sizeBytes, String url,
+                                            UUID storedFileId) {
         Activity activity = getActivity(orgId, activityId);
         if (!uploader.getOrganization().getId().equals(orgId)) {
             throw new SecurityException("Not a member of this organization");
         }
-        if (fileName == null || fileName.isBlank() || contentType == null || contentType.isBlank() || url == null || url.isBlank()) {
-            throw new IllegalArgumentException("Attachment metadata is required");
+        String storageUrl;
+        String effectiveName = fileName;
+        String effectiveType = contentType;
+        long effectiveSize = sizeBytes;
+        if (storedFileId != null) {
+            StoredFile stored = storedFileRepository.findByIdAndOrganizationIdAndDeletedFalse(storedFileId, orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("File not found"));
+            storageUrl = "/api/v1/files/" + stored.getId();
+            effectiveName = stored.getFileName();
+            effectiveType = stored.getContentType();
+            effectiveSize = stored.getSizeBytes();
+        } else {
+            if (fileName == null || fileName.isBlank() || contentType == null || contentType.isBlank()
+                    || url == null || url.isBlank()) {
+                throw new IllegalArgumentException("Attachment metadata is required");
+            }
+            storageUrl = requireHttpsUrl(url);
         }
-        if (sizeBytes < 0 || sizeBytes > 50L * 1024 * 1024) {
+        if (effectiveSize < 0 || effectiveSize > 50L * 1024 * 1024) {
             throw new IllegalArgumentException("Attachment size is invalid");
         }
-        String storageUrl = requireHttpsUrl(url);
         return activityAttachmentRepository.save(ActivityAttachment.builder()
                 .activity(activity)
                 .uploadedBy(uploader)
-                .fileName(fileName.trim())
-                .contentType(contentType.trim())
-                .sizeBytes(sizeBytes)
+                .fileName(effectiveName.trim())
+                .contentType(effectiveType.trim())
+                .sizeBytes(effectiveSize)
                 .storageUrl(storageUrl)
                 .deleted(false)
                 .build());

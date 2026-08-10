@@ -27,12 +27,14 @@ import { toast } from 'sonner'
 import type { InvitationStatus, MembershipInvitationResponse, UUID } from '@/core/api/types'
 
 const roleColors: Record<Role, 'default' | 'secondary' | 'info' | 'success'> = {
+  super_admin: 'default',
   admin: 'default',
   manager: 'info',
   employee: 'success',
 }
 
 const roleLabels: Record<Role, string> = {
+  super_admin: 'Super Admin (plataforma)',
   admin: 'Administrador do órgão',
   manager: 'Chefe de setor',
   employee: 'Colaborador',

@@ -37,18 +37,23 @@ public class PermissionService {
     private static final Map<Role, Set<Role>> ROLE_HIERARCHY = new EnumMap<>(Role.class);
 
     static {
+        ROLE_HIERARCHY.put(Role.super_admin, Set.of(Role.super_admin, Role.admin, Role.manager, Role.employee));
         ROLE_HIERARCHY.put(Role.admin, Set.of(Role.admin, Role.manager, Role.employee));
         ROLE_HIERARCHY.put(Role.manager, Set.of(Role.manager, Role.employee));
         ROLE_HIERARCHY.put(Role.employee, Set.of(Role.employee));
     }
 
     public boolean canInviteRole(Role inviterRole, Role targetRole) {
+        if (targetRole == Role.super_admin) return false;
+        if (inviterRole == Role.super_admin) return true;
         if (inviterRole == Role.admin) return true;
         if (inviterRole == Role.manager) return targetRole == Role.employee;
         return false;
     }
 
     public boolean canCreateActivityFor(Role creatorRole, Role targetRole) {
+        if (targetRole == Role.super_admin) return false;
+        if (creatorRole == Role.super_admin) return true;
         if (creatorRole == Role.admin) return targetRole != Role.admin;
         if (creatorRole == Role.manager) return targetRole == Role.employee;
         return false;
@@ -56,14 +61,14 @@ public class PermissionService {
 
     public boolean isAdmin(UUID userId, UUID orgId) {
         return getMembership(userId, orgId)
-                .map(m -> m.getRole() == Role.admin)
+                .map(m -> m.getRole().isAdminLevel())
                 .orElse(false);
     }
 
     public boolean isManagerOfDepartment(UUID userId, UUID deptId) {
         return getMembershipByUserAndDepartment(userId, deptId)
                 .map(m -> {
-                    if (m.getRole() == Role.admin) return true;
+                    if (m.getRole().isAdminLevel()) return true;
                     if (m.getRole() == Role.manager) {
                         return managerDepartmentRepository.existsByMembershipIdAndDepartmentId(m.getId(), deptId);
                     }
@@ -93,7 +98,7 @@ public class PermissionService {
         }
         OrganizationMembership actor = actorResult.get();
         OrganizationMembership target = targetResult.get();
-        if (actor.getRole() == Role.admin) {
+        if (actor.getRole().isAdminLevel()) {
             return true;
         }
         if (actor.getRole() == Role.manager
@@ -125,7 +130,7 @@ public class PermissionService {
         return projectRepository.findByIdAndDepartment_Organization_Id(projectId, orgId)
                 .map(project -> getMembership(user.id(), orgId)
                         .map(membership -> {
-                            if (membership.getRole() == Role.admin
+                            if (membership.getRole().isAdminLevel()
                                     || (project.getManagerMembership() != null
                                         && project.getManagerMembership().getId().equals(membership.getId()))
                                     || projectAssignmentRepository.existsByProjectIdAndMembershipId(projectId, membership.getId())
@@ -177,7 +182,7 @@ public class PermissionService {
         }
         return getMembership(user.id(), orgId)
                 .map(m -> {
-                    if (m.getRole() == Role.admin) {
+                    if (m.getRole().isAdminLevel()) {
                         return true;
                     }
                     if (m.getRole() == Role.manager) {
@@ -194,12 +199,12 @@ public class PermissionService {
 
     public boolean canManageCapacity(SecurityUser user, UUID orgId) {
         return getMembership(user.id(), orgId)
-                .map(m -> m.getRole() == Role.admin || m.getRole() == Role.manager)
+                .map(m -> m.getRole().isManagerLevel())
                 .orElse(false);
     }
 
     public boolean canManageCapacity(OrganizationMembership membership) {
-        return membership.getRole() == Role.admin || membership.getRole() == Role.manager;
+        return membership.getRole().isManagerLevel();
     }
 
     public boolean canManageMembershipCapacity(SecurityUser user, UUID orgId, UUID targetMembershipId) {
@@ -217,7 +222,7 @@ public class PermissionService {
         if (membership == null) {
             return Set.of();
         }
-        if (membership.getRole() == Role.admin) {
+        if (membership.getRole().isAdminLevel()) {
             return projectRepository.findByDepartment_Organization_Id(orgId).stream()
                     .map(Project::getId)
                     .collect(Collectors.toSet());
@@ -243,7 +248,7 @@ public class PermissionService {
         }
         OrganizationMembership actor = getMembership(user.id(), orgId)
                 .orElseThrow(() -> new SecurityException("Not a member of this organization"));
-        if (actor.getRole() != Role.admin) {
+        if (!actor.getRole().isAdminLevel()) {
             return scopedMembershipIds(user, orgId);
         }
         if (!departmentRepository.findByIdAndOrganizationId(departmentId, orgId).isPresent()) {
@@ -263,7 +268,7 @@ public class PermissionService {
                 .orElseThrow(() -> new SecurityException("Not a member of this organization"));
         Set<UUID> scoped = new HashSet<>();
         scoped.add(actor.getId());
-        if (actor.getRole() == Role.admin) {
+        if (actor.getRole().isAdminLevel()) {
             membershipRepository.findByOrganizationIdAndIsActiveTrue(orgId)
                     .forEach(m -> scoped.add(m.getId()));
             return scoped;
@@ -313,7 +318,7 @@ public class PermissionService {
     }
 
     private boolean isScopedApprover(OrganizationMembership actor, OrganizationMembership target) {
-        if (actor.getRole() == Role.admin) {
+        if (actor.getRole().isAdminLevel()) {
             return true;
         }
         return actor.getRole() == Role.manager

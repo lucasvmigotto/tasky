@@ -17,7 +17,7 @@ const managerOverview: SectorOverviewResponse = {
     { id: 'member-2', displayName: 'Ana Silva', role: 'employee', departmentId: 'department-1', openActivities: 3, estimatedSeconds: 14400 },
   ],
   projects: [{ id: 'project-1', departmentId: 'department-1', name: 'Portal do Servidor', active: true }],
-  activityCounts: { TODO: 2, IN_PROGRESS: 1, BLOCKED: 1, DONE: 4, CANCELED: 0 },
+  activityCounts: { TODO: 2, IN_PROGRESS: 1, IN_TESTING: 0, BLOCKED: 1, DONE: 4, CANCELED: 0 },
   queue: [{
     id: 'activity-1',
     projectId: 'project-1',
@@ -66,7 +66,7 @@ describe('MySectorPage', () => {
       departments: [],
       members: [],
       projects: [],
-      activityCounts: { TODO: 0, IN_PROGRESS: 0, BLOCKED: 0, DONE: 0, CANCELED: 0 },
+      activityCounts: { TODO: 0, IN_PROGRESS: 0, IN_TESTING: 0, BLOCKED: 0, DONE: 0, CANCELED: 0 },
       queue: [],
     } satisfies SectorOverviewResponse)))
     renderPage()

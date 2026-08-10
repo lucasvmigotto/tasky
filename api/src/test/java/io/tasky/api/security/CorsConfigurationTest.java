@@ -51,7 +51,8 @@ class CorsConfigurationTest {
                 new TaskYProperties.Cors(origins),
                 new TaskYProperties.Google("unused"),
                 new TaskYProperties.Reminders(60_000, java.time.Duration.ofHours(24),
-                        java.time.Duration.ofHours(8), java.time.Duration.ofHours(24), 100));
+                        java.time.Duration.ofHours(8), java.time.Duration.ofHours(24), 100),
+                new TaskYProperties.Platform(List.of()));
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles(profile);
         return new SecurityConfig(null, properties, environment);

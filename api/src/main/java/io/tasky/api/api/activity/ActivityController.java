@@ -67,7 +67,8 @@ public class ActivityController {
                 user,
                 request.taskType(),
                 request.priority(),
-                request.dueDate()
+                request.dueDate(),
+                request.assigneeMembershipIds()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(activityService.toActivityResponse(activity));
     }
@@ -144,6 +145,7 @@ public class ActivityController {
                 request.priority(),
                 request.dueDate(),
                 request.expectedVersion(),
+                request.assigneeMembershipIds(),
                 user
         );
         return ResponseEntity.ok(activityService.toActivityResponse(activity));
@@ -157,8 +159,17 @@ public class ActivityController {
             @AuthenticationPrincipal SecurityUser user) {
 
         UUID orgId = requiredOrgId(user);
-        Activity activity = activityService.moveActivity(orgId, activityId, request.status(), request.position(),
-                request.expectedVersion(), user);
+        Activity activity;
+        if (request.columnId() != null) {
+            activity = activityService.moveActivityToColumn(orgId, activityId, request.columnId(),
+                    request.position(), request.expectedVersion(), user);
+        } else {
+            if (request.status() == null) {
+                throw new IllegalArgumentException("Either columnId or status is required");
+            }
+            activity = activityService.moveActivity(orgId, activityId, request.status(), request.position(),
+                    request.expectedVersion(), user);
+        }
         return ResponseEntity.ok(activityService.toActivityResponse(activity));
     }
 
@@ -280,7 +291,8 @@ public class ActivityController {
         OrganizationMembership membership = permissionService.getMembership(user.id(), orgId)
                 .orElseThrow(() -> new SecurityException("Not a member of this organization"));
         ActivityAttachment attachment = activityService.addAttachment(
-                orgId, activityId, membership, request.fileName(), request.contentType(), request.sizeBytes(), request.url());
+                orgId, activityId, membership, request.fileName(), request.contentType(), request.sizeBytes(),
+                request.url(), request.storedFileId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(activityService.getAttachmentResponse(orgId, attachment.getId()));
     }

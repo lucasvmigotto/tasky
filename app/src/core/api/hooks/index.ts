@@ -25,6 +25,12 @@ import type {
   CreateActivityCommentRequest,
   ActivityAttachmentResponse,
   CreateActivityAttachmentRequest,
+  StoredFileResponse,
+  DocumentResponse,
+  DocumentVersionResponse,
+  DocumentAttachmentResponse,
+  CreateDocumentRequest,
+  UpdateDocumentRequest,
   ActivityChecklistItem,
   ActivityQueryParams,
   ActivityTemplateResponse,
@@ -63,6 +69,11 @@ import type {
   CreateTimesheetPeriodRequest,
   ApproveTimesheetPeriodsRequest,
   RejectTimesheetPeriodsRequest,
+  SettingsResponse,
+  UpdateSettingPayload,
+  ProjectColumn,
+  CreateProjectColumnRequest,
+  CreateRequestTasksPayload,
   MemberCapacityResponse,
   CapacityMembersQueryParams,
   WorkScheduleResponse,
@@ -522,11 +533,12 @@ export function useMoveActivity() {
 
       const optimisticActivity = (current: ActivityResponse): ActivityResponse => {
         if (current.id !== activityId) return current
-        const leavingDone = current.status === 'DONE' && data.status !== 'DONE'
-        const enteringDone = current.status !== 'DONE' && data.status === 'DONE'
+        const nextStatus = data.status ?? current.status
+        const leavingDone = current.status === 'DONE' && nextStatus !== 'DONE'
+        const enteringDone = current.status !== 'DONE' && nextStatus === 'DONE'
         return {
           ...current,
-          status: data.status,
+          status: nextStatus,
           position: data.position ?? current.position,
           completedAt: enteringDone
             ? (current.completedAt ?? new Date().toISOString())
@@ -1208,6 +1220,128 @@ export async function downloadReportCsv(params: ReportQueryParams | null) {
   URL.revokeObjectURL(url)
 }
 
+export async function uploadFile(file: File): Promise<StoredFileResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await fetch('/api/v1/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getAccessToken()}` },
+    body: formData,
+  })
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null)
+    throw new Error(problem?.detail || 'Falha ao enviar arquivo')
+  }
+  return response.json()
+}
+
+export function useDeleteFile() {
+  return useMutation({
+    mutationFn: (fileId: UUID) => apiClient.delete(`/files/${fileId}`),
+  })
+}
+
+export function useProjectDocuments(projectId: UUID | null) {
+  return useQuery({
+    queryKey: ['documents', 'project', projectId],
+    queryFn: () => apiClient.get<DocumentResponse[]>(`/documents?projectId=${projectId}`),
+    enabled: !!projectId,
+  })
+}
+
+export function useRequestDocuments(requestId: UUID | null) {
+  return useQuery({
+    queryKey: ['documents', 'request', requestId],
+    queryFn: () => apiClient.get<DocumentResponse[]>(`/documents?requestId=${requestId}`),
+    enabled: !!requestId,
+  })
+}
+
+export function useCreateDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateDocumentRequest) => apiClient.post<DocumentResponse>('/documents', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}
+
+export function useUpdateDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ documentId, data }: { documentId: UUID; data: UpdateDocumentRequest }) =>
+      apiClient.put<DocumentResponse>(`/documents/${documentId}`, data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.invalidateQueries({ queryKey: ['document-versions', vars.documentId] })
+    },
+  })
+}
+
+export function useDeleteDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (documentId: UUID) => apiClient.delete(`/documents/${documentId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}
+
+export function useDocumentVersions(documentId: UUID | null) {
+  return useQuery({
+    queryKey: ['document-versions', documentId],
+    queryFn: () => apiClient.get<DocumentVersionResponse[]>(`/documents/${documentId}/versions`),
+    enabled: !!documentId,
+  })
+}
+
+export function useRestoreDocumentVersion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ documentId, versionId }: { documentId: UUID; versionId: UUID }) =>
+      apiClient.post<DocumentResponse>(`/documents/${documentId}/restore/${versionId}`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}
+
+export function useDocumentAttachments(documentId: UUID | null) {
+  return useQuery({
+    queryKey: ['document-attachments', documentId],
+    queryFn: () => apiClient.get<DocumentAttachmentResponse[]>(`/documents/${documentId}/attachments`),
+    enabled: !!documentId,
+  })
+}
+
+export function useAddDocumentAttachment(documentId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (storedFileId: UUID) => apiClient.post<DocumentAttachmentResponse>(`/documents/${documentId}/attachments`, { storedFileId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['document-attachments', documentId] })
+      qc.invalidateQueries({ queryKey: ['documents'] })
+    },
+  })
+}
+
+export function useRemoveDocumentAttachment(documentId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (attachmentId: UUID) => apiClient.delete(`/documents/${documentId}/attachments/${attachmentId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['document-attachments', documentId] }),
+  })
+}
+
+export async function exportDocumentHtml(documentId: UUID, title: string) {
+  const response = await fetch(`/api/v1/documents/${documentId}/export`, {
+    headers: { Authorization: `Bearer ${getAccessToken()}` },
+  })
+  if (!response.ok) throw new Error('Falha ao exportar documento')
+  const html = await response.text()
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (!win) window.location.href = url
+  setTimeout(() => URL.revokeObjectURL(url), 30000)
+}
+
 export function useSwitchOrg() {
   return useMutation({
     mutationFn: (orgId: UUID) => apiClient.post<SwitchOrgResponse>('/auth/switch-org', { orgId }),
@@ -1397,6 +1531,104 @@ export function useDeleteActivityChecklistItem() {
       apiClient.delete(`/activities/${activityId}/checklist/${itemId}`),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['activity-checklist', vars.activityId] })
+      qc.invalidateQueries({ queryKey: ['activities'] })
+    },
+  })
+}
+
+export function useGlobalSettings() {
+  return useQuery({
+    queryKey: ['settings', 'global'],
+    queryFn: () => apiClient.get<SettingsResponse>('/admin/settings'),
+  })
+}
+
+export function useUpdateGlobalSetting() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ key, data }: { key: string; data: UpdateSettingPayload }) =>
+      apiClient.put<SettingsResponse>(`/admin/settings/${key}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  })
+}
+
+export function useOrganizationSettings(orgId: UUID | null) {
+  return useQuery({
+    queryKey: ['settings', 'organization', orgId],
+    queryFn: () => apiClient.get<SettingsResponse>(`/organizations/${orgId}/settings`),
+    enabled: !!orgId,
+  })
+}
+
+export function useUpdateOrganizationSetting(orgId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ key, data }: { key: string; data: UpdateSettingPayload }) =>
+      apiClient.put<SettingsResponse>(`/organizations/${orgId}/settings/${key}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'organization', orgId] }),
+  })
+}
+
+export function useProjectColumns(projectId: UUID | null) {
+  return useQuery({
+    queryKey: ['project-columns', projectId],
+    queryFn: () => apiClient.get<ProjectColumn[]>(`/projects/${projectId}/columns`),
+    enabled: !!projectId,
+  })
+}
+
+export function useCreateProjectColumn(projectId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateProjectColumnRequest) =>
+      apiClient.post<ProjectColumn>(`/projects/${projectId}/columns`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-columns', projectId] }),
+  })
+}
+
+export function useUpdateProjectColumn(projectId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ columnId, data }: { columnId: UUID; data: Partial<CreateProjectColumnRequest> & { position?: number } }) =>
+      apiClient.put<ProjectColumn>(`/projects/${projectId}/columns/${columnId}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-columns', projectId] }),
+  })
+}
+
+export function useDeleteProjectColumn(projectId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (columnId: UUID) => apiClient.delete(`/projects/${projectId}/columns/${columnId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-columns', projectId] }),
+  })
+}
+
+export function useReorderProjectColumns(projectId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (columnIds: UUID[]) =>
+      apiClient.patch<ProjectColumn[]>(`/projects/${projectId}/columns/reorder`, { columnIds }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-columns', projectId] }),
+  })
+}
+
+export function useRequestTasks(requestId: UUID | null) {
+  return useQuery({
+    queryKey: ['request-tasks', requestId],
+    queryFn: () => apiClient.get<ActivityResponse[]>(`/requests/${requestId}/tasks`),
+    enabled: !!requestId,
+  })
+}
+
+export function useCreateRequestTasks(requestId: UUID) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateRequestTasksPayload) =>
+      apiClient.post<ActivityResponse[]>(`/requests/${requestId}/tasks`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['request-tasks', requestId] })
+      qc.invalidateQueries({ queryKey: ['requests'] })
+      qc.invalidateQueries({ queryKey: ['request', requestId] })
       qc.invalidateQueries({ queryKey: ['activities'] })
     },
   })

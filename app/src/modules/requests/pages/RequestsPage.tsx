@@ -80,10 +80,12 @@ export default function RequestsPage() {
 
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [newGlpi, setNewGlpi] = useState('')
   const [newPriority, setNewPriority] = useState<RequestPriority>('NORMAL')
   const [newRequestingDept, setNewRequestingDept] = useState('')
   const [newResponsibleDept, setNewResponsibleDept] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
+  const [newAssignees, setNewAssignees] = useState<UUID[]>([])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return requests
@@ -108,18 +110,22 @@ export default function RequestsPage() {
       await createRequest.mutateAsync({
         title: newTitle.trim(),
         description: newDesc.trim() || undefined,
+        glpiTicketId: newGlpi.trim() || undefined,
         priority: newPriority,
         requestingDepartmentId: newRequestingDept ? (newRequestingDept as UUID) : undefined,
         responsibleDepartmentId: newResponsibleDept ? (newResponsibleDept as UUID) : undefined,
         desiredDueDate: newDueDate ? new Date(newDueDate).toISOString() : undefined,
+        assigneeMembershipIds: newAssignees.length > 0 ? newAssignees : undefined,
       })
       toast.success('Demanda criada')
       setNewTitle('')
       setNewDesc('')
+      setNewGlpi('')
       setNewPriority('NORMAL')
       setNewRequestingDept('')
       setNewResponsibleDept('')
       setNewDueDate('')
+      setNewAssignees([])
       setCreateOpen(false)
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao criar demanda')
@@ -179,6 +185,12 @@ export default function RequestsPage() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
               />
+              <Input
+                label="Nº do chamado (GLPI)"
+                placeholder="Ex: 2026081234"
+                value={newGlpi}
+                onChange={(e) => setNewGlpi(e.target.value)}
+              />
               <Textarea
                 label="Descrição"
                 placeholder="Detalhes do que é necessário..."
@@ -191,6 +203,26 @@ export default function RequestsPage() {
                 onChange={(e) => setNewPriority(e.target.value as RequestPriority)}
                 options={Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label }))}
               />
+              <div>
+                <span className="mb-1.5 block text-sm font-medium text-foreground">Responsáveis (pode marcar vários)</span>
+                <div className="flex flex-wrap gap-2">
+                  {memberships.filter((m) => m.role !== 'admin').map((m) => {
+                    const active = newAssignees.includes(m.id)
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setNewAssignees((prev) => active ? prev.filter((id) => id !== m.id) : [...prev, m.id])}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                          active ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
+                        }`}
+                      >
+                        {m.customUsername || m.username}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
               <Select
                 label="Equipe/área solicitante"
                 value={newRequestingDept}
@@ -283,6 +315,9 @@ export default function RequestsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground">{req.requestKey}</span>
+                        {req.glpiTicketId && (
+                          <span className="font-mono text-xs text-primary" title="Chamado GLPI">GLPI #{req.glpiTicketId}</span>
+                        )}
                         <Badge variant={PRIORITY_TONES[req.priority]} className="text-[10px]">{PRIORITY_LABELS[req.priority]}</Badge>
                         <Badge variant={STATUS_TONES[req.status]} className="text-[10px]">{STATUS_LABELS[req.status]}</Badge>
                       </div>
@@ -296,7 +331,11 @@ export default function RequestsPage() {
                           <GitBranch className="size-3.5" />
                           Responsável: {deptName(req.responsibleDepartmentId)}
                         </span>
-                        <span>Atribuída: {memberName(req.assigneeMembershipId)}</span>
+                        <span>
+                          Atribuída: {req.assigneeMembershipIds?.length
+                            ? req.assigneeMembershipIds.map((id) => memberName(id)).filter((n) => n !== '—').join(', ') || 'Não atribuída'
+                            : memberName(req.assigneeMembershipId)}
+                        </span>
                         {req.desiredDueDate && (
                           <span>Prazo: {new Date(req.desiredDueDate).toLocaleDateString('pt-BR')}</span>
                         )}

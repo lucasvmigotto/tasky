@@ -10,6 +10,7 @@ import {
   Activity as ActivityIcon,
   BarChart3,
   Repeat2,
+  BookOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
@@ -47,6 +48,7 @@ import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { formatDate, formatDateTime } from '@/shared/lib/formatters'
 import { cn } from '@/shared/lib/cn'
 import { ProjectActivitiesWorkspace } from '@/modules/projects/components/ProjectActivitiesWorkspace'
+import { DocumentationPanel } from '@/shared/components/documentation/DocumentationPanel'
 import { STATUS_LABELS } from '@/shared/components/kanban/ActivityCard'
 
 const roleLabels: Record<string, string> = {
@@ -163,6 +165,7 @@ export default function ProjectDetailPage() {
     const counts: Record<ActivityResponse['status'], number> = {
       TODO: 0,
       IN_PROGRESS: 0,
+      IN_TESTING: 0,
       BLOCKED: 0,
       DONE: 0,
       CANCELED: 0,
@@ -303,6 +306,10 @@ export default function ProjectDetailPage() {
             <Repeat2 className="size-4" />
             Modelos
           </TabsTrigger>
+          <TabsTrigger value="docs">
+            <BookOpen className="size-4" />
+            Documentação
+          </TabsTrigger>
           <TabsTrigger value="info">
             <FolderKanban className="size-4" />
             Informações
@@ -317,6 +324,10 @@ export default function ProjectDetailPage() {
             isLoading={activitiesQuery.isLoading}
             error={activitiesQuery.error}
           />
+        </TabsContent>
+
+        <TabsContent value="docs">
+          <DocumentationPanel projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="overview">

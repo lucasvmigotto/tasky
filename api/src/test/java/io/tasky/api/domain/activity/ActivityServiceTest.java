@@ -133,7 +133,7 @@ class ActivityServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> activityService.addAttachment(
                 orgId, activity.getId(), uploader, "payload.txt", "text/plain", 10,
-                "javascript:alert(1)"));
+                "javascript:alert(1)", null));
         verify(activityAttachmentRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 

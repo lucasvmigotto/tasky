@@ -90,6 +90,7 @@ const AdminDashboardPage = lazyWithRetry(() => import('@/modules/admin/pages/Adm
 const AdminMembersPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminMembersPage'))
 const AdminDepartmentsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminDepartmentsPage'))
 const AdminProjectsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminProjectsPage'))
+const AdminSettingsPage = lazyWithRetry(() => import('@/modules/admin/pages/AdminSettingsPage'))
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -296,6 +297,14 @@ export const router = createBrowserRouter([
         element: (
           <LazyPage>
             <AdminProjectsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN.SETTINGS,
+        element: (
+          <LazyPage>
+            <AdminSettingsPage />
           </LazyPage>
         ),
       },

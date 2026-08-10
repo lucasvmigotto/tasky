@@ -67,6 +67,9 @@ public class MembershipService {
         if (!inviter.isActive() || !inviter.getOrganization().getId().equals(orgId)) {
             throw new SecurityException("Inviter is not active in this organization");
         }
+        if (role == Role.super_admin) {
+            throw new SecurityException("Super admin role cannot be invited; it is granted by the platform");
+        }
         if (!permissionService.canInviteRole(inviter.getRole(), role)) {
             throw new SecurityException("Cannot invite user with role " + role);
         }
@@ -121,7 +124,7 @@ public class MembershipService {
     public List<OrganizationMembership> getVisibleMemberships(UUID orgId, UUID requesterUserId) {
         MembershipVisibilityScope scope = resolveVisibilityScope(orgId, requesterUserId);
         List<OrganizationMembership> scoped = switch (scope.requester().getRole()) {
-            case admin -> membershipRepository
+            case super_admin, admin -> membershipRepository
                     .findByOrganizationIdAndIsActiveTrueOrderByUser_UsernameAscIdAsc(orgId);
             case manager -> scope.departmentIds().isEmpty() ? List.of() : membershipRepository
                     .findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdInOrderByUser_UsernameAscIdAsc(
@@ -231,10 +234,13 @@ public class MembershipService {
         OrganizationMembership membership = membershipRepository.findByIdAndOrganizationId(membershipId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
 
+        if (membership.getRole() == Role.super_admin) {
+            throw new SecurityException("A super admin cannot be removed through the organization");
+        }
         long adminCount = membershipRepository.findByOrganizationIdAndIsActiveTrue(orgId).stream()
-                .filter(m -> m.getRole() == Role.admin)
+                .filter(m -> m.getRole().isAdminLevel())
                 .count();
-        if (membership.getRole() == Role.admin && adminCount <= 1) {
+        if (membership.getRole().isAdminLevel() && adminCount <= 1) {
             throw new IllegalArgumentException("Cannot remove the last admin of the organization");
         }
 
@@ -253,10 +259,16 @@ public class MembershipService {
                                              List<UUID> memberTypeIds) {
         OrganizationMembership membership = membershipRepository.findByIdAndOrganizationId(membershipId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
+        if (membership.getRole() == Role.super_admin && role != Role.super_admin) {
+            throw new SecurityException("A super admin cannot be demoted through the organization");
+        }
+        if (role == Role.super_admin) {
+            throw new SecurityException("Super admin role cannot be assigned; it is granted by the platform");
+        }
         long adminCount = membershipRepository.findByOrganizationIdAndIsActiveTrue(orgId).stream()
-                .filter(m -> m.getRole() == Role.admin)
+                .filter(m -> m.getRole().isAdminLevel())
                 .count();
-        if (membership.getRole() == Role.admin && adminCount <= 1 && role != Role.admin) {
+        if (membership.getRole().isAdminLevel() && adminCount <= 1 && !role.isAdminLevel()) {
             throw new IllegalArgumentException("Cannot demote the last admin of the organization");
         }
 
@@ -297,7 +309,7 @@ public class MembershipService {
                         .orElseThrow(() -> new IllegalArgumentException("Department not found in this organization")))
                 .toList();
 
-        if (role == Role.admin) {
+        if (role.isAdminLevel()) {
             if (!departments.isEmpty()) {
                 throw new IllegalArgumentException("Organization admins cannot have a scoped placement");
             }
@@ -353,7 +365,7 @@ public class MembershipService {
         if (!requester.isActive() || !requester.getOrganization().getId().equals(target.getOrganization().getId())) {
             return false;
         }
-        if (requester.getRole() == Role.admin) return true;
+        if (requester.getRole().isAdminLevel()) return true;
         if (requester.getRole() == Role.manager) {
             if (target.getRole() == Role.admin || target.getRole() == Role.manager || target.getPrimaryDepartmentId() == null) {
                 return false;
@@ -377,7 +389,7 @@ public class MembershipService {
     }
 
     private boolean isVisible(MembershipVisibilityScope scope, OrganizationMembership target) {
-        if (scope.requester().getId().equals(target.getId()) || scope.requester().getRole() == Role.admin) {
+        if (scope.requester().getId().equals(target.getId()) || scope.requester().getRole().isAdminLevel()) {
             return true;
         }
         if (scope.requester().getRole() == Role.manager) {
@@ -388,7 +400,7 @@ public class MembershipService {
     }
 
     private void validateInviterScope(OrganizationMembership inviter, Role targetRole, Placement placement) {
-        if (inviter.getRole() == Role.admin) {
+        if (inviter.getRole().isAdminLevel()) {
             return;
         }
         if (inviter.getRole() == Role.manager) {

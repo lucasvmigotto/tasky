@@ -21,5 +21,6 @@ public record CreateActivityRequest(
         List<UUID> parentActivityIds,
         ActivityTaskType taskType,
         ActivityPriority priority,
-        Instant dueDate
+        Instant dueDate,
+        List<UUID> assigneeMembershipIds
 ) {}

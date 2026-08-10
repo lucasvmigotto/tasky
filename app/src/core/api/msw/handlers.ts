@@ -1,8 +1,8 @@
 import { http, HttpResponse } from 'msw'
-import type { ActivityResponse, ProjectResponse, MembershipResponse, MembershipInvitationResponse, OrganizationResponse, DepartmentResponse, MemberTypeResponse, PaginatedResponse, TimeEntryResponse, ReportDetailedRow } from '@/core/api/types'
+import type { ActivityResponse, ProjectResponse, MembershipResponse, MembershipInvitationResponse, OrganizationResponse, DepartmentResponse, MemberTypeResponse, PaginatedResponse, TimeEntryResponse, ReportDetailedRow, ProjectColumn, DocumentResponse, DocumentVersionResponse, DocumentAttachmentResponse } from '@/core/api/types'
 
 const mockActivities: ActivityResponse[] = [
-  { id: 'act-1', projectId: 'proj-1', parentActivityId: null, title: 'Setup CI', description: null, weight: 3, startDatetime: new Date().toISOString(), endDatetime: new Date(Date.now() + 86400000).toISOString(), status: 'TODO', taskType: 'TASK', priority: 'NORMAL', dueDate: null, position: 1000, completedAt: null, estimatedSeconds: 7200, createdBy: 'mem-1', assignedTo: 'mem-2', parentIds: [], checklistTotal: 2, checklistCompleted: 1, createdAt: new Date().toISOString(), version: 1 },
+  { id: 'act-1', projectId: 'proj-1', parentActivityId: null, title: 'Setup CI', description: null, weight: 3, startDatetime: new Date().toISOString(), endDatetime: new Date(Date.now() + 86400000).toISOString(), status: 'TODO', taskType: 'TASK', priority: 'NORMAL', dueDate: null, position: 1000, completedAt: null, estimatedSeconds: 7200, createdBy: 'mem-1', assignedTo: 'mem-2', assigneeIds: ['mem-2'], parentIds: [], checklistTotal: 2, checklistCompleted: 1, createdAt: new Date().toISOString(), version: 1 },
 ]
 
 const mockTimeEntries: TimeEntryResponse[] = [
@@ -497,5 +497,154 @@ export const handlers = [
 
   http.post('/api/v1/auth/logout', () => {
     return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get('/api/v1/admin/settings', () => {
+    return HttpResponse.json({
+      scope: 'GLOBAL',
+      orgId: null,
+      groups: [
+        {
+          name: 'Geral',
+          settings: [
+            { key: 'geral.platformName', label: 'Nome da plataforma', description: 'Nome exibido na interface.', valueType: 'STRING', options: null, min: null, max: null, value: 'TaskY', isSet: true, isOverride: false },
+          ],
+        },
+        {
+          name: 'Armazenamento',
+          settings: [
+            { key: 'storage.azureConnectionString', label: 'Connection string (Azure Blob)', description: 'Conexão de armazenamento.', valueType: 'SECRET', options: null, min: null, max: null, value: null, isSet: true, isOverride: false },
+          ],
+        },
+      ],
+    })
+  }),
+
+  http.put('/api/v1/admin/settings/:key', async ({ request, params }) => {
+    const key = String(params.key)
+    const body = (await request.json()) as { value?: string; clear?: string }
+    return HttpResponse.json({
+      scope: 'GLOBAL',
+      orgId: null,
+      groups: [
+        {
+          name: 'Geral',
+          settings: [
+            { key: 'geral.platformName', label: 'Nome da plataforma', description: 'Nome exibido na interface.', valueType: 'STRING', options: null, min: null, max: null, value: key === 'geral.platformName' ? body.value ?? 'TaskY' : 'TaskY', isSet: true, isOverride: false },
+          ],
+        },
+      ],
+    })
+  }),
+
+  http.get('/api/v1/organizations/:orgId/settings', () => {
+    return HttpResponse.json({
+      scope: 'ORGANIZATION',
+      orgId: 'org-1',
+      groups: [
+        {
+          name: 'Geral',
+          settings: [
+            { key: 'geral.platformName', label: 'Nome da plataforma', description: 'Nome exibido na interface.', valueType: 'STRING', options: null, min: null, max: null, value: 'TaskY', isSet: true, isOverride: false },
+          ],
+        },
+      ],
+    })
+  }),
+
+  http.put('/api/v1/organizations/:orgId/settings/:key', async ({ request }) => {
+    const body = (await request.json()) as { value?: string }
+    return HttpResponse.json({
+      scope: 'ORGANIZATION',
+      orgId: 'org-1',
+      groups: [
+        {
+          name: 'Geral',
+          settings: [
+            { key: 'geral.platformName', label: 'Nome da plataforma', description: 'Nome exibido na interface.', valueType: 'STRING', options: null, min: null, max: null, value: body.value ?? 'TaskY', isSet: true, isOverride: true },
+          ],
+        },
+      ],
+    })
+  }),
+
+  http.get('/api/v1/projects/:projectId/columns', () => {
+    return HttpResponse.json<ProjectColumn[]>([
+      { id: 'col-1', projectId: 'proj-1', name: 'Planejamento', position: 0, color: '#38bdf8', lifecycleStatus: 'TODO' },
+      { id: 'col-2', projectId: 'proj-1', name: 'Executando', position: 1, color: '#fbbf24', lifecycleStatus: 'IN_PROGRESS' },
+      { id: 'col-3', projectId: 'proj-1', name: 'Testes', position: 2, color: '#a78bfa', lifecycleStatus: 'IN_TESTING' },
+      { id: 'col-4', projectId: 'proj-1', name: 'Finalizado', position: 3, color: '#34d399', lifecycleStatus: 'DONE' },
+    ])
+  }),
+
+  http.post('/api/v1/projects/:projectId/columns', async ({ request }) => {
+    const body = (await request.json()) as ProjectColumn
+    return HttpResponse.json<ProjectColumn>({ id: 'col-new', projectId: 'proj-1', name: body.name, position: 4, color: body.color ?? '#64748b', lifecycleStatus: body.lifecycleStatus })
+  }),
+
+  http.put('/api/v1/projects/:projectId/columns/:columnId', async ({ request, params }) => {
+    const body = (await request.json()) as Partial<ProjectColumn>
+    return HttpResponse.json<ProjectColumn>({ id: String(params.columnId), projectId: 'proj-1', name: body.name ?? 'Coluna', position: body.position ?? 0, color: body.color ?? '#64748b', lifecycleStatus: body.lifecycleStatus ?? 'TODO' })
+  }),
+
+  http.delete('/api/v1/projects/:projectId/columns/:columnId', () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get('/api/v1/requests/:requestId/tasks', () => {
+    return HttpResponse.json<ActivityResponse[]>(mockActivities)
+  }),
+
+  http.post('/api/v1/requests/:requestId/tasks', async ({ request }) => {
+    const body = (await request.json()) as { items: { title: string }[] }
+    return HttpResponse.json<ActivityResponse[]>(body.items.map((item, index) => ({
+      ...mockActivities[0],
+      id: `task-${index}`,
+      title: item.title,
+    })))
+  }),
+
+  http.post('/api/v1/files', async () => {
+    return HttpResponse.json({
+      id: 'file-1',
+      fileName: 'arquivo.png',
+      contentType: 'image/png',
+      sizeBytes: 1024,
+      url: '/api/v1/files/file-1',
+    })
+  }),
+
+  http.get('/api/v1/documents', () => {
+    return HttpResponse.json<DocumentResponse[]>([
+      { id: 'doc-1', organizationId: 'org-1', projectId: 'proj-1', requestId: null, activityId: null, title: 'Especificação do portal', slug: 'especificacao-do-portal', contentMd: '# Portal\n\nDocumentação de exemplo.', status: 'DRAFT', authorMembershipId: 'mem-1', authorName: 'Admin', version: 1, attachmentCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    ])
+  }),
+
+  http.post('/api/v1/documents', async ({ request }) => {
+    const body = (await request.json()) as { title: string; contentMd?: string }
+    return HttpResponse.json<DocumentResponse>({ id: 'doc-new', organizationId: 'org-1', projectId: 'proj-1', requestId: null, activityId: null, title: body.title, slug: 'doc-novo', contentMd: body.contentMd ?? '', status: 'DRAFT', authorMembershipId: 'mem-1', authorName: 'Admin', version: 1, attachmentCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { status: 201 })
+  }),
+
+  http.put('/api/v1/documents/:documentId', async ({ request, params }) => {
+    const body = (await request.json()) as { title: string; contentMd?: string }
+    return HttpResponse.json<DocumentResponse>({ id: String(params.documentId), organizationId: 'org-1', projectId: 'proj-1', requestId: null, activityId: null, title: body.title, slug: 'doc', contentMd: body.contentMd ?? '', status: 'DRAFT', authorMembershipId: 'mem-1', authorName: 'Admin', version: 2, attachmentCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+  }),
+
+  http.get('/api/v1/documents/:documentId/versions', () => {
+    return HttpResponse.json<DocumentVersionResponse[]>([
+      { id: 'ver-1', versionNo: 1, contentMd: '# v1', changelog: 'Criação', createdByMembershipId: 'mem-1', createdAt: new Date().toISOString() },
+    ])
+  }),
+
+  http.post('/api/v1/documents/:documentId/restore/:versionId', () => {
+    return HttpResponse.json<DocumentResponse>({ id: 'doc-1', organizationId: 'org-1', projectId: 'proj-1', requestId: null, activityId: null, title: 'Especificação do portal', slug: 'spec', contentMd: '# v1 restaurada', status: 'DRAFT', authorMembershipId: 'mem-1', authorName: 'Admin', version: 2, attachmentCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+  }),
+
+  http.get('/api/v1/documents/:documentId/attachments', () => {
+    return HttpResponse.json<DocumentAttachmentResponse[]>([])
+  }),
+
+  http.post('/api/v1/documents/:documentId/attachments', () => {
+    return HttpResponse.json<DocumentAttachmentResponse>({ id: 'doc-att-1', fileName: 'manual.pdf', contentType: 'application/pdf', sizeBytes: 2048, url: '/api/v1/files/file-1', uploadedByMembershipId: 'mem-1', createdAt: new Date().toISOString() })
   }),
 ]

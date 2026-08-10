@@ -17,10 +17,11 @@ import { Progress } from '@/shared/components/ui/Progress'
 import { formatDate } from '@/shared/lib/formatters'
 
 const ROLE_LABELS = {
+  super_admin: 'Super Admin',
   admin: 'Administrador',
   manager: 'Chefe de setor',
   employee: 'Colaborador',
-}
+} as const
 
 export default function MySectorPage() {
   const navigate = useNavigate()

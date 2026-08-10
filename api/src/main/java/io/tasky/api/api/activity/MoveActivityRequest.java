@@ -1,10 +1,12 @@
 package io.tasky.api.api.activity;
 
 import io.tasky.api.domain.activity.ActivityStatus;
-import jakarta.validation.constraints.NotNull;
+
+import java.util.UUID;
 
 public record MoveActivityRequest(
-        @NotNull ActivityStatus status,
+        ActivityStatus status,
+        UUID columnId,
         Integer position,
         Long expectedVersion
 ) {}
