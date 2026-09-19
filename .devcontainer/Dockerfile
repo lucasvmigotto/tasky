@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/java:21
+FROM mcr.microsoft.com/devcontainers/java:25
 
 RUN curl -fsSL https://bun.sh/install | bash
 

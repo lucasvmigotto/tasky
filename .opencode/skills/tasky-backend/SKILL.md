@@ -5,7 +5,7 @@ description: Use when creating, fixing, or improving features in the TaskY Java/
 
 # TaskY Backend
 
-TaskY is a multi-tenant time-activities platform. The backend lives in `api/` (Java 21, Spring Boot 4.0.6, Gradle 8.14). Monorepo root Gradle: root `build.gradle` only declares plugin versions; `api/` is a subproject via `settings.gradle` (`include 'api'`).
+TaskY is a multi-tenant time-activities platform. The backend lives in `api/` (Java 25, Spring Boot 4.0.6, Gradle 9.x). Monorepo root Gradle: root `build.gradle` only declares plugin versions; `api/` is a subproject via `settings.gradle` (`include 'api'`). Docker builder/runtime use `eclipse-temurin:25-jdk/jre`; CI `setup-java` is temurin 25.
 
 ## Architecture map
 
@@ -65,12 +65,16 @@ ManagerDepartment / LeaderTeam  → scoped management relations
 | `JWT_EXPIRATION_HOURS` | 24 | |
 | `GOOGLE_CLIENT_ID/SECRET` | — | only needed for real OAuth (demo mode skips it) |
 | `APP_CORS_ALLOWED_ORIGINS` | `*` | |
-| `SPRING_PROFILES_ACTIVE` | prod in compose | dev = show-sql + DEBUG + 168h tokens |
+| `SPRING_PROFILES_ACTIVE` | dev in compose (dev-only stack) | dev = show-sql + DEBUG + 168h tokens |
+| `MICROSOFT_CLIENT_ID/TENANT_ID` | — | real Entra ID; empty = mock-only local development |
+| `MOCK_OAUTH2_ENABLED/GOOGLE_ISSUER/MICROSOFT_ISSUER` | true + mock-oauth2 issuers | local OIDC stand-in (`mock-oauth2-server/config.json` tenants) |
+| `REDIS_HOST/PORT` | redis/6379 | cache (reference data only; DB stays authoritative) |
+| `MINIO_ENDPOINT/TASKY_STORAGE_BUCKET` | http://minio:9000 / tasky-dev | S3-compatible attachment/export storage |
 
 ## Commands
 
 ```bash
-# Build + tests (root, requires Java 21)
+# Build + tests (root, requires Java 25)
 ./gradlew :api:test
 ./gradlew :api:build
 
@@ -87,7 +91,7 @@ docker exec -it tasky-db psql -U tasky -d tasky
 # http://localhost:8080/actuator/health
 ```
 
-Tests use Testcontainers (PostgreSQL) — no external DB needed. The Docker build runs `./gradlew :api:build --no-daemon -x test` for speed; run tests explicitly before merging.
+Tests use Testcontainers (`postgres:18-alpine`) — no external DB needed. The Docker build runs `./gradlew :api:build --no-daemon -x test` for speed; run tests explicitly before merging. Dev stack is a single `docker-compose.yml` (api/app/db on PG18 + redis + minio + mock-oauth2); there is no production compose file (prod uses another approach). Auth is generic OIDC (Google + Microsoft Entra, mock-backed locally) — see `tasky-security-enterprise`.
 
 ## Improvement playbook (backend)
 

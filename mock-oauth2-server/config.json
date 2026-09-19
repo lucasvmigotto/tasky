@@ -1,0 +1,35 @@
+{
+  "interactiveLogin": true,
+  "hostname": "localhost",
+  "oauth2": {
+    "tenants": {
+      "tasky-google-mock": {
+        "accessTokenLifetime": 3600,
+        "users": {
+          "dev-user": {
+            "claims": {
+              "sub": "mock-google-sub-1",
+              "email": "dev.google@example.com",
+              "email_verified": true,
+              "name": "Dev Google",
+              "picture": ""
+            }
+          }
+        }
+      },
+      "tasky-microsoft-mock": {
+        "accessTokenLifetime": 3600,
+        "users": {
+          "dev-user": {
+            "claims": {
+              "sub": "mock-microsoft-sub-1",
+              "email": "dev.microsoft@example.com",
+              "email_verified": true,
+              "name": "Dev Microsoft"
+            }
+          }
+        }
+      }
+    }
+  }
+}

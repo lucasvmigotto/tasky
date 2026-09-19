@@ -65,18 +65,20 @@ Se o recurso não existir no tenant, retorne 404 para evitar enumeração. Use 4
 - Rotação de segredo invalida tokens anteriores; planejar comunicação e rollout.
 - Segredo de teste pode ser fixo somente em resources de teste.
 
-## Google OAuth
+## OIDC (Google + Microsoft Entra, mock-backed locally)
 
-Valide no mínimo:
+Valide no mínimo, por provider (estratégia `OidcTokenVerifier`: `google`, `microsoft`, `mock-google`, `mock-microsoft`):
 
 - Assinatura via issuer/JWK confiável.
-- `iss` Google esperado.
-- `aud == GOOGLE_CLIENT_ID` configurado.
+- `iss` esperado do provider (`https://accounts.google.com`, `https://login.microsoftonline.com/{tenant}/v2.0`, ou issuers mock de `MOCK_OAUTH2_*_ISSUER`).
+- `aud == GOOGLE_CLIENT_ID` (Google/mock-google) ou `== MICROSOFT_CLIENT_ID` (Microsoft/mock-microsoft).
 - `exp` e `iat` válidos.
-- `email_verified == true`.
+- `email_verified == true` (ou claim Entra equivalente mapeada no backend).
 - `sub` como identidade estável; email não deve ser a única chave.
 
-Configure connect/read timeout. Não envie token em logs ou mensagens de exceção. Testes obrigatórios: audience errada, expirado, email não verificado, assinatura inválida e token válido.
+Desenvolvimento local usa `mock-oauth2-server` (`mock-oauth2-server/config.json`, tenants `tasky-google-mock` + `tasky-microsoft-mock`, host `http://localhost:48080`, issuers internos `http://mock-oauth2:8080/...`); sem client IDs reais o modo é mock-only. Fluxo frontend prefere code flow com `state`/`nonce` validados.
+
+Configure connect/read timeout. Não envie token em logs ou mensagens de exceção. Testes obrigatórios por provider: audience errada, expirado, email não verificado, assinatura inválida e token válido.
 
 ## Modelo de sessão recomendado
 

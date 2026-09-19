@@ -17,9 +17,9 @@ O documento de auditoria prevalece sobre descrições históricas desta skill qu
 
 | Camada | Tecnologia |
 |---|---|
-| Backend | Java 21, Spring Boot **4.0.6**, Spring Data JPA, Spring Security + JJWT (HS256), Flyway, springdoc, Testcontainers |
+| Backend | Java 25, Spring Boot **4.0.6**, Spring Data JPA, Spring Security + JJWT (HS256), Flyway, springdoc, Testcontainers |
 | Frontend | React 19, TypeScript, Vite 6, Tailwind 4, Radix UI, TanStack Query, Zustand, React Router 7, Recharts, Bun, Vitest + MSW |
-| Infra | Docker Compose (api, app, db), Nginx (envsubst proxy `/api/*`), PostgreSQL 16, Google OAuth 2.0 |
+| Infra | Single dev-only Docker Compose (api, app, db, redis, minio, mock-oauth2), Nginx (envsubst proxy `/api/*`), PostgreSQL 18, generic OIDC (Google + Microsoft Entra, mock-backed locally) |
 
 ## Como rodar (Docker)
 
@@ -31,7 +31,7 @@ docker compose up -d --build
 - App: `http://localhost:5173` · API: `http://localhost:8080` · Swagger: `http://localhost:8080/swagger-ui.html` · Health: `http://localhost:8080/actuator/health`
 - DB: `localhost:5432` (tasky/tasky/tasky). Shell: `docker exec -it tasky-db psql -U tasky -d tasky`
 
-**IMPORTANTE sobre imagens:** os Dockerfiles originais usavam o registry privado `dhi.io` (precisa login). Foram trocados por imagens públicas (`eclipse-temurin:21-jdk`/`21-jre`, `oven/bun:1`, `nginx:stable-alpine`) — **não reverter para `dhi.io`** sem credenciais. A app Dockerfile usa `--mount=type=bind` (BuildKit) e o `nginx.conf.template` vira o server block via envsubst (`NGINX_ENVSUBST_FILTER=API_UPSTREAM`).
+**IMPORTANTE sobre imagens:** os Dockerfiles originais usavam o registry privado `dhi.io` (precisa login). Foram trocados por imagens públicas (`eclipse-temurin:25-jdk`/`25-jre`, `oven/bun:1`, `nginx:stable-alpine`, `postgres:18-alpine`, `redis:8-alpine`, `quay.io/minio/minio`, `ghcr.io/navikt/mock-oauth2-server`) — **não reverter para `dhi.io`** sem credenciais. A app Dockerfile usa `--mount=type=bind` (BuildKit) e o `nginx.conf.template` vira o server block via envsubst (`NGINX_ENVSUBST_FILTER=API_UPSTREAM`).
 
 **Rebuild de um serviço:** `docker compose up -d --build api` (ou `app`). Migrations Flyway rodam sozinhas no boot; o `api/Dockerfile` builda com `-x test` por velocidade.
 
@@ -102,7 +102,7 @@ bun run lint                     # tsc --noEmit
 bun run test                     # vitest
 ```
 
-> Em Windows o host pode não ter Java 21/Bun; compilar/testar via Docker (`docker compose up -d --build <svc>`) valida tsc/build.
+> Em Windows o host pode não ter Java 25/Bun; compilar/testar via Docker (`docker compose up -d --build <svc>`) valida tsc/build.
 
 ## Fluxos de dados (front → back)
 

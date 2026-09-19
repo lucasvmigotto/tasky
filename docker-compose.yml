@@ -1,3 +1,8 @@
+# TaskY — single development-only Compose stack.
+# Production uses a separate approach (out of scope for this file).
+# Services: api (Spring Boot) + app (Nginx SPA) + db (PostgreSQL 18)
+#           + redis (cache) + minio (S3-compatible storage)
+#           + mock-oauth2 (local Google/Microsoft OIDC stand-in, see mock-oauth2-server/config.json).
 services:
   api:
     build:
@@ -5,8 +10,6 @@ services:
       dockerfile: api/Dockerfile
     container_name: tasky-api
     ports:
-      # Local development only. Production uses docker-compose.production.yml
-      # and exposes the API exclusively through the app reverse proxy.
       - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8080}:8080"
     environment:
       POSTGRES_HOST: db
@@ -18,11 +21,28 @@ services:
       JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      MOCK_OAUTH2_ENABLED: ${MOCK_OAUTH2_ENABLED:-true}
+      MOCK_OAUTH2_GOOGLE_ISSUER: ${MOCK_OAUTH2_GOOGLE_ISSUER:-http://mock-oauth2:8080/tasky-google-mock}
+      MOCK_OAUTH2_MICROSOFT_ISSUER: ${MOCK_OAUTH2_MICROSOFT_ISSUER:-http://mock-oauth2:8080/tasky-microsoft-mock}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      TASKY_STORAGE_BUCKET: ${TASKY_STORAGE_BUCKET:-tasky-dev}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mock-oauth2:
+        condition: service_started
     restart: unless-stopped
 
   app:
@@ -35,19 +55,24 @@ services:
       API_UPSTREAM: http://api:8080
       DEMO_MODE: ${DEMO_MODE:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MOCK_OAUTH2_ENABLED: ${MOCK_OAUTH2_ENABLED:-true}
+      MOCK_OAUTH2_URL: ${MOCK_OAUTH2_URL:-http://localhost:48080}
     depends_on:
       - api
     restart: unless-stopped
 
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: tasky-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tasky}
       POSTGRES_USER: ${POSTGRES_USER:-tasky}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tasky}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PG18 convention: mount the parent dir so major-version subdirs
+      # can coexist (pg_upgrade path for future PG19).
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -55,5 +80,52 @@ services:
       retries: 5
     restart: unless-stopped
 
+  redis:
+    image: redis:8-alpine
+    container_name: tasky-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: tasky-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_BIND_ADDRESS:-127.0.0.1}:${MINIO_PORT:-9000}:9000"
+      - "${MINIO_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mock-oauth2:
+    image: ghcr.io/navikt/mock-oauth2-server:latest
+    container_name: tasky-mock-oauth2
+    ports:
+      - "${MOCK_OAUTH2_BIND_ADDRESS:-127.0.0.1}:${MOCK_OAUTH2_PORT:-48080}:8080"
+    volumes:
+      - ./mock-oauth2-server/config.json:/app/config.json:ro
+    environment:
+      HOSTNAME: localhost
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  redisdata:
+  miniodata:
