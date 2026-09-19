@@ -106,7 +106,7 @@ function CollaboratorReport() {
 
   const { data, isLoading, error } = useReportSummary(params)
   const { data: projects = [] } = useProjects(orgId as UUID)
-  const { data: entries = [] } = useTimeEntries(orgId ? { ...params, size: 5000 } : null)
+  const { data: entries = [] } = useTimeEntries(orgId ? { ...params, size: 500 } : null)
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? 'Projeto'
   const projectColor = (id: string) => projects.find((p) => p.id === id)?.color ?? '#64748B'

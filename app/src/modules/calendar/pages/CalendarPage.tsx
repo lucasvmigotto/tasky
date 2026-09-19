@@ -105,7 +105,7 @@ export default function CalendarPage() {
     orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString() } : null
   )
   const { data: entries = [] } = useTimeEntries(
-    orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString(), size: 5000 } : null
+    orgId ? { from: monthStart.toISOString(), to: monthEnd.toISOString(), size: 500 } : null
   )
   const { data: projects = [] } = useProjects(orgId as UUID)
 

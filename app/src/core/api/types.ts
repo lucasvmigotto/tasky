@@ -404,6 +404,7 @@ export interface ActivityQueryParams {
   to?: ISO8601
   assignedTo?: UUID
   projectId?: UUID
+  size?: number
 }
 
 export interface UpdateProjectRequest {
@@ -783,6 +784,7 @@ export interface ReportQueryParams {
   projectId?: UUID
   membershipId?: UUID
   departmentId?: UUID
+  size?: number
 }
 
 export interface SwitchOrgResponse {
