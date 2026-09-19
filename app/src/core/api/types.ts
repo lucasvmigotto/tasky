@@ -786,6 +786,7 @@ export interface ReportQueryParams {
   departmentId?: UUID
   size?: number
   page?: number
+  format?: 'csv' | 'xlsx' | 'pdf'
 }
 
 export interface SwitchOrgResponse {

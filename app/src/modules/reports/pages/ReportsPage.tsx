@@ -57,7 +57,7 @@ function startOfWeek() {
 }
 
 async function exportViaJob(params: ReportQueryParams) {
-  const job = await apiClient.post<ExportJobResponse>('/reports/exports', { ...params, format: 'csv' })
+  const job = await apiClient.post<ExportJobResponse>('/reports/exports', { ...params, format: params.format ?? 'csv' })
   const deadline = Date.now() + 30_000
   for (;;) {
     const status = await apiClient.get<ExportJobResponse>(`/reports/exports/${job.id}`)
@@ -112,13 +112,15 @@ function CollaboratorReport() {
   const [projectId, setProjectId] = useState('')
   const [exporting, setExporting] = useState(false)
   const [detailPage, setDetailPage] = useState(0)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv')
 
   const params = useMemo(() => ({
     from: new Date(`${from}T00:00:00.000Z`).toISOString(),
     to: new Date(`${to}T23:59:59.999Z`).toISOString(),
     projectId: projectId || undefined,
     page: detailPage,
-  }), [from, to, projectId, detailPage])
+    format: exportFormat,
+  }), [from, to, projectId, detailPage, exportFormat])
 
   const { data, isLoading, error } = useReportSummary(params)
   const { data: projects = [] } = useProjects(orgId as UUID)
@@ -156,7 +158,7 @@ function CollaboratorReport() {
   async function handleExport() {
     setExporting(true)
     try {
-      await exportViaJob(params)
+      await exportViaJob({ ...params, format: exportFormat })
       toast.success('Relatório exportado')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao exportar')
@@ -192,10 +194,22 @@ function CollaboratorReport() {
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
       <PageHeader title="Meu Relatório" description="Horas registradas na semana">
-        <Button onClick={handleExport} disabled={exporting}>
-          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-          Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select
+            value={exportFormat}
+            onValueChange={setExportFormat}
+            className="w-[160px]"
+            options={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'xlsx', label: 'XLSX' },
+              { value: 'pdf', label: 'PDF' },
+            ]}
+          />
+          <Button onClick={handleExport} disabled={exporting}>
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Exportar {exportFormat.toUpperCase()}
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-card p-4 sm:grid-cols-3">
@@ -329,6 +343,7 @@ function ManagerReport() {
   const [departmentId, setDepartmentId] = useState('')
   const [exporting, setExporting] = useState(false)
   const [detailPage, setDetailPage] = useState(0)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv')
 
   const { data: projects = [] } = useProjects(orgId as UUID)
   const { data: members = [] } = useMemberships(orgId as UUID)
@@ -349,7 +364,8 @@ function ManagerReport() {
     membershipId: selectedMemberId || undefined,
     departmentId: sectorId || undefined,
     page: detailPage,
-  }), [from, to, projectId, selectedMemberId, sectorId, detailPage])
+    format: exportFormat,
+  }), [from, to, projectId, selectedMemberId, sectorId, detailPage, exportFormat])
 
   const reportParams = isAdmin && !sectorId ? null : params
 
@@ -385,7 +401,7 @@ function ManagerReport() {
     if (!reportParams) return
     setExporting(true)
     try {
-      await exportViaJob(reportParams)
+      await exportViaJob({ ...reportParams, format: exportFormat })
       toast.success('Relatório exportado')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao exportar')
@@ -421,10 +437,22 @@ function ManagerReport() {
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
       <PageHeader title="Relatório do Setor" description="Semana da equipe: horas e produtividade">
-        <Button onClick={handleExport} disabled={exporting || (isAdmin && !sectorId)}>
-          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-          Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select
+            value={exportFormat}
+            onValueChange={setExportFormat}
+            className="w-[160px]"
+            options={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'xlsx', label: 'XLSX' },
+              { value: 'pdf', label: 'PDF' },
+            ]}
+          />
+          <Button onClick={handleExport} disabled={exporting || (isAdmin && !sectorId)}>
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Exportar {exportFormat.toUpperCase()}
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-card p-4 sm:grid-cols-2 xl:grid-cols-3">
