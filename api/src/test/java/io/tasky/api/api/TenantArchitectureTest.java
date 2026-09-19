@@ -58,16 +58,7 @@ class TenantArchitectureTest {
     }
 
     @Test
-    void controllerTransactions_frozenToKnownPhase3Backlog() throws IOException {
-        Set<String> frozen = Set.of(
-                "InternalRequestController",
-                "TimeEntryController",
-                "TimesheetController",
-                "ActivityTemplateController",
-                "ReportController",
-                "CrossDepartmentAccessController",
-                "MembershipController");
-
+    void noTransactionalOnControllers() throws IOException {
         var transactional = javaFiles(MAIN.resolve("api"))
                 .stream()
                 .filter(file -> {
@@ -82,7 +73,7 @@ class TenantArchitectureTest {
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(transactional)
-                .as("controller @Transactional set changed: remove entries only via Phase 3, never add")
-                .isEqualTo(frozen);
+                .as("transaction boundaries belong to services, never controllers")
+                .isEmpty();
     }
 }

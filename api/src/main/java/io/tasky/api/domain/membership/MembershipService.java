@@ -14,6 +14,7 @@ import io.tasky.api.domain.session.RefreshSessionService;
 import io.tasky.api.api.common.ConflictException;
 import io.tasky.api.security.PermissionService;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +51,17 @@ public class MembershipService {
             .comparing((OrganizationMembership membership) -> membership.getUser().getUsername(),
                     Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
             .thenComparing(OrganizationMembership::getId);
+
+
+    private OrganizationMembership initializeForResponse(OrganizationMembership membership) {
+        Hibernate.initialize(membership.getMemberTypes());
+        return membership;
+    }
+
+    private List<OrganizationMembership> initializeForResponse(List<OrganizationMembership> memberships) {
+        memberships.forEach(m -> Hibernate.initialize(m.getMemberTypes()));
+        return memberships;
+    }
 
     public OrganizationMembership inviteUser(
             UUID orgId, String email, Role role,
@@ -108,6 +120,7 @@ public class MembershipService {
                 "Seu acesso institucional foi ativado com sucesso.",
                 "membership", membership.getId());
 
+        Hibernate.initialize(membership.getMemberTypes());
         if (role == Role.manager) {
             for (Department dept : placement.departments()) {
                 managerDepartmentRepository.save(ManagerDepartment.builder()
@@ -135,7 +148,7 @@ public class MembershipService {
         LinkedHashMap<UUID, OrganizationMembership> visible = new LinkedHashMap<>();
         scoped.forEach(membership -> visible.put(membership.getId(), membership));
         visible.put(scope.requester().getId(), scope.requester());
-        return visible.values().stream().sorted(VISIBLE_MEMBERSHIP_ORDER).toList();
+        return initializeForResponse(visible.values().stream().sorted(VISIBLE_MEMBERSHIP_ORDER).toList());
     }
 
     public OrganizationMembership getVisibleActiveMembership(UUID orgId, UUID requesterUserId, UUID membershipId) {
@@ -145,12 +158,12 @@ public class MembershipService {
         if (!isVisible(scope, target)) {
             throw new SecurityException("Membership is outside your scope");
         }
-        return target;
+        return initializeForResponse(target);
     }
 
     public OrganizationMembership getMembership(UUID orgId, UUID membershipId) {
-        return membershipRepository.findByIdAndOrganizationId(membershipId, orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
+        return initializeForResponse(membershipRepository.findByIdAndOrganizationId(membershipId, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Membership not found")));
     }
 
     public OrganizationMembership updateSettings(UUID orgId, UUID membershipId, String customUsername, Integer maxDailyWorkMinutes, String timezone,
@@ -172,14 +185,14 @@ public class MembershipService {
             membership.getMemberTypes().clear();
             membership.getMemberTypes().addAll(memberTypes);
         }
-        return membershipRepository.save(membership);
+        return initializeForResponse(membershipRepository.save(membership));
     }
 
     public List<OrganizationMembership> getInvitations(UUID orgId, OrganizationMembership requester) {
         expireOverdueInvitations(orgId);
-        return membershipRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId).stream()
+        return initializeForResponse(membershipRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId).stream()
                 .filter(membership -> canManageInvitation(requester, membership))
-                .toList();
+                .toList());
     }
 
     public void revokeInvitation(UUID orgId, UUID membershipId, OrganizationMembership requester) {
@@ -299,7 +312,7 @@ public class MembershipService {
         }
 
         refreshSessionService.revokeAllForUser(saved.getUser().getId());
-        return saved;
+        return initializeForResponse(saved);
     }
 
     private Placement resolvePlacement(UUID orgId, Role role, Collection<UUID> departmentIds) {
