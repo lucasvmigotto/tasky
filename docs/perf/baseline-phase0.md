@@ -72,6 +72,12 @@ Notes:
 
 Deferred to Phase 0 follow-up: seed 100k `time_entries` fixture (local only, `/tmp/opencode`) and run `EXPLAIN (ANALYZE, BUFFERS)` on report aggregates + feed author joins before Phase 7 index work. Top suspects (from `analysis.md`): 8-query `ReportService.buildSummary` fan-out, unbounded `GET /reports/detailed`, comment/feed N+1, `findByAssignedToId` minutes query.
 
+## 4b. Build + boot proof (2026-09-19)
+
+- `docker compose build api` → green on `eclipse-temurin:25-jdk` + Gradle 9.0.0 (toolchain 25).
+- API boot vs PG18.6: `Successfully validated 41 migrations`, `Successfully applied 41 migrations`, `Started TaskYApplication in 8.731s`, `/actuator/health` → `UP`.
+- App image build not re-run in Phase 0 (frontend untouched); Phase 4 rebuilds it.
+
 ## 5. P0 pointer (Phase 1 scope)
 
 Per `analysis/analysis.md §27`: dept write tenant-confusion, `deleteEntry` lock bypass, `IN_TESTING` vs V9 CHECK, create-activity read gate, checklist read gate, side-effecting `GET /reports/exports`. Plus generic OIDC (Google + Microsoft via mock) and ArchUnit tenant gate.
