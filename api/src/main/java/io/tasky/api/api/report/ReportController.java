@@ -229,9 +229,28 @@ public class ReportController {
         return ResponseEntity.ok(savedReportService.get(orgId, requireMembershipId(user, orgId), isAdmin(user, orgId), reportId));
     }
 
-    @GetMapping("/exports")
+    @PostMapping("/exports")
     @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
     public ResponseEntity<ExportJobResponse> createExportJob(
+            @Valid @RequestBody CreateExportJobRequest request,
+            @AuthenticationPrincipal SecurityUser user) {
+        UUID orgId = requireFinancialReportsAccess(user);
+        ExportJobResponse job = reportExportService.create(
+                orgId, requireMembershipId(user, orgId),
+                request.from(), request.to(),
+                request.projectId(), request.membershipId(),
+                reportScope(user, orgId, null), request.format() != null ? request.format() : "csv");
+        return ResponseEntity.accepted().body(job);
+    }
+
+    /**
+     * @deprecated Side-effecting GET kept for one release for old clients.
+     * Sends {@code Deprecation} and never caches. Use {@code POST /exports}.
+     */
+    @Deprecated
+    @GetMapping("/exports")
+    @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
+    public ResponseEntity<ExportJobResponse> createExportJobLegacy(
             @RequestParam("from") Optional<Instant> from,
             @RequestParam("to") Optional<Instant> to,
             @RequestParam("projectId") Optional<UUID> projectId,
@@ -244,7 +263,10 @@ public class ReportController {
                 from.orElse(null), to.orElse(null),
                 projectId.orElse(null), membershipId.orElse(null),
                 reportScope(user, orgId, null), format.orElse("csv"));
-        return ResponseEntity.accepted().body(job);
+        return ResponseEntity.accepted()
+                .header("Deprecation", "true")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(job);
     }
 
     @GetMapping("/exports/{jobId}")

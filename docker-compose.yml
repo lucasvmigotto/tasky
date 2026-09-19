@@ -24,8 +24,10 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
       MOCK_OAUTH2_ENABLED: ${MOCK_OAUTH2_ENABLED:-true}
-      MOCK_OAUTH2_GOOGLE_ISSUER: ${MOCK_OAUTH2_GOOGLE_ISSUER:-http://mock-oauth2:8080/tasky-google-mock}
-      MOCK_OAUTH2_MICROSOFT_ISSUER: ${MOCK_OAUTH2_MICROSOFT_ISSUER:-http://mock-oauth2:8080/tasky-microsoft-mock}
+      MOCK_OAUTH2_GOOGLE_ISSUER: ${MOCK_OAUTH2_GOOGLE_ISSUER:-http://localhost:48080/tasky-google-mock}
+      MOCK_OAUTH2_MICROSOFT_ISSUER: ${MOCK_OAUTH2_MICROSOFT_ISSUER:-http://localhost:48080/tasky-microsoft-mock}
+      MOCK_OAUTH2_GOOGLE_JWKS_URI: ${MOCK_OAUTH2_GOOGLE_JWKS_URI:-http://mock-oauth2:8080/tasky-google-mock/jwks}
+      MOCK_OAUTH2_MICROSOFT_JWKS_URI: ${MOCK_OAUTH2_MICROSOFT_JWKS_URI:-http://mock-oauth2:8080/tasky-microsoft-mock/jwks}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MINIO_ENDPOINT: http://minio:9000

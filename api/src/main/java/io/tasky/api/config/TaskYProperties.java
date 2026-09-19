@@ -10,6 +10,8 @@ public record TaskYProperties(
         Jwt jwt,
         Cors cors,
         Google google,
+        Microsoft microsoft,
+        MockOAuth2 mockOAuth2,
         Reminders reminders,
         Platform platform
 ) {
@@ -25,6 +27,19 @@ public record TaskYProperties(
 
     public record Google(
             String clientId
+    ) {}
+
+    public record Microsoft(
+            String clientId,
+            String tenantId
+    ) {}
+
+    public record MockOAuth2(
+            boolean enabled,
+            String googleIssuer,
+            String microsoftIssuer,
+            String googleJwksUri,
+            String microsoftJwksUri
     ) {}
 
     public record Reminders(
