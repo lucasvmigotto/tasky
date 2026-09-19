@@ -36,7 +36,7 @@ class TimeEntryServiceTest {
     @Test
     void updateSubmittedEntry_isRejectedBeforeMutation() {
         Fixture fixture = fixture(TimeEntryApprovalStatus.SUBMITTED, Instant.now());
-        when(timeEntryRepository.findById(fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
 
         assertThrows(ConflictException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
@@ -46,9 +46,9 @@ class TimeEntryServiceTest {
     }
 
     @Test
-    void ownerCanDeleteEntry_regardlessOfApprovalStatus() {
-        Fixture fixture = fixture(TimeEntryApprovalStatus.APPROVED, Instant.now());
-        when(timeEntryRepository.findById(fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
+    void ownerCanDeleteDraftEntry() {
+        Fixture fixture = fixture(TimeEntryApprovalStatus.DRAFT, Instant.now());
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
 
         service.deleteEntry(fixture.orgId, fixture.membershipId, fixture.entry.getId());
 
@@ -56,9 +56,20 @@ class TimeEntryServiceTest {
     }
 
     @Test
+    void ownerCannotDeleteApprovedEntry() {
+        Fixture fixture = fixture(TimeEntryApprovalStatus.APPROVED, Instant.now());
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
+
+        assertThrows(ConflictException.class, () -> service.deleteEntry(
+                fixture.orgId, fixture.membershipId, fixture.entry.getId()));
+
+        verify(timeEntryRepository, never()).delete(fixture.entry);
+    }
+
+    @Test
     void approveDraftEntry_isRejected() {
         Fixture fixture = fixture(TimeEntryApprovalStatus.DRAFT, Instant.now());
-        when(timeEntryRepository.findById(fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
 
         assertThrows(ConflictException.class,
                 () -> service.approveEntry(fixture.orgId, fixture.entry.getId(), fixture.membership));
@@ -67,7 +78,7 @@ class TimeEntryServiceTest {
     @Test
     void rejectRunningSubmittedEntry_isRejected() {
         Fixture fixture = fixture(TimeEntryApprovalStatus.SUBMITTED, null);
-        when(timeEntryRepository.findById(fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
 
         assertThrows(ConflictException.class,
                 () -> service.rejectEntry(fixture.orgId, fixture.entry.getId(), fixture.membership, "fix it"));
@@ -79,7 +90,7 @@ class TimeEntryServiceTest {
         Project otherProject = Project.builder().id(UUID.randomUUID()).build();
         fixture.entry.setProject(fixture.project);
         fixture.entry.setActivity(Activity.builder().id(UUID.randomUUID()).project(fixture.project).build());
-        when(timeEntryRepository.findById(fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId())).thenReturn(Optional.of(fixture.entry));
         when(projectRepository.findByIdAndDepartment_Organization_Id(otherProject.getId(), fixture.orgId))
                 .thenReturn(Optional.of(otherProject));
 
