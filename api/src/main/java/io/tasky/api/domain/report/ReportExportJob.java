@@ -2,6 +2,7 @@ package io.tasky.api.domain.report;
 
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.organization.Organization;
+import io.tasky.api.domain.storage.StoredFile;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -66,6 +67,17 @@ public class ReportExportJob {
 
     @Column(name = "download_url", length = 500)
     private String downloadUrl;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int attempts = 0;
+
+    @Column(name = "last_error", columnDefinition = "TEXT")
+    private String lastError;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stored_file_id")
+    private StoredFile storedFile;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;

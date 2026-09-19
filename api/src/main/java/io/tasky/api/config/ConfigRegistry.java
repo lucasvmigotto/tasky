@@ -74,7 +74,7 @@ public class ConfigRegistry {
 
     private static final String DEFAULT_MIME_JSON = """
             ["image/png","image/jpeg","image/webp","image/gif","image/bmp",
-             "application/pdf","text/plain","text/markdown",
+             "application/pdf","text/plain","text/markdown","text/csv",
              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
             """;
 

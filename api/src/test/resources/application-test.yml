@@ -23,6 +23,8 @@ tasky:
     allowed-origins: "http://localhost:5173,http://127.0.0.1:5173"
   google:
     client-id: test-client-id.apps.googleusercontent.com
+  exports:
+    worker-delay-ms: 500
 
 logging:
   level:

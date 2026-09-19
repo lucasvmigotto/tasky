@@ -64,6 +64,8 @@ tasky:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
   cache:
     report-summary-ttl: ${TASKY_SUMMARY_CACHE_TTL:PT30S}
+  exports:
+    worker-delay-ms: ${TASKY_EXPORT_WORKER_DELAY_MS:5000}
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
   microsoft:

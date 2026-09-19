@@ -12,6 +12,7 @@ public record TaskYProperties(
         Google google,
         Microsoft microsoft,
         MockOAuth2 mockOAuth2,
+        Exports exports,
         Reminders reminders,
         Platform platform
 ) {
@@ -40,6 +41,10 @@ public record TaskYProperties(
             String microsoftIssuer,
             String googleJwksUri,
             String microsoftJwksUri
+    ) {}
+
+    public record Exports(
+            long workerDelayMs
     ) {}
 
     public record Reminders(

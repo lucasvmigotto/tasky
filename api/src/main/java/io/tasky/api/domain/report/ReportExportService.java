@@ -5,6 +5,7 @@ import io.tasky.api.api.report.ReportDetailedRow;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.organization.OrganizationRepository;
+import io.tasky.api.domain.storage.FileStorageService;
 import io.tasky.api.config.TaskyMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class ReportExportService {
     private final OrganizationMembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
     private final ReportService reportService;
+    private final FileStorageService fileStorageService;
     private final TaskyMetrics metrics;
 
     @Transactional
@@ -46,26 +48,13 @@ public class ReportExportService {
                 .params(buildParams(from, to, projectId, membershipId, supportedFormat))
                 .expiresAt(now.plus(JOB_TTL))
                 .build();
+        job.getParams().put("scope", scopeMembershipIds.stream()
+                .map(UUID::toString).sorted().toList());
         job = reportExportJobRepository.save(job);
         reportExportJobRepository.flush();
         metrics.exportCreated();
-
-        try {
-            reportService.buildCsv(reportService.getDetailed(
-                    orgId,
-                    from,
-                    to,
-                    projectId,
-                    membershipId,
-                    scopeMembershipIds));
-            job.setStatus(ReportExportStatus.READY);
-            job.setDownloadUrl("/api/v1/reports/exports/" + job.getId() + "/download");
-            job.setExpiresAt(now.plus(JOB_TTL));
-        } catch (RuntimeException ex) {
-            job.setStatus(ReportExportStatus.FAILED);
-            job.setExpiresAt(now.plus(JOB_TTL));
-            throw ex;
-        }
+        // CSV is built asynchronously by ReportExportWorker; the client polls
+        // GET /exports/{jobId} until READY (the frontend already polls every 4s).
         return toResponse(job);
     }
 
@@ -84,20 +73,17 @@ public class ReportExportService {
                 .orElseThrow(() -> new IllegalArgumentException("Export job not found"));
         requireAccess(callerMembershipId, admin, job);
         if (job.getStatus() != ReportExportStatus.READY) {
-            throw new IllegalStateException("Export job is not ready");
+            throw new io.tasky.api.api.common.ConflictException("Export job is not ready yet");
         }
         if (job.getExpiresAt() != null && Instant.now().isAfter(job.getExpiresAt())) {
             throw new IllegalArgumentException("Export job has expired");
         }
+        if (job.getStoredFile() == null) {
+            throw new IllegalArgumentException("Export artifact is missing");
+        }
         metrics.exportDownloaded();
-        List<ReportDetailedRow> rows = reportService.getDetailed(
-                orgId,
-                instantParam(job.getParams(), "from"),
-                instantParam(job.getParams(), "to"),
-                uuidParam(job.getParams(), "projectId"),
-                uuidParam(job.getParams(), "membershipId"),
-                scopeMembershipIds);
-        return reportService.buildCsv(rows);
+        byte[] bytes = fileStorageService.download(orgId, job.getStoredFile().getId()).bytes();
+        return bytes == null ? "" : new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private Map<String, Object> buildParams(Instant from, Instant to, UUID projectId, UUID membershipId, String format) {
