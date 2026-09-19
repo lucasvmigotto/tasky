@@ -60,6 +60,7 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MOCK_OAUTH2_ENABLED: ${MOCK_OAUTH2_ENABLED:-true}
       MOCK_OAUTH2_URL: ${MOCK_OAUTH2_URL:-http://localhost:48080}
+      SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       - api
     restart: unless-stopped

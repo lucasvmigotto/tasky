@@ -1,0 +1,45 @@
+{
+  "title": "TaskY RED + domain",
+  "tags": ["tasky"],
+  "panels": [
+    {
+      "title": "API p95 latency (by route)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{application=\"tasky\"}[5m])))"
+        }
+      ]
+    },
+    {
+      "title": "5xx rate",
+      "targets": [
+        {
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{application=\"tasky\", status=~\"5..\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "title": "4xx by code",
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(http_server_requests_seconds_count{application=\"tasky\", status=~\"4..\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "title": "Refresh reuse (family revoked)",
+      "targets": [{ "expr": "sum(rate(tasky_refresh_reused_total[5m]))" }]
+    },
+    {
+      "title": "Overlap rejections",
+      "targets": [{ "expr": "sum(rate(tasky_overlap_rejected_total[5m]))" }]
+    },
+    {
+      "title": "Timers started vs exports created",
+      "targets": [
+        { "expr": "sum(rate(tasky_timers_started_total[5m]))" },
+        { "expr": "sum(rate(tasky_exports_created_total[5m]))" }
+      ]
+    }
+  ]
+}
