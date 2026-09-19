@@ -22,7 +22,8 @@ public abstract class BaseIntegrationTest {
     static final PostgreSQLContainer<?> postgres;
 
     static {
-        postgres = new PostgreSQLContainer<>("postgres:18-alpine");
+        postgres = new PostgreSQLContainer<>(
+                "postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd");
         postgres.start();
     }
 
