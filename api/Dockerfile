@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS builder
+FROM eclipse-temurin:25-jdk AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN --mount=type=bind,source=gradlew,target=gradlew \
     --mount=type=bind,source=api/src,target=api/src \
     ./gradlew :api:build --no-daemon -x test
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 

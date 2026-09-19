@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: gradle
       - run: ./gradlew :api:test :api:build --no-daemon
 
@@ -78,7 +78,7 @@ jobs:
         if: matrix.language == 'java-kotlin'
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: gradle
       - name: Build Java for CodeQL
         if: matrix.language == 'java-kotlin'
