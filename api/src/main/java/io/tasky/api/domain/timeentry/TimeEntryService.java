@@ -126,6 +126,7 @@ public class TimeEntryService {
         if (entry.getEndTime() != null) {
             return entry;
         }
+        requirePeriodNotClosedOrLocked(entry);
         Instant end = Instant.now();
         entry.setEndTime(end);
         entry.setDurationSeconds(effectiveElapsedSeconds(entry, end));
@@ -170,11 +171,16 @@ public class TimeEntryService {
 
     public TimeEntry updateEntry(UUID orgId, UUID membershipId, UUID entryId,
                                  UUID projectId, UUID activityId, String description, String glpiTicketId,
-                                 Instant startTime, Instant endTime, Boolean billable) {
+                                 Instant startTime, Instant endTime, Boolean billable, Long expectedVersion) {
         timeEntryRepository.acquireMembershipLock(membershipId);
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
 
         requireEditable(entry);
+        requirePeriodNotClosedOrLocked(entry);
+        if (expectedVersion != null && entry.getVersion() != expectedVersion) {
+            throw new io.tasky.api.api.common.ConflictException("Time entry was modified concurrently; expected version "
+                    + expectedVersion + " but current version is " + entry.getVersion());
+        }
 
         Project project = projectId != null ? resolveProject(orgId, projectId) : entry.getProject();
         Activity activity = activityId != null ? resolveActivity(orgId, activityId) : entry.getActivity();
@@ -199,7 +205,7 @@ public class TimeEntryService {
         }
         entry.setStartTime(start);
         entry.setEndTime(end);
-        entry.setDurationSeconds(end != null ? Duration.between(start, end).getSeconds() : null);
+        entry.setDurationSeconds(end != null ? effectiveElapsedSeconds(entry, end) : null);
 
         if (end != null) {
             validateNoOverlap(orgId, membershipId, entryId, start, end);
@@ -210,6 +216,7 @@ public class TimeEntryService {
 
     public TimeEntry submitEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
+        requirePeriodNotClosedOrLocked(entry);
         if (entry.getEndTime() == null) {
             throw new io.tasky.api.api.common.ConflictException("Running time entries cannot be submitted");
         }
@@ -361,7 +368,8 @@ public class TimeEntryService {
                 entry.getBillingRateSnapshot(),
                 entry.getCostRateSnapshot(),
                 Boolean.TRUE.equals(entry.getBillable()),
-                entry.getCreatedAt()
+                entry.getCreatedAt(),
+                entry.getVersion()
         );
     }
 

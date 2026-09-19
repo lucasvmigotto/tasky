@@ -16,5 +16,6 @@ public record ProjectResponse(
         Long budgetSeconds,
         BigDecimal budgetAmount,
         boolean isActive,
-        Instant createdAt
+        Instant createdAt,
+        long version
 ) {}

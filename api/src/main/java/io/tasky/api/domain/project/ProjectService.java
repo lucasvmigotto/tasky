@@ -4,6 +4,7 @@ import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.department.DepartmentRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
+import io.tasky.api.api.common.ConflictException;
 import io.tasky.api.domain.projectcolumn.ProjectColumnService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -70,9 +71,13 @@ public class ProjectService {
     }
 
     public Project updateProject(UUID orgId, UUID projectId, String name, String description, String color, UUID managerMembershipId,
-                                  BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
-                                  BigDecimal budgetAmount, Boolean isActive) {
+                                   BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
+                                   BigDecimal budgetAmount, Boolean isActive, Long expectedVersion) {
         Project project = getProject(orgId, projectId);
+        if (expectedVersion != null && project.getVersion() != expectedVersion) {
+            throw new ConflictException("Project was modified concurrently; expected version "
+                    + expectedVersion + " but current version is " + project.getVersion());
+        }
 
         if (name != null && !name.isBlank() && !name.equals(project.getName())) {
             if (projectRepository.existsByDepartmentIdAndName(project.getDepartment().getId(), name)) {

@@ -10,5 +10,6 @@ public record UpdateTimeEntryRequest(
         String glpiTicketId,
         Instant startTime,
         Instant endTime,
-        Boolean billable
+        Boolean billable,
+        Long expectedVersion
 ) {}

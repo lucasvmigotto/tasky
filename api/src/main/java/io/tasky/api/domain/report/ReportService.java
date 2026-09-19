@@ -50,7 +50,7 @@ public class ReportService {
     public ReportSummaryResponse buildSummary(UUID orgId, Instant from, Instant to,
                                               UUID projectId, UUID membershipId,
                                               Set<UUID> scopeMembershipIds) {
-        ZoneId zone = ZoneId.of(organizationRepository.getReferenceById(orgId).getTimezone());
+        ZoneId zone = organizationZone(orgId);
 
         LocalDate base = from != null ? from.atZone(zone).toLocalDate() : LocalDate.now(zone);
         LocalDate monday = base.with(DayOfWeek.MONDAY);
@@ -307,6 +307,17 @@ public class ReportService {
               .append(r.billable() ? "Sim" : "Não").append('\n');
         }
         return sb.toString();
+    }
+
+    private ZoneId organizationZone(UUID orgId) {
+        String timezone = organizationRepository.findById(orgId)
+                .map(org -> org.getTimezone())
+                .orElse("UTC");
+        try {
+            return ZoneId.of(timezone);
+        } catch (Exception e) {
+            return ZoneId.of("UTC");
+        }
     }
 
     private List<OrganizationMembership> scopedMemberships(UUID orgId, Set<UUID> scopeMembershipIds) {
