@@ -89,7 +89,8 @@ public class ProjectController {
                 request.estimatedSeconds(),
                 request.budgetSeconds(),
                 request.budgetAmount(),
-                request.isActive()
+                request.isActive(),
+                request.expectedVersion()
         );
         return ResponseEntity.ok(toResponse(project));
     }
@@ -125,7 +126,8 @@ public class ProjectController {
                 project.getBudgetSeconds(),
                 project.getBudgetAmount(),
                 project.isActive(),
-                project.getCreatedAt()
+                project.getCreatedAt(),
+                project.getVersion()
         );
     }
 }

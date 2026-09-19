@@ -40,7 +40,7 @@ class TimeEntryServiceTest {
 
         assertThrows(ConflictException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
-                "changed", null, null, null, null));
+                "changed", null, null, null, null, null));
 
         verify(timeEntryRepository, never()).save(fixture.entry);
     }
@@ -96,7 +96,48 @@ class TimeEntryServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.updateEntry(
                 fixture.orgId, fixture.membershipId, fixture.entry.getId(), otherProject.getId(), null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
+    }
+
+    @Test
+    void updateStaleVersion_isRejected() {
+        Fixture fixture = fixture(TimeEntryApprovalStatus.DRAFT, Instant.now());
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId()))
+                .thenReturn(Optional.of(fixture.entry));
+
+        assertThrows(ConflictException.class, () -> service.updateEntry(
+                fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
+                "changed", null, null, null, null, 7L));
+
+        verify(timeEntryRepository, never()).save(fixture.entry);
+    }
+
+    @Test
+    void updateMatchingVersion_succeeds() {
+        Fixture fixture = fixture(TimeEntryApprovalStatus.DRAFT, Instant.now());
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId()))
+                .thenReturn(Optional.of(fixture.entry));
+
+        service.updateEntry(fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
+                "changed", null, null, null, null, 0L);
+
+        verify(timeEntryRepository).save(fixture.entry);
+    }
+
+    @Test
+    void updatePreservesPausedSeconds() {
+        Fixture fixture = fixture(TimeEntryApprovalStatus.DRAFT, Instant.parse("2026-04-01T09:00:00Z"));
+        fixture.entry.setStartTime(Instant.parse("2026-04-01T08:00:00Z"));
+        fixture.entry.setPausedSeconds(600);
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId()))
+                .thenReturn(Optional.of(fixture.entry));
+
+        service.updateEntry(fixture.orgId, fixture.membershipId, fixture.entry.getId(), null, null,
+                null, null, null, Instant.parse("2026-04-01T10:00:00Z"), null, null);
+
+        // wall 08:00-10:00 = 7200s minus 600s pause
+        verify(timeEntryRepository).save(org.mockito.ArgumentMatchers.argThat(entry ->
+                entry.getDurationSeconds() == 6600L));
     }
 
     private Fixture fixture(TimeEntryApprovalStatus status, Instant endTime) {

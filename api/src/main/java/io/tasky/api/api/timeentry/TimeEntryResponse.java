@@ -27,5 +27,6 @@ public record TimeEntryResponse(
         BigDecimal billingRateSnapshot,
         BigDecimal costRateSnapshot,
         boolean billable,
-        Instant createdAt
+        Instant createdAt,
+        long version
 ) {}

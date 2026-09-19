@@ -328,6 +328,7 @@ export interface ProjectResponse {
   budgetAmount: number | null
   isActive: boolean
   createdAt: ISO8601
+  version: number
 }
 
 export interface CreateActivityRequest {
@@ -408,6 +409,7 @@ export interface UpdateProjectRequest {
   budgetSeconds?: number
   budgetAmount?: number
   isActive?: boolean
+  expectedVersion?: number
 }
 
 export interface ProjectAssignmentResponse {
@@ -673,6 +675,7 @@ export interface TimeEntryResponse {
   costRateSnapshot: number | null
   billable: boolean
   createdAt: ISO8601
+  version: number
 }
 
 export interface ManualTimeEntryRequest {
@@ -701,6 +704,7 @@ export interface UpdateTimeEntryRequest {
   startTime?: ISO8601
   endTime?: ISO8601
   billable?: boolean
+  expectedVersion?: number
 }
 
 export interface TimeEntryQueryParams {

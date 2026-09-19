@@ -9,6 +9,10 @@ export class ApiError extends Error {
   }
 }
 
+export function isConflictError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409
+}
+
 let accessToken: string | null = null
 const REQUEST_TIMEOUT_MS = 15_000
 

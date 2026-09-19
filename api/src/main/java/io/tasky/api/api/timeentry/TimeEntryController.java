@@ -222,7 +222,7 @@ public class TimeEntryController {
         TimeEntry entry = timeEntryService.updateEntry(
                 user.activeOrganizationId(), membership.getId(), entryId,
                 request.projectId(), request.activityId(), request.description(), request.glpiTicketId(),
-                request.startTime(), request.endTime(), request.billable()
+                request.startTime(), request.endTime(), request.billable(), request.expectedVersion()
         );
         return ResponseEntity.ok(toResponse(entry));
     }
@@ -265,7 +265,8 @@ public class TimeEntryController {
                 entry.getBillingRateSnapshot(),
                 entry.getCostRateSnapshot(),
                 entry.isBillable(),
-                entry.getCreatedAt()
+                entry.getCreatedAt(),
+                entry.getVersion()
         );
     }
 }
