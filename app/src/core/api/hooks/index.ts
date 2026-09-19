@@ -1014,6 +1014,7 @@ export function useReportDetailed(params: ReportQueryParams | null) {
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
     if (params.departmentId) searchParams.set('departmentId', params.departmentId)
+    if (params.page != null) searchParams.set('page', String(params.page))
     searchParams.set('size', String(clampPageSize(params.size, MAX_DETAILED_PAGE_SIZE, MAX_DETAILED_PAGE_SIZE)))
   }
   return useQuery({

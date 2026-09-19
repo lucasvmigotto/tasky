@@ -785,6 +785,7 @@ export interface ReportQueryParams {
   membershipId?: UUID
   departmentId?: UUID
   size?: number
+  page?: number
 }
 
 export interface SwitchOrgResponse {

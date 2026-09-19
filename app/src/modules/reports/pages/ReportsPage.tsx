@@ -111,16 +111,19 @@ function CollaboratorReport() {
   const [to, setTo] = useState(endOfWeek())
   const [projectId, setProjectId] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [detailPage, setDetailPage] = useState(0)
 
   const params = useMemo(() => ({
     from: new Date(`${from}T00:00:00.000Z`).toISOString(),
     to: new Date(`${to}T23:59:59.999Z`).toISOString(),
     projectId: projectId || undefined,
-  }), [from, to, projectId])
+    page: detailPage,
+  }), [from, to, projectId, detailPage])
 
   const { data, isLoading, error } = useReportSummary(params)
   const { data: projects = [] } = useProjects(orgId as UUID)
   const { data: entries = [] } = useTimeEntries(orgId ? { ...params, size: 500 } : null)
+  const { data: detailedData, isLoading: detailedLoading } = useReportDetailed(params)
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? 'Projeto'
   const projectColor = (id: string) => projects.find((p) => p.id === id)?.color ?? '#64748B'
@@ -325,6 +328,7 @@ function ManagerReport() {
   const [selectedMemberId, setSelectedMemberId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [detailPage, setDetailPage] = useState(0)
 
   const { data: projects = [] } = useProjects(orgId as UUID)
   const { data: members = [] } = useMemberships(orgId as UUID)
@@ -344,7 +348,8 @@ function ManagerReport() {
     projectId: projectId || undefined,
     membershipId: selectedMemberId || undefined,
     departmentId: sectorId || undefined,
-  }), [from, to, projectId, selectedMemberId, sectorId])
+    page: detailPage,
+  }), [from, to, projectId, selectedMemberId, sectorId, detailPage])
 
   const reportParams = isAdmin && !sectorId ? null : params
 
@@ -603,6 +608,34 @@ function ManagerReport() {
                       ))}
                     </tbody>
                   </table>
+                )}
+                {detailedTotal > 0 && (
+                  <div className="border-t border-border/50 px-4 py-3 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Mostrando {detailed.length} de {detailedTotal} registros
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDetailPage((p) => Math.max(0, p - 1))}
+                        disabled={detailPage === 0}
+                      >
+                        Anterior
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Página {detailPage + 1} de {Math.ceil(detailedTotal / 50) || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDetailPage((p) => p + 1)}
+                        disabled={detailed.length < 50}
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
