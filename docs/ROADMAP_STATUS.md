@@ -6,58 +6,61 @@ Fonte de escopo e numeracao: `docs/ANALISE_TASKY.md`. Este quadro e conservador:
 
 | Task | Escopo em ANALISE_TASKY | Estado | Evidencia e pendencia principal |
 |---|---|---|---|
-| TASK-001 | JWT_SECRET obrigatorio e rotacao | Parcial | Configuracao obrigatoria existe; rotacao em secret manager e scan do historico nao foram comprovados. |
-| TASK-002 | Validacao do Google ID token | Parcial | Validacoes e testes existem; revisao do fluxo real e seus timeouts ainda precisa ser registrada. |
-| TASK-003 | IDOR e tenant em todas as queries | Parcial | Ha consultas tenant-aware e testes negativos de membership entre organizacoes/setores/equipes; nao ha inventario/teste de todos os endpoints. |
-| TASK-004 | Refresh rotativo e revogacao | Parcial | Sessao rotativa, revogacao e coordenacao de refresh entre abas via Web Locks existem; concorrencia maliciosa e lifetime absoluto seguem pendentes. |
-| TASK-005 | Cliente HTTP sem deadlock/retry infinito | Parcial | Single-flight 1/10/100, restore invalido sem logout concorrente e logout aguardado foram testados; faltam E2E multiaba e falhas de rede amplas. |
-| TASK-006 | Autorizacao central por recurso | Parcial | `PermissionService`, gestao de membros e `/me/sector` derivam setor/equipe no servidor com testes negativos; falta validar a matriz completa dos demais recursos. |
-| TASK-007 | CORS e endpoints operacionais | Concluida | Producao exige origins HTTP(S) explicitas, preflight permitido/negado esta testado, Springdoc e desativado e Actuator expoe somente health sem detalhes. |
-| TASK-008 | Somente um timer aberto | Parcial | Indice parcial e testes existem; idempotencia do comando nao foi comprovada. |
-| TASK-009 | Sobreposicao de horarios | Parcial | Deteccao/409 existem; policy configuravel e fluxo de resolucao completo na UI nao foram comprovados. |
-| TASK-010 | Separar timer de entrada manual | Parcial | Endpoint manual existe; semantica e cobertura de timezone ainda nao fecham todo o ticket. |
-| TASK-011 | Pause/resume no servidor | Parcial | Estado persistido existe; versionamento, idempotencia e reconciliacao multidispositivo seguem pendentes. |
-| TASK-012 | Timezone e calendario de trabalho | Parcial | Timezone IANA foi introduzido; jornada, feriados e cobertura DST completa estao pendentes. |
-| TASK-013 | Status/workflow de atividade | Parcial | Status e posicao persistidos existem; concorrencia e cobertura integral de transicoes nao foram comprovadas. |
-| TASK-014 | Kanban drag-and-drop acessivel | Parcial | Mouse, touch, teclado, fallback de movimento, optimistic update e rollback foram implementados/testados; auditoria completa em browser real esta pendente. |
-| TASK-015 | Subtarefas e hierarquia | Parcial | Relacao pai foi adicionada; limites de profundidade, conversao e progresso agregado estao incompletos. |
-| TASK-016 | Timeline/Gantt de producao | Parcial | Timeline foi integrada ao workspace do projeto com alternativa em lista e navegacao para a atividade; zoom, edicao de datas e conectores de dependencia seguem pendentes. |
-| TASK-017 | Comentarios, mencoes e feed | Parcial | Comentarios basicos existem; mencoes, feed integrado, notificacao e auditoria completa estao pendentes. |
-| TASK-018 | Anexos seguros | Parcial | So ha metadata/URL; nao existem object storage gerenciado, presigned URL, MIME allowlist nem antivirus comprovados. |
-| TASK-019 | Templates e recorrencia | Nao iniciada | Nao foram encontrados templates versionados nem scheduler de recorrencia idempotente. |
-| TASK-020 | Planejado x realizado | Parcial | Estimativas e agregados basicos existem; validacao completa por projeto/atividade esta pendente. |
-| TASK-021 | Orcamento, custo e rentabilidade | Parcial | Campos e snapshots basicos existem; alertas, historico e permissoes financeiras completas estao pendentes. |
-| TASK-022 | Aprovacao/bloqueio de timesheet | Parcial | Estados foram modelados; aprovacao em lote, fechamento e excecao auditada nao foram comprovados. |
-| TASK-023 | Capacidade e workload | Parcial | `Meu Setor` exibe carga planejada aberta por pessoa no escopo autorizado; disponibilidade real, ferias/feriados e capacidade temporal continuam pendentes. |
-| TASK-024 | Relatorios empresariais e exports | Parcial | CSV e metricas financeiras basicas existem; PDF/XLSX, filtros salvos e export assincrono real nao existem. |
-| TASK-025 | Auditoria imutavel | Parcial | Eventos/viewer basicos existem; imutabilidade operacional e cobertura transversal nao foram comprovadas. |
-| TASK-026 | Testes de seguranca/multi-tenancy | Parcial | A suite backend executa 78 testes com PostgreSQL Testcontainers compartilhado e cobre membership/tenant/setor/equipe; ainda nao cobre todos os endpoints e recursos. |
-| TASK-027 | Testes frontend e fluxos criticos | Parcial | Vitest/MSW executa 44 testes, incluindo auth restore, convites, Kanban, workspace e Meu Setor; cobertura ampla e E2E Playwright continuam incompletos. |
-| TASK-028 | Observabilidade e erros | Parcial | Correlation ID e Problem Details existem; logs JSON, metricas, tracing e alertas estao pendentes. |
-| TASK-029 | Backup, restore e continuidade | Parcial | Scripts e runbook local existem; criptografia, copia externa, PITR e teste periodico de restore nao estao implantados. |
-| TASK-030 | Queries e indices | Parcial | Contagem de checklist em lote e alguns indices/queries foram melhorados; N+1 remanescentes, filtros em memoria, planos e carga continuam pendentes. |
-| TASK-031 | Estados de UI | Parcial | `QueryState` cobre workspace de projeto e Meu Setor com loading, erro e vazio seguro; aplicacao uniforme nas demais paginas nao foi validada. |
-| TASK-032 | Nginx e runtime | Parcial | Runtime config e gerado no startup em URL nova sem cache, HTML e no-store e apenas assets hash sao imutaveis; TLS/ingress e imagens por digest seguem pendentes. |
-| TASK-033 | CI/CD reprodutivel e seguro | Parcial | Frozen install, scans, SBOM e idempotencia foram configurados; execucao verde e ambientes protegidos ainda precisam ser comprovados. |
-| TASK-034 | Performance frontend | Parcial | Page size foi reduzido; query keys, bundle budget, paginacao e medicao ainda estao pendentes. |
-| TASK-035 | Busca global e command palette | Parcial | Implementacao basica existe; cobertura de permissao, escala e UX completa nao foi validada. |
-| TASK-036 | Notificacoes e lembretes | Parcial | Inbox in-app basico existe; preferencias, jobs, lembretes e canais externos estao pendentes. |
-| TASK-037 | LGPD e governanca | Parcial | Export inicial e documento existem; exclusao/anonimizacao, legal hold, retencao automatizada e processo operacional estao pendentes. |
-| TASK-038 | WCAG 2.2 AA | Parcial | Checklist e um teste acessivel existem; auditoria axe, teclado, contraste e fluxos completos nao foram executados. |
-| TASK-039 | Codigo morto e contratos | Parcial | Alguns mocks/hooks foram removidos; demais candidatos e unificacao de contratos nao foram concluidos. |
-| TASK-040 | Documentacao e onboarding | Parcial | Alegacoes criticas foram corrigidas; fresh-clone CI, deploy/rollback e matriz RBAC completa ainda precisam de validacao. |
+| TASK-001 | JWT_SECRET obrigatorio e rotacao | Parcial | Fail-fast + Base64≥32B; rotation runbook em `docs/runbooks/deploy.md`; gitleaks limpo; secret manager externo pendente. |
+| TASK-002 | Validacao do Google ID token | Parcial | `aud/iss/exp/email_verified` + timeout + 7 testes negativos; OIDC generico (Google/Microsoft/mock) em `POST /auth/oidc` com testes RSA; code-flow com state/nonce pendente. |
+| TASK-003 | IDOR e tenant em todas as queries | Parcial | Inventario de 155 rotas (`docs/perf/baseline-phase0.md`); guards T-01..T-08, finds atomicos, `TenantArchitectureTest`; matriz negativa ampliada (fase 5); cobertura literal 100% ainda nao. |
+| TASK-004 | Refresh rotativo e revogacao | Parcial | Familia rotativa + reuse-revoke + metrica/alerta; lifetime absoluto e concorrencia maliciosa seguem pendentes. |
+| TASK-005 | Cliente HTTP sem deadlock/retry infinito | Parcial | Single-flight 1/10/100 comprovado; faltam E2E multiaba e falhas de rede amplas. |
+| TASK-006 | Autorizacao central por recurso | Parcial | `PermissionService` + matriz publicada (`docs/security/rbac-matrix.md`); checklist/activity gates corrigidos; checklist de PR exige teste negativo. |
+| TASK-007 | CORS e endpoints operacionais | Concluida | Origins explicitas, preflight testado, Springdoc off em prod, Actuator minimo (+ `/prometheus` interno). |
+| TASK-008 | Somente um timer aberto | Parcial | Indice parcial + advisory lock + prova paralela (10 rounds, 1 win); idempotencia de stop comprovada. |
+| TASK-009 | Sobreposicao de horarios | Parcial | `EXCLUDE` no banco (relatorio pre-migracao zerado) + 409 app + prova paralela; policy configuravel e resolver completo na UI pendentes. |
+| TASK-010 | Separar timer de entrada manual | Parcial | Endpoints timer/manual separados; timezone na borda; DST amplo pendente. |
+| TASK-011 | Pause/resume no servidor | Parcial | Pause persistido + reconciliacao ≤10s entre abas/dispositivos (`reconcileTrackerState`, 8 testes); versionamento e offline-queue pendentes. |
+| TASK-012 | Timezone e calendario de trabalho | Parcial | Timezone IANA + fallback UTC nos relatorios; jornada/feriados/DST completa pendentes. |
+| TASK-013 | Status/workflow de atividade | Parcial | Enum + CHECK alinhados (V42 `IN_TESTING`); concorrencia de transicoes pendente. |
+| TASK-014 | Kanban drag-and-drop acessivel | Parcial | Implementado/testado em jsdom; auditoria em browser real pendente. |
+| TASK-015 | Subtarefas e hierarquia | Parcial | Relacao pai + limites; progresso agregado/conversao incompletos. |
+| TASK-016 | Timeline/Gantt de producao | Parcial | Integrada com fallback em lista; zoom/edicao/conectores pendentes. |
+| TASK-017 | Comentarios, mencoes e feed | Parcial | Feed/mencoes reais + notificacao com `event_key`; prefs passaram a valer para mencao (`ACTIVITY_MENTION`, V47); canais externos pendentes. |
+| TASK-018 | Anexos seguros | Parcial | Metadata + `FileStorageService` (local/Azure) + MIME allowlist (incl. `text/csv`); presigned/antivirus pendentes. |
+| TASK-019 | Templates e recorrencia | Parcial | Entidades + scheduler + teste existem (analise anterior estava defasada); idempotencia sob carga nao comprovada. |
+| TASK-020 | Planejado x realizado | Parcial | Estimativas + agregados; validacao completa pendente. |
+| TASK-021 | Orcamento, custo e rentabilidade | Parcial | Snapshots atualizados no reassign com auditoria `REASSIGN` (fase 8); alertas/historico/permissoes financeiras pendentes. |
+| TASK-022 | Aprovacao/bloqueio de timesheet | Parcial | Lote + fechamento + excecao auditada (`REOPEN_LOCKED`) com testes (`TimesheetPeriodIntegrationTest`); UI de fila em lote pendente. |
+| TASK-023 | Capacidade e workload | Parcial | `Meu Setor` com carga planejada; disponibilidade/ferias/capacidade temporal pendentes. |
+| TASK-024 | Relatorios empresariais e exports | Parcial | CSV via worker assincrono (artefato, sem 2x query), `/detailed` limitado + `/page`, CSV do UI via jobs; PDF/XLSX e filtros salvos pendentes. |
+| TASK-025 | Auditoria imutavel | Parcial | Trigger append-only + requestId; cobertura transversal e viewer RBAC completos pendentes. |
+| TASK-026 | Testes de seguranca/multi-tenancy | Parcial | Suite backend com **115 testes** (PG18 Testcontainers): tenant matrix, races paralelas, OIDC RSA, periodo/fechamento; cobrir 155 rotas literalmente pendente. |
+| TASK-027 | Testes frontend e fluxos criticos | Parcial | Vitest: 41 passam (+ MSW); **12 falhas pre-existentes** na arvore limpa (apiClient/authStore/AdminMembers/Notification/MySector) aguardam triagem; Playwright smoke (auth + timesheet) verde + CI. |
+| TASK-028 | Observabilidade e erros | Parcial | JSON prod + MDC, Prometheus + 5 contadores, OTel env, Sentry FE/BE, dashboard + alertas commitados; collector/DSN reais e disparo comprovado pendentes. |
+| TASK-029 | Backup, restore e continuidade | Parcial | WAL archiving ao vivo + drill logico 47/47 + runbooks; copia externa criptografada e PITR timestamp pendentes. |
+| TASK-030 | Queries e indices | Parcial | JOIN FETCH em feed/comments com contadores assertivos; EXPLAIN saudavel; worker index; N+1 residual e carga 1M pendentes. |
+| TASK-031 | Estados de UI | Parcial | `QueryState` em workspace, Meu Setor e AdminProjects; auditoria pagina-a-pagina pendente. |
+| TASK-032 | Nginx e runtime | Parcial | Headers/rate-limit/cache OK; digests pinados, non-root, healthchecks, limites; TLS/ingress permanece externo. |
+| TASK-033 | CI/CD reprodutivel e seguro | Parcial | Frozen, scans, SBOM, idempotencia + jobs novos (E2E smoke, contract-check); execucao verde e ambientes protegidos pendentes de prova em CI. |
+| TASK-034 | Performance frontend | Parcial | Caps + keep-previous-data; chunks charts/motion split (index ~478KB); paginacao real e budget <350KB pendentes. |
+| TASK-035 | Busca global e command palette | Parcial | Basica existe; permissao/escala/UX completa nao validada. |
+| TASK-036 | Notificacoes e lembretes | Parcial | Inbox + prefs (agora aplicadas a mencao) + jobs; lembretes externos pendentes. |
+| TASK-037 | LGPD e governanca | Parcial | Export e documento existem; exclusao/anonimizacao/legal hold/retencao pendentes. |
+| TASK-038 | WCAG 2.2 AA | Parcial | Checklist + teste acessivel; auditoria axe/teclado/contraste pendente. |
+| TASK-039 | Codigo morto e contratos | Parcial | OrgContext e dead export removidos; gate de contrato OpenAPI↔types no CI; varredura final pendente. |
+| TASK-040 | Documentacao e onboarding | Parcial | Matriz RBAC, 4 runbooks, 6 ADRs, SLOs publicados; fresh-clone CI e protecao de branches pendentes (passo manual). |
+
+## Plataforma (fases 0–10, 2026-09-19)
+
+- Java 25 + Gradle 9, PostgreSQL 18 (v47), compose unico dev-only
+  (api/app/db/redis/minio/mock-oauth2), OIDC generico (Google/Microsoft/mock),
+  Redis cache de summary (fail-open), worker de export assincrono.
+- Backend: 115 testes verdes. Frontend: 41 passam, 12 falhas pre-existentes
+  comprovadas na arvore limpa. E2E Playwright verde (2 perfis). k6 smoke
+  verde (p95 ~1–2ms). Contrato OpenAPI verde. Imagens rebuildadas; API e app
+  healthy; WAL archiving ao vivo; drill 47/47.
 
 ## Leitura atual
 
-- Nenhuma task esta registrada como 100% concluida sem evidencia integral dos criterios de aceite.
-- `TASK-016` a `TASK-019` agora seguem a numeracao correta da analise: Timeline, Comentarios, Anexos, Templates/recorrencia.
-- Prioridade operacional imediata: concluir e comprovar P0/P1 antes de tratar o produto como pronto para dados empresariais sensiveis.
-
-## Ultima validacao local
-
-- Data: 2026-08-01.
-- Backend: `./gradlew :api:test` com 80 testes aprovados.
-- Frontend: `bun run test` com 44 testes aprovados e `bun run build` concluido.
-- Runtime: imagens `api` e `app` reconstruidas; `/actuator/health` respondeu `UP` e app respondeu HTTP 200.
-- Banco: Flyway validou 23 migrations e aplicou `V23__membership_invitation_lifecycle.sql` com sucesso.
-- Convites: pre-cadastros possuem lifecycle pendente/aceito/revogado/expirado e ativacao automatica no login institucional verificado.
+- `TASK-007` segue a unica Concluida; `TASK-019` foi corrigida para Parcial
+  (codigo existia, analise estava defasada).
+- Prioridade restante antes de dados sensiveis: lifetime absoluto do refresh,
+  code-flow OIDC, triagem dos 12 testes frontend, collector/DSN reais,
+  copia externa de backup, auditoria axe e protecao de branches.
