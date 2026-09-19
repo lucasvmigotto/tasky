@@ -36,6 +36,10 @@ services:
       TASKY_STORAGE_BUCKET: ${TASKY_STORAGE_BUCKET:-tasky-dev}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+    volumes:
+      - tasky-uploads:/app/data
+    tmpfs:
+      - /tmp
     depends_on:
       db:
         condition: service_healthy
@@ -45,6 +49,11 @@ services:
         condition: service_healthy
       mock-oauth2:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     restart: unless-stopped
 
   app:
@@ -62,11 +71,36 @@ services:
       MOCK_OAUTH2_URL: ${MOCK_OAUTH2_URL:-http://localhost:48080}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
+  wal-init:
+    image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+    container_name: tasky-wal-init
+    user: root
+    command: ["sh", "-c", "chown postgres:postgres /wal && chmod 700 /wal"]
+    volumes:
+      - pgwal:/wal
+    restart: "no"
+
   db:
-    image: postgres:18-alpine
+    image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+    depends_on:
+      wal-init:
+        condition: service_completed_successfully
+    command:
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=test ! -f /wal/%f && cp %p /wal/%f
     container_name: tasky-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tasky}
@@ -76,6 +110,7 @@ services:
       # PG18 convention: mount the parent dir so major-version subdirs
       # can coexist (pg_upgrade path for future PG19).
       - pgdata:/var/lib/postgresql
+      - pgwal:/wal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -84,7 +119,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:8-alpine
+    image: redis:8-alpine@sha256:bd999b5cfee25fb24b8320a31fddbd69f462df44c8138c66e369582937beebc0
     container_name: tasky-redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
@@ -99,7 +134,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: tasky-minio
     command: server /data --console-address ":9001"
     ports:
@@ -118,7 +153,7 @@ services:
     restart: unless-stopped
 
   mock-oauth2:
-    image: ghcr.io/navikt/mock-oauth2-server:latest
+    image: ghcr.io/navikt/mock-oauth2-server@sha256:b538810afd589d42fbfb856c588c2065eaeed1dc528d6c532972048e67fc2aff
     container_name: tasky-mock-oauth2
     ports:
       - "${MOCK_OAUTH2_BIND_ADDRESS:-127.0.0.1}:${MOCK_OAUTH2_PORT:-48080}:8080"
@@ -130,5 +165,7 @@ services:
 
 volumes:
   pgdata:
+  pgwal:
   redisdata:
   miniodata:
+  tasky-uploads:

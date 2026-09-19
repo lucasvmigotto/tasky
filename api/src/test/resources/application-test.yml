@@ -17,7 +17,7 @@ spring:
 
 tasky:
   jwt:
-    secret: dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItaHMyNTYtYWxnb3JpdGhtCg==
+    secret: dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItaHMyNTYtYWxnb3JpdGhtCg== #gitleaks:allow
     expiration-hours: 24
   cors:
     allowed-origins: "http://localhost:5173,http://127.0.0.1:5173"
