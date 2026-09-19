@@ -11,6 +11,7 @@ import io.tasky.api.domain.organization.OrganizationRepository;
 import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
+import io.tasky.api.config.TaskyMetrics;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
@@ -30,6 +31,7 @@ import java.util.UUID;
 public class TimeEntryService {
 
     private final TimeEntryRepository timeEntryRepository;
+    private final TaskyMetrics metrics;
     private final OrganizationRepository organizationRepository;
     private final ProjectRepository projectRepository;
     private final ActivityRepository activityRepository;
@@ -83,7 +85,9 @@ public class TimeEntryService {
                 .billingRateSnapshot(project != null ? project.getHourlyRate() : null)
                 .costRateSnapshot(membership.getCostRate())
                 .build();
-        return timeEntryRepository.save(entry);
+        TimeEntry created = timeEntryRepository.save(entry);
+        metrics.timerStarted();
+        return created;
     }
 
     public TimeEntry manualEntry(UUID orgId, OrganizationMembership membership,
@@ -300,6 +304,7 @@ public class TimeEntryService {
         List<TimeEntry> overlapping = timeEntryRepository.findOverlapping(
                 orgId, membershipId, start, end, editingId);
         if (!overlapping.isEmpty()) {
+            metrics.overlapRejected();
             String ids = overlapping.stream().map(e -> e.getId().toString()).reduce((a, b) -> a + ", " + b).orElse("");
             throw new io.tasky.api.api.common.ConflictException(
                     "Time entry overlaps with existing entries: " + ids);

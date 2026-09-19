@@ -5,6 +5,7 @@ import io.tasky.api.api.report.ReportDetailedRow;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.organization.OrganizationRepository;
+import io.tasky.api.config.TaskyMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class ReportExportService {
     private final OrganizationMembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
     private final ReportService reportService;
+    private final TaskyMetrics metrics;
 
     @Transactional
     public ExportJobResponse create(UUID orgId, UUID ownerMembershipId,
@@ -46,6 +48,7 @@ public class ReportExportService {
                 .build();
         job = reportExportJobRepository.save(job);
         reportExportJobRepository.flush();
+        metrics.exportCreated();
 
         try {
             reportService.buildCsv(reportService.getDetailed(
@@ -86,6 +89,7 @@ public class ReportExportService {
         if (job.getExpiresAt() != null && Instant.now().isAfter(job.getExpiresAt())) {
             throw new IllegalArgumentException("Export job has expired");
         }
+        metrics.exportDownloaded();
         List<ReportDetailedRow> rows = reportService.getDetailed(
                 orgId,
                 instantParam(job.getParams(), "from"),

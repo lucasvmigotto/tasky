@@ -26,6 +26,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('[ErrorBoundary] Caught error:', error)
     console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack)
+    void import('@/core/observability/sentry').then(({ captureAppError }) => captureAppError(error))
   }
 
   handleReset = (): void => {
