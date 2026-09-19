@@ -263,12 +263,21 @@ public class AuthController {
     }
 
     private void setRefreshCookie(HttpServletResponse response, String rawToken) {
+        setRefreshCookie(response, rawToken, null);
+    }
+
+    private void setRefreshCookie(HttpServletResponse response, String rawToken, java.time.Instant familyExpiresAt) {
         boolean secure = Arrays.asList(environment.getActiveProfiles()).contains("prod");
         Cookie cookie = new Cookie(REFRESH_COOKIE, rawToken);
         cookie.setHttpOnly(true);
         cookie.setSecure(secure);
         cookie.setPath("/");
-        cookie.setMaxAge((int) (14 * 24 * 3600));
+        long maxAge = 14 * 24 * 3600;
+        if (familyExpiresAt != null) {
+            long remaining = familyExpiresAt.getEpochSecond() - java.time.Instant.now().getEpochSecond();
+            maxAge = Math.max(0, Math.min(maxAge, remaining));
+        }
+        cookie.setMaxAge((int) maxAge);
         cookie.setAttribute("SameSite", "Lax");
         response.addCookie(cookie);
     }

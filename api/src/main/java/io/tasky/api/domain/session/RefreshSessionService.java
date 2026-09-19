@@ -29,6 +29,7 @@ import java.util.UUID;
 public class RefreshSessionService {
 
     private static final long REFRESH_HOURS = 24L * 14;
+    private static final long ABSOLUTE_FAMILY_DAYS = 30L;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final RefreshSessionRepository sessionRepository;
@@ -46,12 +47,14 @@ public class RefreshSessionService {
 
     public CreatedSession create(User user, Organization org, String ip) {
         String raw = generateRawToken();
+        Instant now = Instant.now();
         RefreshSession session = RefreshSession.builder()
                 .user(user)
                 .organization(org)
                 .tokenHash(hash(raw))
                 .familyId(UUID.randomUUID())
-                .expiresAt(Instant.now().plusSeconds(REFRESH_HOURS * 3600))
+                .expiresAt(now.plusSeconds(REFRESH_HOURS * 3600))
+                .familyExpiresAt(now.plusSeconds(ABSOLUTE_FAMILY_DAYS * 24 * 3600))
                 .createdIp(ip)
                 .build();
         sessionRepository.save(session);
@@ -59,7 +62,7 @@ public class RefreshSessionService {
     }
 
     public RefreshResult rotate(String rawToken, String ip) {
-        RefreshSession session = sessionRepository.findByTokenHash(hash(rawToken))
+        RefreshSession session = sessionRepository.findByTokenHashForUpdate(hash(rawToken))
                 .orElseThrow(() -> new SecurityException("Invalid refresh session"));
 
         if (session.getRevokedAt() != null) {
@@ -68,6 +71,10 @@ public class RefreshSessionService {
                 revokeFamilyCommitted(session.getFamilyId());
             }
             throw new SecurityException("Refresh session has been revoked");
+        }
+        if (session.getFamilyExpiresAt().isBefore(Instant.now())) {
+            revokeFamilyCommitted(session.getFamilyId());
+            throw new SecurityException("Refresh session family has expired");
         }
         if (session.getExpiresAt().isBefore(Instant.now())) {
             revokeFamilyCommitted(session.getFamilyId());
@@ -91,6 +98,7 @@ public class RefreshSessionService {
                 .tokenHash(hash(newRaw))
                 .familyId(session.getFamilyId())
                 .expiresAt(Instant.now().plusSeconds(REFRESH_HOURS * 3600))
+                .familyExpiresAt(session.getFamilyExpiresAt())
                 .createdIp(ip)
                 .build();
         replacement = sessionRepository.save(replacement);
@@ -98,7 +106,7 @@ public class RefreshSessionService {
         session.setRevokedAt(Instant.now());
         session.setReplacedBy(replacement.getId());
 
-        return new RefreshResult(newRaw, user, org, membership);
+        return new RefreshResult(newRaw, user, org, membership, session.getFamilyExpiresAt());
     }
 
     public void revoke(String rawToken) {
@@ -111,10 +119,20 @@ public class RefreshSessionService {
     }
 
     public RefreshResult switchOrg(String rawToken, Organization org, String ip) {
-        RefreshSession session = sessionRepository.findByTokenHash(hash(rawToken))
-                .filter(s -> s.getRevokedAt() == null)
-                .filter(s -> s.getExpiresAt().isAfter(Instant.now()))
+        RefreshSession session = sessionRepository.findByTokenHashForUpdate(hash(rawToken))
                 .orElseThrow(() -> new SecurityException("Invalid refresh session"));
+        if (session.getRevokedAt() != null) {
+            if (session.getReplacedBy() != null) {
+                metrics.refreshReused();
+                revokeFamilyCommitted(session.getFamilyId());
+            }
+            throw new SecurityException("Invalid refresh session");
+        }
+        if (session.getFamilyExpiresAt().isBefore(Instant.now())
+                || session.getExpiresAt().isBefore(Instant.now())) {
+            revokeFamilyCommitted(session.getFamilyId());
+            throw new SecurityException("Invalid refresh session");
+        }
 
         User user = userRepository.findById(session.getUser().getId())
                 .filter(User::isActive)
@@ -131,6 +149,7 @@ public class RefreshSessionService {
                 .tokenHash(hash(newRaw))
                 .familyId(session.getFamilyId())
                 .expiresAt(Instant.now().plusSeconds(REFRESH_HOURS * 3600))
+                .familyExpiresAt(session.getFamilyExpiresAt())
                 .createdIp(ip)
                 .build();
         replacement = sessionRepository.save(replacement);
@@ -138,7 +157,7 @@ public class RefreshSessionService {
         session.setRevokedAt(Instant.now());
         session.setReplacedBy(replacement.getId());
 
-        return new RefreshResult(newRaw, user, org, membership);
+        return new RefreshResult(newRaw, user, org, membership, session.getFamilyExpiresAt());
     }
 
     public void revokeAllForUser(UUID userId) {
@@ -151,12 +170,7 @@ public class RefreshSessionService {
     }
 
     public void revokeFamily(UUID familyId) {
-        sessionRepository.findByFamilyId(familyId).stream()
-                .filter(s -> s.getRevokedAt() == null)
-                .forEach(s -> {
-                    s.setRevokedAt(Instant.now());
-                    sessionRepository.save(s);
-                });
+        sessionRepository.revokeLiveFamily(familyId);
     }
 
     private void revokeFamilyCommitted(UUID familyId) {
@@ -180,5 +194,6 @@ public class RefreshSessionService {
 
     public record CreatedSession(String rawToken, RefreshSession session) {}
 
-    public record RefreshResult(String rawToken, User user, Organization org, OrganizationMembership membership) {}
+    public record RefreshResult(String rawToken, User user, Organization org, OrganizationMembership membership,
+            Instant familyExpiresAt) {}
 }
