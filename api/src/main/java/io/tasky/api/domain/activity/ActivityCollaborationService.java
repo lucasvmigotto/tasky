@@ -11,6 +11,7 @@ import io.tasky.api.config.AppConfig;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.membership.MembershipService;
+import io.tasky.api.domain.notification.NotificationPreferenceType;
 import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
@@ -244,7 +245,8 @@ public class ActivityCollaborationService {
             if (!mentioned.getId().equals(author.getId())) {
                 notificationService.createOnce(orgId, mentioned.getId(),
                         "activity-comment:" + comment.getId() + ":mention:" + mentioned.getId(), "ACTIVITY_MENTION",
-                        "Voce foi mencionado em " + activity.getTitle(), normalizedContent, "activity", activityId);
+                        "Voce foi mencionado em " + activity.getTitle(), normalizedContent, "activity", activityId,
+                        NotificationPreferenceType.ACTIVITY_MENTION);
             }
         }
         eventHelper.appendEvent(orgId, activity, author, ActivityEventType.COMMENT_CREATED, null, null, comment);

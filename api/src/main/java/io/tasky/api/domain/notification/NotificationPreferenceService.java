@@ -17,6 +17,15 @@ public class NotificationPreferenceService {
     private final NotificationPreferenceRepository repository;
 
     @Transactional(readOnly = true)
+    public boolean enabled(UUID membershipId, NotificationPreferenceType type) {
+        return repository.findByMembershipId(membershipId).stream()
+                .filter(preference -> preference.getType() == type)
+                .findFirst()
+                .map(NotificationPreference::isEnabled)
+                .orElse(true);
+    }
+
+    @Transactional(readOnly = true)
     public Map<NotificationPreferenceType, Boolean> get(UUID membershipId) {
         Map<NotificationPreferenceType, Boolean> preferences = defaults();
         repository.findByMembershipId(membershipId)
@@ -27,7 +36,7 @@ public class NotificationPreferenceService {
     public Map<NotificationPreferenceType, Boolean> replace(
             UUID membershipId, Map<NotificationPreferenceType, Boolean> preferences) {
         if (preferences == null || !preferences.keySet().equals(Set.of(NotificationPreferenceType.values()))
-                || preferences.containsValue(null)) {
+                || preferences.values().stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("All notification preferences are required");
         }
         preferences.forEach((type, enabled) -> repository.upsert(membershipId, type.name(), enabled));

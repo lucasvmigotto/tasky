@@ -157,6 +157,7 @@ export const handlers = [
       preferences: [
         { type: 'ACTIVITY_DUE_SOON', enabled: true },
         { type: 'ACTIVITY_OVERDUE', enabled: true },
+        { type: 'ACTIVITY_MENTION', enabled: true },
         { type: 'OPEN_TIMER', enabled: true },
         { type: 'TIME_ENTRY_PENDING_APPROVAL', enabled: true },
       ],
@@ -177,6 +178,11 @@ export const handlers = [
       number: 0,
     }
     return HttpResponse.json<PaginatedResponse<TimeEntryResponse>>(page)
+  }),
+
+  http.get('/api/v1/time-entries/running', () => {
+    const running = mockTimeEntries.find((entry) => entry.endTime === null) ?? null
+    return HttpResponse.json<TimeEntryResponse | null>(running)
   }),
 
   http.get('/api/v1/time-entries/org', () => {

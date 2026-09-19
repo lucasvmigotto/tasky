@@ -208,8 +208,19 @@ public class TimeEntryService {
         Project project = projectId != null ? resolveProject(orgId, projectId) : entry.getProject();
         Activity activity = activityId != null ? resolveActivity(orgId, activityId) : entry.getActivity();
         ensureProjectActivityConsistency(project, activity);
+        UUID previousProjectId = entry.getProject() != null ? entry.getProject().getId() : null;
+        UUID nextProjectId = project != null ? project.getId() : null;
         entry.setProject(project);
         entry.setActivity(activity);
+        if (!java.util.Objects.equals(previousProjectId, nextProjectId)) {
+            java.math.BigDecimal previousRate = entry.getBillingRateSnapshot();
+            java.math.BigDecimal nextRate = project != null ? project.getHourlyRate() : null;
+            entry.setBillingRateSnapshot(nextRate);
+            auditService.record(orgId, entry.getMembership().getUser().getId(), membershipId,
+                    "time_entry", entryId, "REASSIGN",
+                    "projectId=" + previousProjectId + ",billingRate=" + previousRate,
+                    "projectId=" + nextProjectId + ",billingRate=" + nextRate, null);
+        }
 
         if (description != null) {
             entry.setDescription(description);

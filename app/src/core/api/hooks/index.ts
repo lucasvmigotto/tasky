@@ -489,13 +489,14 @@ export function useTimeEntriesOrg(params: TimeEntryQueryParams | null) {
   })
 }
 
-export function useRunningTimeEntry() {
+export function useRunningTimeEntry(poll = false) {
   const orgId = useAuthStore((state) => state.activeOrg?.id ?? null)
   return useQuery({
     queryKey: ['time-entries', orgId, 'running'],
     queryFn: () => apiClient.get<TimeEntryResponse | null>('/time-entries/running'),
     enabled: !!orgId,
     retry: false,
+    refetchInterval: poll && !!orgId ? 10_000 : false,
   })
 }
 

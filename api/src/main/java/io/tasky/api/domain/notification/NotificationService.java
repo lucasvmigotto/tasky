@@ -13,11 +13,22 @@ import java.util.UUID;
 @Transactional
 public class NotificationService {
     private final NotificationRepository repository;
+    private final NotificationPreferenceService preferenceService;
 
     public boolean createOnce(UUID orgId, UUID recipientMembershipId, String eventKey, String type,
                               String title, String body, String resourceType, UUID resourceId) {
+        return createOnce(orgId, recipientMembershipId, eventKey, type, title, body,
+                resourceType, resourceId, null);
+    }
+
+    public boolean createOnce(UUID orgId, UUID recipientMembershipId, String eventKey, String type,
+                              String title, String body, String resourceType, UUID resourceId,
+                              NotificationPreferenceType preferenceType) {
         if (eventKey == null || eventKey.isBlank() || eventKey.length() > 255) {
             throw new IllegalArgumentException("Notification event key is invalid");
+        }
+        if (preferenceType != null && !preferenceService.enabled(recipientMembershipId, preferenceType)) {
+            return false;
         }
         return repository.insertOnce(orgId, recipientMembershipId, type, title, body,
                 resourceType, resourceId, eventKey) == 1;
