@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { Clock, ArrowRight, LogIn } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
@@ -14,18 +14,21 @@ const mockEnabled = getConfig().mockOAuth2Enabled === 'true'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const redirectTo =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? ROUTES.MY_WORK
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const loginWithDemo = useAuthStore((s) => s.loginWithDemo)
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(ROUTES.MY_WORK, { replace: true })
+      navigate(redirectTo, { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, redirectTo])
 
   async function handleDemoLogin() {
     await loginWithDemo()
-    navigate(ROUTES.MY_WORK, { replace: true })
+    navigate(redirectTo, { replace: true })
   }
 
   return (

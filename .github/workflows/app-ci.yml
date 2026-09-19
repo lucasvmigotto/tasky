@@ -35,6 +35,27 @@ jobs:
         run: bun run test
         working-directory: app/
 
+      - name: Install Playwright browsers
+        run: bunx playwright install chromium --with-deps
+        working-directory: app/
+
+      - name: Build (E2E demo+mock profile)
+        run: VITE_DEMO_MODE=true VITE_MOCK_OAUTH2_ENABLED=true bun run build
+        working-directory: app/
+        env:
+          VITE_DEMO_MODE: 'true'
+          VITE_MOCK_OAUTH2_ENABLED: 'true'
+
+      - name: Run Playwright smoke (demo profile)
+        run: |
+          printf 'window.__TASKY_CONFIG__ = {\n  DEMO_MODE: '"'"'true'"'"',\n  GOOGLE_CLIENT_ID: '"'"''"'"',\n  MICROSOFT_CLIENT_ID: '"'"''"'"',\n  MOCK_OAUTH2_ENABLED: '"'"'true'"'"',\n  MOCK_OAUTH2_URL: '"'"'http://localhost:48080'"'"'\n}\n' > dist/runtime-config.js
+          (bun run preview -- --port 5173 --strictPort --host 127.0.0.1 > /tmp/preview.log 2>&1 &) 
+          sleep 8
+          E2E_NO_SERVER=1 bunx playwright test
+        working-directory: app/
+        env:
+          E2E_NO_SERVER: '1'
+
       - name: Extract version
         id: version
         run: |
