@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +32,7 @@ class TimeEntryIntegrityIntegrationTest extends BaseIntegrationTest {
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private OrganizationMembershipRepository membershipRepository;
     @Autowired private TimeEntryRepository timeEntryRepository;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private String uid;
     private User user;
@@ -49,6 +52,11 @@ class TimeEntryIntegrityIntegrationTest extends BaseIntegrationTest {
     @AfterEach
     void cleanUp() {
         timeEntryRepository.deleteAll(timeEntryRepository.findByOrganizationId(org.getId()));
+        // Submit/approve paths record append-only audit events; purge them with the
+        // immutability trigger disabled (test-only) so org cleanup can proceed.
+        jdbcTemplate.execute("ALTER TABLE audit_events DISABLE TRIGGER trg_audit_events_immutable");
+        jdbcTemplate.update("DELETE FROM audit_events WHERE organization_id = ?", org.getId());
+        jdbcTemplate.execute("ALTER TABLE audit_events ENABLE TRIGGER trg_audit_events_immutable");
         if (org != null) organizationRepository.delete(org);
         if (user != null) userRepository.delete(user);
     }
@@ -231,6 +239,63 @@ class TimeEntryIntegrityIntegrationTest extends BaseIntegrationTest {
                 .toBodilessEntity();
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
+    }
+
+    @Test
+    void deleteDraftEntry_returns204() {
+        String created = restClient.post()
+                .uri("/api/v1/time-entries/manual")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("""
+                        {
+                          "startTime": "2026-03-01T08:00:00Z",
+                          "endTime": "2026-03-01T09:00:00Z",
+                          "description": "Deletable"
+                        }
+                        """)
+                .retrieve()
+                .body(String.class);
+        String entryId = JsonPath.read(created, "$.id");
+
+        var response = restClient.delete()
+                .uri("/api/v1/time-entries/{id}", entryId)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .toBodilessEntity();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void deleteSubmittedEntry_returns409() {
+        String created = restClient.post()
+                .uri("/api/v1/time-entries/manual")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("""
+                        {
+                          "startTime": "2026-03-02T08:00:00Z",
+                          "endTime": "2026-03-02T09:00:00Z",
+                          "description": "Submitted"
+                        }
+                        """)
+                .retrieve()
+                .body(String.class);
+        String entryId = JsonPath.read(created, "$.id");
+
+        restClient.patch()
+                .uri("/api/v1/time-entries/{id}/submit", entryId)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .toBodilessEntity();
+
+        var response = restClient.delete()
+                .uri("/api/v1/time-entries/{id}", entryId)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .onStatus(s -> s.value() == 409, (req, res) -> {})
+                .toBodilessEntity();
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
     }
 
     @Test

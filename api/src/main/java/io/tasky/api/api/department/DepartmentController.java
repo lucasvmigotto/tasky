@@ -36,7 +36,7 @@ public class DepartmentController {
             @PathVariable UUID orgId,
             @Valid @RequestBody CreateDepartmentRequest request,
             @AuthenticationPrincipal SecurityUser user) {
-
+        requireSameOrg(user, orgId);
         Department dept = departmentService.createDepartment(orgId, request.name());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(toResponse(dept));
@@ -61,7 +61,7 @@ public class DepartmentController {
             @PathVariable UUID deptId,
             @Valid @RequestBody CreateDepartmentRequest request,
             @AuthenticationPrincipal SecurityUser user) {
-
+        requireSameOrg(user, orgId);
         Department dept = departmentService.renameDepartment(orgId, deptId, request.name());
         return ResponseEntity.ok(toResponse(dept));
     }
@@ -72,7 +72,7 @@ public class DepartmentController {
             @PathVariable UUID orgId,
             @PathVariable UUID deptId,
             @AuthenticationPrincipal SecurityUser user) {
-
+        requireSameOrg(user, orgId);
         departmentService.deleteDepartment(orgId, deptId);
         return ResponseEntity.noContent().build();
     }
@@ -82,6 +82,12 @@ public class DepartmentController {
             throw new SecurityException("No active organization");
         }
         return user.activeOrganizationId();
+    }
+
+    private void requireSameOrg(SecurityUser user, UUID orgId) {
+        if (!orgId.equals(requiredOrgId(user))) {
+            throw new SecurityException("Not a member of this organization");
+        }
     }
 
     private DepartmentResponse toResponse(Department dept) {

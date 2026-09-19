@@ -284,6 +284,8 @@ public class TimeEntryService {
 
     public void deleteEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
+        requireEditable(entry);
+        requirePeriodNotClosedOrLocked(entry);
         timeEntryRepository.delete(entry);
     }
 
