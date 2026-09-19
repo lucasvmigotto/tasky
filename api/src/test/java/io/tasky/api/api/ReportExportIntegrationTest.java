@@ -25,6 +25,7 @@ class ReportExportIntegrationTest extends BaseIntegrationTest {
     @Autowired private UserService userService;
     @Autowired private UserRepository userRepository;
     @Autowired private OrganizationRepository organizationRepository;
+    @Autowired private io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     private User admin;
     private Organization org;
@@ -46,6 +47,7 @@ class ReportExportIntegrationTest extends BaseIntegrationTest {
 
     @Test
     void postExports_createsJob() {
+        double before = meterRegistry.get("tasky.exports.created").counter().count();
         String body = restClient.post()
                 .uri("/api/v1/reports/exports")
                 .header("Authorization", "Bearer " + token)
@@ -57,6 +59,8 @@ class ReportExportIntegrationTest extends BaseIntegrationTest {
                 .body(String.class);
 
         assertThat(JsonPath.<String>read(body, "$.id")).isNotBlank();
+        assertThat(meterRegistry.get("tasky.exports.created").counter().count())
+                .isGreaterThan(before);
     }
 
     @Test

@@ -38,7 +38,7 @@
       "title": "Timers started vs exports created",
       "targets": [
         { "expr": "sum(rate(tasky_timers_started_total[5m]))" },
-        { "expr": "sum(rate(tasky_exports_created_total[5m]))" }
+        { "expr": "sum(rate(tasky_exports_total[5m]))" }
       ]
     }
   ]
