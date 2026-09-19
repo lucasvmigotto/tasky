@@ -6,7 +6,7 @@ const mockActivities: ActivityResponse[] = [
 ]
 
 const mockTimeEntries: TimeEntryResponse[] = [
-  { id: 'te-1', organizationId: 'org-1', membershipId: 'mem-1', userId: 'user-1', projectId: 'proj-1', activityId: null, description: 'Implemented auth', startTime: new Date().toISOString(), endTime: new Date(Date.now() + 3600000).toISOString(), durationSeconds: 3600, pausedSeconds: 0, pausedAt: null, approvalStatus: 'DRAFT', submittedAt: null, approvedAt: null, approvedBy: null, rejectionComment: null, billingRateSnapshot: 120, costRateSnapshot: 60, billable: false, createdAt: new Date().toISOString() },
+  { id: 'te-1', organizationId: 'org-1', membershipId: 'mem-1', userId: 'user-1', projectId: 'proj-1', activityId: null, description: 'Implemented auth', startTime: new Date().toISOString(), endTime: new Date(Date.now() + 3600000).toISOString(), durationSeconds: 3600, pausedSeconds: 0, pausedAt: null, approvalStatus: 'DRAFT', submittedAt: null, approvedAt: null, approvedBy: null, rejectionComment: null, billingRateSnapshot: 120, costRateSnapshot: 60, billable: false, createdAt: new Date().toISOString(), version: 0 },
 ]
 
 export const handlers = [
@@ -44,12 +44,12 @@ export const handlers = [
 
   http.get('/api/v1/organizations/:orgId/projects', () => {
     return HttpResponse.json<ProjectResponse[]>([
-       { id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', color: '#3B82F6', managerMembershipId: 'mem-1', hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString() },
+       { id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', color: '#3B82F6', managerMembershipId: 'mem-1', hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString(), version: 1 },
     ])
   }),
 
    http.get('/api/v1/projects/:projectId', () => {
-     return HttpResponse.json<ProjectResponse>({ id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', color: '#3B82F6', managerMembershipId: 'mem-1', hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString() })
+     return HttpResponse.json<ProjectResponse>({ id: 'proj-1', departmentId: 'dept-1', name: 'TaskY', description: 'Main project', color: '#3B82F6', managerMembershipId: 'mem-1', hourlyRate: null, estimatedSeconds: 28800, budgetSeconds: 36000, budgetAmount: 5000, isActive: true, createdAt: new Date().toISOString(), version: 1 })
   }),
 
   http.get('/api/v1/projects/:projectId/assignments', () => {
@@ -411,6 +411,7 @@ export const handlers = [
       costRateSnapshot: null,
       billable: false,
       createdAt: new Date().toISOString(),
+      version: 0,
     }
     mockTimeEntries.unshift(entry)
     return HttpResponse.json<TimeEntryResponse>(entry, { status: 201 })
@@ -442,6 +443,7 @@ export const handlers = [
       costRateSnapshot: null,
       billable: body.billable ?? false,
       createdAt: new Date().toISOString(),
+      version: 0,
     }
     mockTimeEntries.unshift(entry)
     return HttpResponse.json<TimeEntryResponse>(entry, { status: 201 })

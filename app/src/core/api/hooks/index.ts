@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiClient, getAccessToken } from '@/core/api/apiClient'
+import { toast } from 'sonner'
+import { apiClient, getAccessToken, isConflictError } from '@/core/api/apiClient'
 import { useAuthStore } from '@/core/auth/authStore'
 import type {
   OrganizationResponse,
@@ -347,6 +348,13 @@ export function useUpdateProject() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects'] })
       qc.invalidateQueries({ queryKey: ['project'] })
+    },
+    onError: (error) => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['project'] })
+      if (isConflictError(error)) {
+        toast.error('Registro alterado em outro lugar. Dados atualizados, revise e tente de novo.')
+      }
     },
   })
 }
@@ -719,6 +727,12 @@ export function useUpdateTimeEntry() {
     mutationFn: ({ entryId, data }: { entryId: UUID; data: UpdateTimeEntryRequest }) =>
       apiClient.put<TimeEntryResponse>(`/time-entries/${entryId}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['time-entries'] }),
+    onError: (error) => {
+      qc.invalidateQueries({ queryKey: ['time-entries'] })
+      if (isConflictError(error)) {
+        toast.error('Apontamento alterado em outro lugar. Dados atualizados, revise e tente de novo.')
+      }
+    },
   })
 }
 

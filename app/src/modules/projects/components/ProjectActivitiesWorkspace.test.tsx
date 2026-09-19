@@ -18,6 +18,7 @@ const project: ProjectResponse = {
   budgetAmount: null,
   isActive: true,
   createdAt: '2026-08-01T12:00:00Z',
+  version: 1,
 }
 
 const members: MembershipResponse[] = [
