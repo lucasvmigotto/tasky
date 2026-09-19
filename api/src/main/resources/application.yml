@@ -9,6 +9,11 @@ spring:
     username: ${POSTGRES_USER:tasky}
     password: ${POSTGRES_PASSWORD:tasky}
     driver-class-name: org.postgresql.Driver
+  data:
+    web:
+      pageable:
+        default-page-size: 50
+        max-page-size: 500
   jpa:
     hibernate:
       ddl-auto: validate

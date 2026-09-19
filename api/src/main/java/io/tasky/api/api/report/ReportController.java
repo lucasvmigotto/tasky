@@ -1,6 +1,7 @@
 package io.tasky.api.api.report;
 
 import io.tasky.api.api.common.PaginatedResponse;
+import org.springframework.http.ProblemDetail;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.report.ReportExportService;
 import io.tasky.api.domain.report.ReportService;
@@ -37,6 +38,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReportController {
 
+    private static final int DETAILED_INLINE_LIMIT = 2000;
+
     private final ReportService reportService;
     private final SavedReportService savedReportService;
     private final ReportExportService reportExportService;
@@ -70,10 +73,20 @@ public class ReportController {
             @AuthenticationPrincipal SecurityUser user) {
 
         UUID orgId = requireFinancialReportsAccess(user);
-        return ResponseEntity.ok(reportService.getDetailed(
+        Page<ReportDetailedRow> page = reportService.getDetailedPage(
                 orgId, from.orElse(null), to.orElse(null),
                 projectId.orElse(null), membershipId.orElse(null),
-                reportScope(user, orgId, departmentId.orElse(null))));
+                reportScope(user, orgId, departmentId.orElse(null)),
+                PageRequest.of(0, DETAILED_INLINE_LIMIT + 1));
+        if (page.getTotalElements() > DETAILED_INLINE_LIMIT) {
+            ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+            problem.setTitle("Result set too large");
+            problem.setDetail("Use GET /reports/detailed/page for result sets above "
+                    + DETAILED_INLINE_LIMIT + " rows.");
+            problem.setProperty("code", "USE_DETAILED_PAGE");
+            throw new io.tasky.api.api.common.PagedResultRequiredException(problem);
+        }
+        return ResponseEntity.ok(page.getContent());
     }
 
     @GetMapping("/detailed/page")

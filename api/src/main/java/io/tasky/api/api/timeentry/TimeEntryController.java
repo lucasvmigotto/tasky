@@ -110,7 +110,7 @@ public class TimeEntryController {
         boolean isOrgManager = permissionService.canManageOrganization(user, orgId)
                 || membership.getRole() == Role.manager;
 
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 5000));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500));
         if (isOrgManager && membershipId.isPresent()) {
             return ResponseEntity.ok(timeEntryService.getPage(
                     orgId, membershipId.get(), from.orElse(null), to.orElse(null), projectId.orElse(null), pageable));
@@ -145,7 +145,7 @@ public class TimeEntryController {
         if (!isOrgManager) {
             throw new SecurityException("Only managers and admins can view organization time entries");
         }
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 5000));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500));
         return ResponseEntity.ok(timeEntryService.getOrganizationPage(
                 orgId, from.orElse(null), to.orElse(null), pageable));
     }

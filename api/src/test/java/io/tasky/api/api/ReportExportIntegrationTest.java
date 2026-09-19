@@ -64,6 +64,17 @@ class ReportExportIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    void inlineDetailed_smallResult_returns200() {
+        var response = restClient.get()
+                .uri("/api/v1/reports/detailed?from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z")
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .toEntity(String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
     void legacyGetExports_stillWorksButDeprecated() {
         var response = restClient.get()
                 .uri("/api/v1/reports/exports?format=csv")

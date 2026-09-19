@@ -1019,9 +1019,9 @@ export function useReportDetailed(params: ReportQueryParams | null) {
     queryKey: ['reports', 'detailed', params],
     queryFn: async () => {
       const res = await apiClient.get<PaginatedResponse<ReportDetailedRow>>(
-        `/reports/detailed${searchParams ? `?${searchParams.toString()}` : ''}`,
+        `/reports/detailed/page${searchParams ? `?${searchParams.toString()}` : ''}`,
       )
-      return res.content
+      return { rows: res.content, total: res.totalElements }
     },
     enabled: params != null,
     placeholderData: (previous) => previous,
@@ -1222,29 +1222,6 @@ export function useUpdateNotificationPreferences() {
       qc.invalidateQueries({ queryKey: ['notification-preferences', orgId] })
     },
   })
-}
-
-export async function downloadReportCsv(params: ReportQueryParams | null) {
-  const searchParams = new URLSearchParams()
-  if (params?.from) searchParams.set('from', params.from)
-  if (params?.to) searchParams.set('to', params.to)
-  if (params?.projectId) searchParams.set('projectId', params.projectId)
-  if (params?.membershipId) searchParams.set('membershipId', params.membershipId)
-  if (params?.departmentId) searchParams.set('departmentId', params.departmentId)
-  const qs = searchParams.toString()
-  const response = await fetch(`/api/v1/reports/export${qs ? `?${qs}` : ''}`, {
-    headers: { Authorization: `Bearer ${getAccessToken()}` },
-  })
-  if (!response.ok) throw new Error('Falha ao exportar relatório')
-  const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'tasky-report.csv'
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }
 
 export async function uploadFile(file: File): Promise<StoredFileResponse> {
