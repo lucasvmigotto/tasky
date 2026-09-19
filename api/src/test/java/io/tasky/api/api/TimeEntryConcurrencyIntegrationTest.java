@@ -62,36 +62,73 @@ class TimeEntryConcurrencyIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void parallelOverlappingManuals_exactlyOneWins() throws Exception {
-        int threads = 3;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
+    void parallelOverlappingManuals_exactlyOneWinsRepeatedly() throws Exception {
+        for (int round = 0; round < 10; round++) {
+            Instant from = Instant.parse("2026-05-%02dT08:00:00Z".formatted(round + 1));
+            Instant to = from.plusSeconds(3600);
+            int threads = 3;
+            ExecutorService pool = Executors.newFixedThreadPool(threads);
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Boolean>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    try {
+                        timeEntryService.manualEntry(org.getId(), membership, from, to,
+                                null, null, "race", null, false);
+                        return true;
+                    } catch (RuntimeException e) {
+                        return false;
+                    }
+                }));
+            }
+            start.countDown();
+            int wins = 0;
+            for (Future<Boolean> f : futures) {
+                if (f.get()) {
+                    wins++;
+                }
+            }
+            pool.shutdown();
+
+            assertThat(wins).as("round %d wins", round).isEqualTo(1);
+        }
+        assertThat(timeEntryRepository.findByOrganizationIdAndMembershipId(org.getId(), membership.getId()))
+                .hasSize(10);
+    }
+
+    @Test
+    void parallelStop_isIdempotent() throws Exception {
+        TimeEntry running = timeEntryService.startEntry(org.getId(), membership,
+                null, null, "running", null, false);
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch start = new CountDownLatch(1);
-        List<Future<Boolean>> futures = new ArrayList<>();
-        for (int i = 0; i < threads; i++) {
+        List<Future<String>> futures = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
             futures.add(pool.submit(() -> {
                 start.await();
                 try {
-                    timeEntryService.manualEntry(org.getId(), membership,
-                            Instant.parse("2026-05-01T08:00:00Z"), Instant.parse("2026-05-01T09:00:00Z"),
-                            null, null, "race", null, false);
-                    return true;
+                    TimeEntry stopped = timeEntryService.stopEntry(
+                            org.getId(), membership.getId(), running.getId());
+                    return stopped.getEndTime() == null ? "still-running" : "stopped";
                 } catch (RuntimeException e) {
-                    return false;
+                    return "conflict:" + e.getClass().getSimpleName();
                 }
             }));
         }
         start.countDown();
-        int wins = 0;
-        for (Future<Boolean> f : futures) {
-            if (f.get()) {
-                wins++;
-            }
+        List<String> outcomes = new ArrayList<>();
+        for (Future<String> f : futures) {
+            outcomes.add(f.get());
         }
         pool.shutdown();
 
-        assertThat(wins).isEqualTo(1);
-        assertThat(timeEntryRepository.findByOrganizationIdAndMembershipId(org.getId(), membership.getId()))
-                .hasSize(1);
+        assertThat(outcomes).doesNotContain("still-running");
+        assertThat(outcomes.stream().filter(o -> o.equals("stopped")).count()).isGreaterThanOrEqualTo(1);
+        TimeEntry reloaded = timeEntryRepository.findByOrganizationIdAndId(org.getId(), running.getId())
+                .orElseThrow();
+        assertThat(reloaded.getEndTime()).isNotNull();
     }
 
     @Test

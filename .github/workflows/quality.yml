@@ -85,6 +85,26 @@ jobs:
         run: ./gradlew :api:classes --no-daemon
       - uses: github/codeql-action/analyze@v3
 
+  contract-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot dev stack (db + api)
+        run: |
+          sed 's/^JWT_SECRET=.*/JWT_SECRET=dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItaHMyNTYtYWxnb3JpdGhtCg==/' .env.example > /tmp/ci.env
+          docker compose --env-file /tmp/ci.env up -d --build api
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/actuator/health && break
+            sleep 10
+          done
+      - name: Check OpenAPI contract
+        run: ./scripts/check-openapi-contract.sh
+        env:
+          API_BASE_URL: http://127.0.0.1:8080
+      - name: Teardown
+        if: always()
+        run: docker compose --env-file /tmp/ci.env down -v
+
   container-scan:
     runs-on: ubuntu-latest
     strategy:
