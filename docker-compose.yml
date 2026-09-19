@@ -70,7 +70,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tasky}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tasky}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PG18 convention: mount the parent dir so major-version subdirs
+      # can coexist (pg_upgrade path for future PG19).
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -94,7 +96,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: tasky-minio
     command: server /data --console-address ":9001"
     ports:
