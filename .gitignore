@@ -52,3 +52,7 @@ vite.config.d.ts
 
 ### Devcontainer JDK (local JDK) ###
 .devcontainer/jdk/
+
+# Local file-storage fallback (created at runtime/tests)
+api/data/
+data/uploads/

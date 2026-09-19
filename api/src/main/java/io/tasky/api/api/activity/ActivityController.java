@@ -110,7 +110,7 @@ public class ActivityController {
         OrganizationMembership membership = permissionService.getMembership(user.id(), orgId)
                 .orElseThrow(() -> new SecurityException("Not a member of this organization"));
         Set<UUID> readableProjectIds = permissionService.readableProjectIds(user, orgId);
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 5000),
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500),
                 Sort.by(Sort.Direction.DESC, "startDatetime", "id"));
 
         return ResponseEntity.ok(activityService.getActivitiesPage(

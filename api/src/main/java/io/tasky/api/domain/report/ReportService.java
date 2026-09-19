@@ -12,7 +12,9 @@ import io.tasky.api.api.report.WorkloadMemberResponse;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.organization.OrganizationRepository;
+import io.tasky.api.config.CacheConfig;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +49,7 @@ public class ReportService {
     private final OrganizationMembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
 
+    @Cacheable(value = CacheConfig.REPORT_SUMMARY, keyGenerator = "reportSummaryKeyGenerator")
     public ReportSummaryResponse buildSummary(UUID orgId, Instant from, Instant to,
                                               UUID projectId, UUID membershipId,
                                               Set<UUID> scopeMembershipIds) {

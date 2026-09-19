@@ -64,6 +64,51 @@ class ReportExportIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    void inlineDetailed_smallResult_returns200() {
+        var response = restClient.get()
+                .uri("/api/v1/reports/detailed?from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z")
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .toEntity(String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
+    void asyncWorker_completesJobAndServesDownload() throws Exception {
+        String created = restClient.post()
+                .uri("/api/v1/reports/exports")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("""
+                        {"format": "csv"}
+                        """)
+                .retrieve()
+                .body(String.class);
+        String jobId = JsonPath.read(created, "$.id");
+        assertThat(JsonPath.<String>read(created, "$.status")).isEqualTo("PROCESSING");
+
+        String status = null;
+        for (int i = 0; i < 40 && !"READY".equals(status); i++) {
+            Thread.sleep(500);
+            String polled = restClient.get()
+                    .uri("/api/v1/reports/exports/{jobId}", jobId)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .body(String.class);
+            status = JsonPath.read(polled, "$.status");
+        }
+        assertThat(status).isEqualTo("READY");
+
+        var download = restClient.get()
+                .uri("/api/v1/reports/exports/{jobId}/download", jobId)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .toEntity(String.class);
+        assertThat(download.getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
     void legacyGetExports_stillWorksButDeprecated() {
         var response = restClient.get()
                 .uri("/api/v1/reports/exports?format=csv")

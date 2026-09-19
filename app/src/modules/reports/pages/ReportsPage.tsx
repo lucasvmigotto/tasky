@@ -38,10 +38,11 @@ import {
   useDepartments,
   useReportSummary,
   useReportDetailed,
-  downloadReportCsv,
   useTimeEntries,
+  downloadExportJobCsv,
 } from '@/core/api/hooks'
-import type { UUID, ReportSummaryResponse, ReportDetailedRow } from '@/core/api/types'
+import { apiClient } from '@/core/api/apiClient'
+import type { UUID, ReportSummaryResponse, ReportDetailedRow, ExportJobResponse, ReportQueryParams } from '@/core/api/types'
 import { toast } from 'sonner'
 
 const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899']
@@ -53,6 +54,19 @@ function startOfWeek() {
   monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day))
   monday.setHours(0, 0, 0, 0)
   return monday.toISOString().split('T')[0]
+}
+
+async function exportViaJob(params: ReportQueryParams) {
+  const job = await apiClient.post<ExportJobResponse>('/reports/exports', { ...params, format: 'csv' })
+  const deadline = Date.now() + 30_000
+  for (;;) {
+    const status = await apiClient.get<ExportJobResponse>(`/reports/exports/${job.id}`)
+    if (status.status === 'READY') break
+    if (status.status === 'FAILED') throw new Error('Falha ao gerar relatório')
+    if (Date.now() > deadline) throw new Error('Exportação demorou demais; tente de novo')
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  await downloadExportJobCsv(job.id)
 }
 
 function endOfWeek() {
@@ -139,7 +153,7 @@ function CollaboratorReport() {
   async function handleExport() {
     setExporting(true)
     try {
-      await downloadReportCsv(params)
+      await exportViaJob(params)
       toast.success('Relatório exportado')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao exportar')
@@ -335,7 +349,9 @@ function ManagerReport() {
   const reportParams = isAdmin && !sectorId ? null : params
 
   const { data, isLoading, error } = useReportSummary(reportParams)
-  const { data: detailed, isLoading: detailedLoading } = useReportDetailed(reportParams)
+  const { data: detailedData, isLoading: detailedLoading } = useReportDetailed(reportParams)
+  const detailed = detailedData?.rows ?? []
+  const detailedTotal = detailedData?.total ?? 0
 
   const projectHours = useMemo(
     () => (data?.projectHours ?? []).map((p) => ({ ...p, color: p.color || '#64748B' })),
@@ -364,7 +380,7 @@ function ManagerReport() {
     if (!reportParams) return
     setExporting(true)
     try {
-      await downloadReportCsv(reportParams)
+      await exportViaJob(reportParams)
       toast.success('Relatório exportado')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao exportar')
@@ -539,6 +555,11 @@ function ManagerReport() {
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-border/50 bg-card">
+                {detailedTotal > detailed.length && (
+                  <p className="border-b border-border/50 px-4 py-2 text-xs text-muted-foreground">
+                    Mostrando {detailed.length} de {detailedTotal} registros. Refine o período ou exporte o CSV completo.
+                  </p>
+                )}
                 {detailedLoading ? (
                   <div className="p-6"><Skeleton className="h-64 w-full" /></div>
                 ) : (detailed ?? []).length === 0 ? (

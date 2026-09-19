@@ -58,6 +58,11 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(PagedResultRequiredException.class)
+    public ProblemDetail handlePagedRequired(PagedResultRequiredException ex) {
+        return ex.getProblem();
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException ex) {
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
