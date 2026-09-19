@@ -6,7 +6,6 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from 'react'
-import { motion } from 'motion/react'
 import { cn } from '@/shared/lib/cn'
 
 interface TabsContextValue {
@@ -85,10 +84,9 @@ function TabsTrigger({ className, value, ...props }: TabsTriggerProps) {
       {...props}
     >
       {isActive && (
-        <motion.div
-          layoutId="tabs-indicator"
-          className="absolute inset-0 rounded-sm bg-background shadow-sm"
-          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+        <div
+          className="absolute inset-0 rounded-sm bg-background shadow-sm transition-all duration-200 ease-out"
+          style={{ transform: 'translateX(0)' }}
         />
       )}
       <span className="relative z-10">{props.children}</span>
