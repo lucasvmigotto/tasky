@@ -191,6 +191,13 @@ export interface AuthRefreshResponse {
   activeOrganizationId: UUID | null
 }
 
+export type OidcProvider = 'GOOGLE' | 'MICROSOFT' | 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'
+
+export interface OidcAuthRequest {
+  provider: OidcProvider
+  idToken: string
+}
+
 export interface ApiKeyResponse {
   token: string
   expiresAt: ISO8601

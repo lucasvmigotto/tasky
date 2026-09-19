@@ -1030,7 +1030,7 @@ export function useReportWorkload(params: ReportQueryParams | null) {
 
 export function useCreateReportExportJob() {
   return useMutation({
-    mutationFn: (format: string) => apiClient.get<ExportJobResponse>(`/reports/exports?format=${encodeURIComponent(format)}`),
+    mutationFn: (format: string) => apiClient.post<ExportJobResponse>('/reports/exports', { format }),
   })
 }
 
