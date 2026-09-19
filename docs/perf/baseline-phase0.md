@@ -54,7 +54,7 @@ Counts replace the stale `docs/ROADMAP_STATUS.md` figures (80 tests / 23 migrati
 Notes:
 - PG16→18 required fresh `pgdata` (approved) AND the PG18 mount convention `pgdata:/var/lib/postgresql` (parent dir, keeps `pg_upgrade` path open for PG19).
 - `minio/minio` on Docker Hub is gone → `quay.io/minio/minio`.
-- Mock issuers seen from host are `http://127.0.0.1:48080/<tenant>`; from inside the compose network they are `http://mock-oauth2:8080/<tenant>` (compose env uses the internal form — Phase 1 backend validates against env-configured issuers).
+- Mock issuers are browser-facing (`http://localhost:48080/<tenant>`); the backend fetches JWKS internally (`http://mock-oauth2:8080/<tenant>/jwks`). Both are env-configured (`MOCK_OAUTH2_*_ISSUER`, `MOCK_OAUTH2_*_JWKS_URI`).
 - Validate file: `docker compose --env-file /tmp/opencode/phase0.env config --quiet` → OK (JWT test secret lives only in `/tmp`, never in repo).
 
 ## 3. Config table (timeouts/TTLs/limits)

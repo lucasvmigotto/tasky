@@ -50,7 +50,7 @@ public class ActivityController {
             @AuthenticationPrincipal SecurityUser user) {
 
         UUID orgId = requiredOrgId(user);
-        if (!permissionService.canReadProject(user, projectId)) {
+        if (!permissionService.canManageProject(user, projectId)) {
             throw new SecurityException("Project not found in your organization");
         }
         Activity activity = activityService.createActivity(
@@ -354,7 +354,7 @@ public class ActivityController {
             @Valid @RequestBody CreateActivityChecklistItemRequest request,
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requiredOrgId(user);
-        if (!permissionService.canReadActivity(user, activityId)) {
+        if (!permissionService.canManageActivity(user, activityId)) {
             throw new SecurityException("Activity not found");
         }
         ActivityChecklistItem item = activityService.addChecklistItem(orgId, activityId, request.title());
@@ -367,7 +367,7 @@ public class ActivityController {
             @PathVariable UUID itemId,
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requiredOrgId(user);
-        if (!permissionService.canReadActivity(user, activityId)) {
+        if (!permissionService.canManageActivity(user, activityId)) {
             throw new SecurityException("Activity not found");
         }
         OrganizationMembership membership = permissionService.getMembership(user.id(), orgId)
@@ -382,7 +382,7 @@ public class ActivityController {
             @PathVariable UUID itemId,
             @AuthenticationPrincipal SecurityUser user) {
         UUID orgId = requiredOrgId(user);
-        if (!permissionService.canReadActivity(user, activityId)) {
+        if (!permissionService.canManageActivity(user, activityId)) {
             throw new SecurityException("Activity not found");
         }
         activityService.deleteChecklistItem(orgId, activityId, itemId);

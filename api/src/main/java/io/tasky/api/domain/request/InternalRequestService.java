@@ -317,7 +317,7 @@ public class InternalRequestService {
         }
         UUID deptId = request.getResponsibleDepartment().getId();
         Project project = projectService.createProject(
-                deptId,
+                orgId, deptId,
                 name != null && !name.isBlank() ? name.trim() : request.getTitle().trim(),
                 description != null ? description : request.getDescription(),
                 null,

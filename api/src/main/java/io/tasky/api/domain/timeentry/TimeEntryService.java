@@ -38,7 +38,8 @@ public class TimeEntryService {
     public TimeEntry startEntry(UUID orgId, OrganizationMembership membership,
                                 UUID projectId, UUID activityId, String description, String glpiTicketId,
                                 boolean billable) {
-        Organization org = organizationRepository.getReferenceById(orgId);
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
         timeEntryRepository.acquireMembershipLock(membership.getId());
 
         timeEntryRepository.findTopByMembershipIdAndEndTimeIsNullOrderByStartTimeDesc(membership.getId())
@@ -74,7 +75,8 @@ public class TimeEntryService {
         if (endTime == null || !endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("End time must be after start time");
         }
-        Organization org = organizationRepository.getReferenceById(orgId);
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
 
         Project project = resolveProject(orgId, projectId);
         Activity activity = resolveActivity(orgId, activityId);
@@ -225,11 +227,8 @@ public class TimeEntryService {
     }
 
     public TimeEntry approveEntry(UUID orgId, UUID entryId, OrganizationMembership approver) {
-        TimeEntry entry = timeEntryRepository.findById(entryId)
+        TimeEntry entry = timeEntryRepository.findByOrganizationIdAndId(orgId, entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Time entry not found"));
-        if (!entry.getOrganization().getId().equals(orgId)) {
-            throw new SecurityException("Time entry does not belong to this organization");
-        }
         requireSubmittedAndStopped(entry);
         entry.setApprovalStatus(TimeEntryApprovalStatus.APPROVED);
         entry.setApprovedAt(Instant.now());
@@ -245,11 +244,8 @@ public class TimeEntryService {
     }
 
     public TimeEntry rejectEntry(UUID orgId, UUID entryId, OrganizationMembership approver, String comment) {
-        TimeEntry entry = timeEntryRepository.findById(entryId)
+        TimeEntry entry = timeEntryRepository.findByOrganizationIdAndId(orgId, entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Time entry not found"));
-        if (!entry.getOrganization().getId().equals(orgId)) {
-            throw new SecurityException("Time entry does not belong to this organization");
-        }
         requireSubmittedAndStopped(entry);
         entry.setApprovalStatus(TimeEntryApprovalStatus.REJECTED);
         entry.setApprovedAt(Instant.now());
@@ -284,6 +280,8 @@ public class TimeEntryService {
 
     public void deleteEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
+        requireEditable(entry);
+        requirePeriodNotClosedOrLocked(entry);
         timeEntryRepository.delete(entry);
     }
 
@@ -374,11 +372,8 @@ public class TimeEntryService {
     }
 
     private TimeEntry getOwnedEntry(UUID orgId, UUID membershipId, UUID entryId) {
-        TimeEntry entry = timeEntryRepository.findById(entryId)
+        TimeEntry entry = timeEntryRepository.findByOrganizationIdAndId(orgId, entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Time entry not found"));
-        if (!entry.getOrganization().getId().equals(orgId)) {
-            throw new SecurityException("Time entry does not belong to this organization");
-        }
         if (!entry.getMembership().getId().equals(membershipId)) {
             throw new SecurityException("You can only manage your own time entries");
         }

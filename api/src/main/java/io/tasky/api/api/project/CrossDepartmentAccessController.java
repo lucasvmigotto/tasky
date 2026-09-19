@@ -59,7 +59,7 @@ public class CrossDepartmentAccessController {
         if (departmentId == null) {
             throw new IllegalArgumentException("departmentId is required");
         }
-        projectService.grantCrossDepartmentAccess(projectId, departmentId, granter.getId());
+        projectService.grantCrossDepartmentAccess(orgId, projectId, departmentId, granter.getId());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 

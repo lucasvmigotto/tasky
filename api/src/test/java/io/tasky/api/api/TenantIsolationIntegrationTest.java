@@ -115,6 +115,32 @@ class TenantIsolationIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    void orgB_cannotCreateDepartment_inOrgA() {
+        var response = restClient.post()
+                .uri("/api/v1/organizations/{orgId}/departments", orgA.getId())
+                .header("Authorization", "Bearer " + tokenB)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("""
+                        {"name": "Hacked Dept"}
+                        """)
+                .retrieve()
+                .onStatus(s -> s.value() == 403 || s.value() == 404, (req, res) -> {})
+                .toBodilessEntity();
+        assertThat(response.getStatusCode().value()).isIn(403, 404);
+    }
+
+    @Test
+    void orgB_cannotDeleteDepartment_ofOrgA() {
+        var response = restClient.delete()
+                .uri("/api/v1/organizations/{orgId}/departments/{deptId}", orgA.getId(), deptAId)
+                .header("Authorization", "Bearer " + tokenB)
+                .retrieve()
+                .onStatus(s -> s.value() == 403 || s.value() == 404, (req, res) -> {})
+                .toBodilessEntity();
+        assertThat(response.getStatusCode().value()).isIn(403, 404);
+    }
+
+    @Test
     void orgA_canListOwnDepartments() {
         var response = restClient.get()
                 .uri("/api/v1/organizations/{orgId}/departments", orgA.getId())

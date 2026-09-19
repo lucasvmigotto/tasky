@@ -9,6 +9,10 @@ import io.tasky.api.domain.user.User;
 import io.tasky.api.domain.user.UserService;
 import io.tasky.api.security.GoogleTokenVerifier;
 import io.tasky.api.security.JwtTokenProvider;
+import io.tasky.api.security.MicrosoftTokenVerifier;
+import io.tasky.api.security.MockOidcTokenVerifier;
+import io.tasky.api.security.OidcProvider;
+import io.tasky.api.security.OidcTokenPayload;
 import io.tasky.api.security.SecurityUser;
 import io.tasky.api.security.SuperAdminService;
 import jakarta.servlet.http.Cookie;
@@ -38,6 +42,8 @@ public class AuthController {
     public static final String REFRESH_COOKIE = "tasky_refresh";
 
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final MicrosoftTokenVerifier microsoftTokenVerifier;
+    private final MockOidcTokenVerifier mockOidcTokenVerifier;
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final OrganizationMembershipRepository membershipRepository;
@@ -52,9 +58,33 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         var payload = googleTokenVerifier.verify(request.idToken());
+        return completeLogin(payload.email(), payload.sub(), payload.name(), payload.picture(),
+                httpRequest, httpResponse);
+    }
 
-        User user = userService.getOrCreateUser(payload.email(), payload.sub(), payload.name(), payload.picture());
-        membershipService.acceptPendingInvitations(user, payload.email());
+    @PostMapping("/oidc")
+    public ResponseEntity<AuthResponse> loginWithOidc(
+            @Valid @RequestBody OidcAuthRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        OidcTokenPayload payload = switch (request.provider()) {
+            case GOOGLE -> {
+                var google = googleTokenVerifier.verify(request.idToken());
+                yield new OidcTokenPayload(google.sub(), google.email(), google.name(), google.picture());
+            }
+            case MICROSOFT -> microsoftTokenVerifier.verify(request.idToken());
+            case MOCK_GOOGLE, MOCK_MICROSOFT ->
+                    mockOidcTokenVerifier.verify(request.provider(), request.idToken());
+        };
+        return completeLogin(payload.email(), payload.subjectKey(), payload.name(), payload.picture(),
+                httpRequest, httpResponse);
+    }
+
+    private ResponseEntity<AuthResponse> completeLogin(
+            String email, String subjectKey, String name, String picture,
+            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        User user = userService.getOrCreateUser(email, subjectKey, name, picture);
+        membershipService.acceptPendingInvitations(user, email);
         superAdminService.ensureSuperAdmin(user);
 
         List<OrganizationMembership> memberships = membershipRepository.findByUserIdAndIsActiveTrue(user.getId());
