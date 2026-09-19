@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Play, Pause, Square, Timer } from 'lucide-react'
-import { useTimeTrackerStore } from '@/core/tracker/timeTrackerStore'
+import { reconcileTrackerState, useTimeTrackerStore } from '@/core/tracker/timeTrackerStore'
 import { useAuthStore } from '@/core/auth/authStore'
 import { usePauseTimeEntry, useProjects, useResumeTimeEntry, useRunningTimeEntry, useStopTimeEntry } from '@/core/api/hooks'
 import { ROUTES } from '@/core/config/routes'
@@ -13,7 +13,8 @@ export function TimeTrackerWidget() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const orgId = useAuthStore((s) => s.activeOrg?.id ?? null)
   const { data: projects = [] } = useProjects(orgId)
-  const { data: running, refetch } = useRunningTimeEntry()
+  const entryForPoll = useTimeTrackerStore((s) => s.entry)
+  const { data: running, refetch } = useRunningTimeEntry(!!entryForPoll)
   const stopTimeEntry = useStopTimeEntry()
   const pauseTimeEntry = usePauseTimeEntry()
   const resumeTimeEntry = useResumeTimeEntry()
@@ -32,6 +33,20 @@ export function TimeTrackerWidget() {
       setEntry(running)
     }
   }, [isAuthenticated, running, setEntry])
+
+  // Server-authoritative reconcile (T-PAUSE): a pause/resume/stop issued on
+  // another tab or device converges here within one poll interval (10s).
+  // The local ticker only smooths display between polls.
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const outcome = reconcileTrackerState(useTimeTrackerStore.getState(), running)
+    if (outcome.action === 'adopt') setEntry(outcome.entry)
+    else if (outcome.action === 'finished') {
+      useTimeTrackerStore.getState().reset()
+      refetch()
+      toast.info(outcome.message)
+    }
+  }, [isAuthenticated, running, refetch, setEntry])
 
   async function handleStop() {
     const active = useTimeTrackerStore.getState().entry

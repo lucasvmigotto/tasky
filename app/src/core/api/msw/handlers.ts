@@ -179,6 +179,11 @@ export const handlers = [
     return HttpResponse.json<PaginatedResponse<TimeEntryResponse>>(page)
   }),
 
+  http.get('/api/v1/time-entries/running', () => {
+    const running = mockTimeEntries.find((entry) => entry.endTime === null) ?? null
+    return HttpResponse.json<TimeEntryResponse | null>(running)
+  }),
+
   http.get('/api/v1/time-entries/org', () => {
     const page: PaginatedResponse<TimeEntryResponse> = {
       content: mockTimeEntries,
