@@ -80,8 +80,20 @@ services:
           memory: 256M
     restart: unless-stopped
 
+  wal-init:
+    image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+    container_name: tasky-wal-init
+    user: root
+    command: ["sh", "-c", "chown postgres:postgres /wal && chmod 700 /wal"]
+    volumes:
+      - pgwal:/wal
+    restart: "no"
+
   db:
     image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+    depends_on:
+      wal-init:
+        condition: service_completed_successfully
     command:
       - -c
       - wal_level=replica
