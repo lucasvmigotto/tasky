@@ -29,6 +29,9 @@ ENV API_UPSTREAM=${API_UPSTREAM}
 ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
 ENV DEMO_MODE=false
 ENV GOOGLE_CLIENT_ID=""
+ENV MICROSOFT_CLIENT_ID=""
+ENV MOCK_OAUTH2_ENABLED=false
+ENV MOCK_OAUTH2_URL=http://localhost:48080
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY nginx-security-headers.conf /etc/nginx/security-headers.conf

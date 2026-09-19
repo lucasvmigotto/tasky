@@ -4,7 +4,7 @@ import { setLogoutHandler } from '@/core/api/interceptors'
 import { getConfig } from '@/core/config/runtimeConfig'
 import type { AuthState, UserInfo, OrgInfo } from './authTypes'
 import type { Role } from './permissions'
-import type { AuthRefreshResponse, AuthResponse } from '@/core/api/types'
+import type { AuthRefreshResponse, AuthResponse, OidcProvider } from '@/core/api/types'
 import { queryClient } from '@/app/providers/QueryProvider'
 import { useTimeTrackerStore } from '@/core/tracker/timeTrackerStore'
 
@@ -16,6 +16,7 @@ function resetTenantState() {
 
 type AuthActions = {
   loginWithGoogle: (idToken: string) => Promise<void>
+  loginWithOidc: (provider: OidcProvider, idToken: string) => Promise<void>
   loginWithDemo: () => Promise<void>
   refreshToken: () => Promise<string | null>
   setActiveOrg: (org: OrgInfo) => Promise<void>
@@ -138,6 +139,18 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       }
     },
 
+    loginWithOidc: async (provider: OidcProvider, idToken: string) => {
+      authVersion += 1
+      set({ isLoading: true })
+      try {
+        const data = await apiClient.post<AuthResponse>('/auth/oidc', { provider, idToken })
+        handleAuthResponse(data)
+      } catch (err) {
+        set({ isLoading: false })
+        throw err
+      }
+    },
+
     loginWithDemo: async () => {
       authVersion += 1
       set({ isLoading: true })
@@ -194,6 +207,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
         const config = getConfig()
         if (config.demoMode === 'true') {
           await get().loginWithDemo()
+          return
+        }
+        const { handleOidcCallback } = await import('./oidc')
+        if (await handleOidcCallback()) {
           return
         }
         const { handleGoogleCallback } = await import('./googleOAuth')

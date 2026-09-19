@@ -1,28 +1,34 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { Clock, ArrowRight, LogIn } from 'lucide-react'
 import { useAuthStore } from '@/core/auth/authStore'
 import { getConfig } from '@/core/config/runtimeConfig'
 import { startGoogleLogin } from '@/core/auth/googleOAuth'
+import { startMicrosoftLogin, startMockLogin } from '@/core/auth/oidc'
 import { ROUTES } from '@/core/config/routes'
 
 const isDemoMode = getConfig().demoMode === 'true'
+const hasMicrosoft = getConfig().microsoftClientId !== ''
+const mockEnabled = getConfig().mockOAuth2Enabled === 'true'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const redirectTo =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? ROUTES.MY_WORK
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const loginWithDemo = useAuthStore((s) => s.loginWithDemo)
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(ROUTES.MY_WORK, { replace: true })
+      navigate(redirectTo, { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, redirectTo])
 
   async function handleDemoLogin() {
     await loginWithDemo()
-    navigate(ROUTES.MY_WORK, { replace: true })
+    navigate(redirectTo, { replace: true })
   }
 
   return (
@@ -162,6 +168,42 @@ export default function LoginPage() {
                   </svg>
                   Entrar com Google
                 </button>
+                {hasMicrosoft && (
+                  <button
+                    type="button"
+                    onClick={startMicrosoftLogin}
+                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-800/50 px-5 py-3 text-sm font-medium text-zinc-300 shadow-sm transition-all duration-200 hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                      <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022" />
+                      <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00" />
+                      <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF" />
+                      <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900" />
+                    </svg>
+                    Entrar com Microsoft
+                  </button>
+                )}
+                {mockEnabled && (
+                  <div className="flex flex-col gap-2 rounded-xl border border-dashed border-zinc-800 p-3">
+                    <p className="text-center text-xs text-zinc-600">Ambiente local (mock)</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startMockLogin('MOCK_GOOGLE')}
+                        className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 px-3 py-2 text-xs font-medium text-zinc-300 transition-all hover:border-zinc-700 hover:text-zinc-100"
+                      >
+                        Mock Google
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startMockLogin('MOCK_MICROSOFT')}
+                        className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 px-3 py-2 text-xs font-medium text-zinc-300 transition-all hover:border-zinc-700 hover:text-zinc-100"
+                      >
+                        Mock Microsoft
+                      </button>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </div>

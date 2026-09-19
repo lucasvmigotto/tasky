@@ -284,6 +284,11 @@ export const handlers = [
     return HttpResponse.json({ id: `report-${Date.now()}`, name: body.name, description: body.description ?? null, params: body.params ?? {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), version: 1 }, { status: 201 })
   }),
 
+  http.post('/api/v1/reports/exports', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { format?: string }
+    return HttpResponse.json({ id: 'job-1', status: 'DONE', format: body.format ?? 'csv', downloadUrl: '/api/v1/reports/exports/job-1/download', createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() }, { status: 202 })
+  }),
+
   http.get('/api/v1/reports/exports', () => {
     return HttpResponse.json({ id: 'job-1', status: 'DONE', format: 'csv', downloadUrl: '/api/v1/reports/exports/job-1/download', createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() }, { status: 202 })
   }),

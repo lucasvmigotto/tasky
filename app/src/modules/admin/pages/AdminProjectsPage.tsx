@@ -6,6 +6,7 @@ import { canManageOrganization, canManageDepartment } from '@/core/auth/permissi
 import { useAuthStore } from '@/core/auth/authStore'
 import { useProjects, useDepartments, useMemberships, useCreateProject, useDeleteProject, useUpdateProject } from '@/core/api/hooks'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
+import { QueryState } from '@/shared/components/feedback/QueryState'
 import { Button } from '@/shared/components/ui/Button'
 import { Input } from '@/shared/components/ui/Input'
 import { Badge } from '@/shared/components/ui/Badge'
@@ -39,9 +40,11 @@ export default function AdminProjectsPage() {
   const user = useAuthStore((s) => s.user)
   const orgId = activeOrg?.id ?? null
 
-  const { data: projects = [] } = useProjects(orgId as UUID)
-  const { data: departments = [] } = useDepartments(orgId as UUID)
-  const { data: members = [] } = useMemberships(orgId as UUID)
+  const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useProjects(orgId as UUID)
+  const { data: departments = [], isLoading: departmentsLoading, error: departmentsError } = useDepartments(orgId as UUID)
+  const { data: members = [], isLoading: membersLoading, error: membersError } = useMemberships(orgId as UUID)
+  const pageLoading = projectsLoading || departmentsLoading || membersLoading
+  const pageError = projectsError || departmentsError || membersError
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
   const updateProject = useUpdateProject()
@@ -320,13 +323,21 @@ export default function AdminProjectsPage() {
         </Tabs>
       </div>
 
-      <DataTable
-        columns={columns}
-        rows={filtered}
-        keyExtractor={(row) => row.id}
+      <QueryState
+        isLoading={pageLoading}
+        error={pageError as Error | null}
+        isEmpty={!pageLoading && !pageError && filtered.length === 0}
         emptyTitle="Nenhum projeto encontrado"
         emptyDescription="Tente ajustar os filtros selecionados."
-      />
+      >
+        <DataTable
+          columns={columns}
+          rows={filtered}
+          keyExtractor={(row) => row.id}
+          emptyTitle="Nenhum projeto encontrado"
+          emptyDescription="Tente ajustar os filtros selecionados."
+        />
+      </QueryState>
 
       <Modal
         open={deleteOpen}

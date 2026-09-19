@@ -191,6 +191,13 @@ export interface AuthRefreshResponse {
   activeOrganizationId: UUID | null
 }
 
+export type OidcProvider = 'GOOGLE' | 'MICROSOFT' | 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'
+
+export interface OidcAuthRequest {
+  provider: OidcProvider
+  idToken: string
+}
+
 export interface ApiKeyResponse {
   token: string
   expiresAt: ISO8601
@@ -397,6 +404,7 @@ export interface ActivityQueryParams {
   to?: ISO8601
   assignedTo?: UUID
   projectId?: UUID
+  size?: number
 }
 
 export interface UpdateProjectRequest {
@@ -776,6 +784,7 @@ export interface ReportQueryParams {
   projectId?: UUID
   membershipId?: UUID
   departmentId?: UUID
+  size?: number
 }
 
 export interface SwitchOrgResponse {

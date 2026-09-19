@@ -99,6 +99,15 @@ import type {
 } from '@/core/api/types'
 
 const DEFAULT_ACTIVITY_PAGE_SIZE = 500
+const MAX_ACTIVITY_PAGE_SIZE = 500
+const MAX_TIME_ENTRY_PAGE_SIZE = 500
+const MAX_DETAILED_PAGE_SIZE = 500
+const MAX_REQUEST_PAGE_SIZE = 200
+
+function clampPageSize(size: number | undefined, fallback: number, max: number): number {
+  if (size == null || !Number.isFinite(size)) return fallback
+  return Math.min(Math.max(1, Math.floor(size)), max)
+}
 
 export function useOrganizations() {
   return useQuery({
@@ -276,7 +285,7 @@ export function useActivityQuery(params: ActivityQueryParams | null) {
     if (params.to) searchParams.set('to', params.to)
     if (params.assignedTo) searchParams.set('assignedTo', params.assignedTo)
     if (params.projectId) searchParams.set('projectId', params.projectId)
-    searchParams.set('size', String(DEFAULT_ACTIVITY_PAGE_SIZE))
+    searchParams.set('size', String(clampPageSize(params.size, DEFAULT_ACTIVITY_PAGE_SIZE, MAX_ACTIVITY_PAGE_SIZE)))
   }
 
   return useQuery({
@@ -286,6 +295,7 @@ export function useActivityQuery(params: ActivityQueryParams | null) {
       return res.content
     },
     enabled: !!params,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -446,7 +456,7 @@ export function useTimeEntries(params: TimeEntryQueryParams | null) {
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
     if (params.page != null) searchParams.set('page', String(params.page))
-    if (params.size != null) searchParams.set('size', String(params.size))
+    searchParams.set('size', String(clampPageSize(params.size, MAX_TIME_ENTRY_PAGE_SIZE, MAX_TIME_ENTRY_PAGE_SIZE)))
   }
   return useQuery({
     queryKey: ['time-entries', orgId, params],
@@ -455,6 +465,7 @@ export function useTimeEntries(params: TimeEntryQueryParams | null) {
       return res.content
     },
     enabled: !!orgId && !!params,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -465,10 +476,11 @@ export function useTimeEntriesOrg(params: TimeEntryQueryParams | null) {
     if (params.from) searchParams.set('from', params.from)
     if (params.to) searchParams.set('to', params.to)
     if (params.page != null) searchParams.set('page', String(params.page))
-    if (params.size != null) searchParams.set('size', String(params.size))
+    searchParams.set('size', String(clampPageSize(params.size, MAX_TIME_ENTRY_PAGE_SIZE, MAX_TIME_ENTRY_PAGE_SIZE)))
   }
   return useQuery({
     queryKey: ['time-entries', orgId, 'org', params],
+    placeholderData: (previous) => previous,
     queryFn: async () => {
       const res = await apiClient.get<PaginatedResponse<TimeEntryResponse>>(`/time-entries/org?${searchParams!.toString()}`)
       return res.content
@@ -1001,7 +1013,7 @@ export function useReportDetailed(params: ReportQueryParams | null) {
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
     if (params.departmentId) searchParams.set('departmentId', params.departmentId)
-    searchParams.set('size', '500')
+    searchParams.set('size', String(clampPageSize(params.size, MAX_DETAILED_PAGE_SIZE, MAX_DETAILED_PAGE_SIZE)))
   }
   return useQuery({
     queryKey: ['reports', 'detailed', params],
@@ -1012,6 +1024,7 @@ export function useReportDetailed(params: ReportQueryParams | null) {
       return res.content
     },
     enabled: params != null,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -1030,7 +1043,7 @@ export function useReportWorkload(params: ReportQueryParams | null) {
 
 export function useCreateReportExportJob() {
   return useMutation({
-    mutationFn: (format: string) => apiClient.get<ExportJobResponse>(`/reports/exports?format=${encodeURIComponent(format)}`),
+    mutationFn: (format: string) => apiClient.post<ExportJobResponse>('/reports/exports', { format }),
   })
 }
 
@@ -1373,7 +1386,7 @@ export function useRequests(params: InternalRequestQueryParams | null) {
       if (params?.responsibleDepartmentId) search.set('responsibleDepartmentId', params.responsibleDepartmentId)
       if (params?.mine) search.set('mine', 'true')
       if (params?.page != null) search.set('page', String(params.page))
-      if (params?.size != null) search.set('size', String(params.size))
+      search.set('size', String(clampPageSize(params?.size, MAX_REQUEST_PAGE_SIZE, MAX_REQUEST_PAGE_SIZE)))
       const qs = search.toString()
       return apiClient.get<PaginatedResponse<InternalRequest>>(`/requests${qs ? `?${qs}` : ''}`)
     },
