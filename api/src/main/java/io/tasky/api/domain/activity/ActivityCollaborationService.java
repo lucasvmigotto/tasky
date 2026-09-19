@@ -71,7 +71,7 @@ public class ActivityCollaborationService {
     public List<ActivityCommentResponse> getCommentResponses(UUID orgId, UUID activityId,
                                                              UUID viewerMembershipId) {
         getActivity(orgId, activityId);
-        List<ActivityComment> comments = activityCommentRepository.findByActivityIdOrderByCreatedAtAsc(activityId);
+        List<ActivityComment> comments = activityCommentRepository.findByActivityIdWithAuthor(activityId);
         Map<UUID, List<ActivityMentionResponse>> mentions = mentionsByComment(
                 comments.stream().map(ActivityComment::getId).toList());
         return comments.stream()
@@ -94,7 +94,7 @@ public class ActivityCollaborationService {
     public List<ActivityFeedResponse> getFeedResponses(UUID orgId, UUID activityId, int limit,
                                                        UUID viewerMembershipId) {
         getActivity(orgId, activityId);
-        List<ActivityEvent> events = activityEventRepository.findByOrganizationIdAndActivityIdOrderByCreatedAtDescIdDesc(
+        List<ActivityEvent> events = activityEventRepository.findPageWithActor(
                 orgId, activityId, PageRequest.of(0, Math.min(Math.max(limit, 1), 100)));
         Map<UUID, List<ActivityMentionResponse>> mentions = mentionsByComment(events.stream()
                 .map(ActivityEvent::getComment)
