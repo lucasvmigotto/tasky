@@ -12,6 +12,7 @@ import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,24 @@ public class TimeEntryService {
     private final ActivityRepository activityRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
+
+
+    private TimeEntry initializeForResponse(TimeEntry entry) {
+        Hibernate.initialize(entry.getMembership());
+        if (entry.getMembership() != null) {
+            Hibernate.initialize(entry.getMembership().getUser());
+        }
+        if (entry.getProject() != null) {
+            Hibernate.initialize(entry.getProject());
+        }
+        if (entry.getActivity() != null) {
+            Hibernate.initialize(entry.getActivity());
+        }
+        if (entry.getApprovedBy() != null) {
+            Hibernate.initialize(entry.getApprovedBy());
+        }
+        return entry;
+    }
 
     public TimeEntry startEntry(UUID orgId, OrganizationMembership membership,
                                 UUID projectId, UUID activityId, String description, String glpiTicketId,
@@ -242,6 +261,7 @@ public class TimeEntryService {
         entry.setApprovedBy(approver);
         entry.setRejectionComment(null);
         TimeEntry saved = timeEntryRepository.save(entry);
+        initializeForResponse(saved);
         auditService.record(orgId, approver.getUser().getId(), approver.getId(), "time_entry", entryId,
                 "APPROVE", null, "status=APPROVED", null);
         notificationService.createOnce(orgId, entry.getMembership().getId(),
@@ -259,6 +279,7 @@ public class TimeEntryService {
         entry.setApprovedBy(approver);
         entry.setRejectionComment(comment);
         TimeEntry saved = timeEntryRepository.save(entry);
+        initializeForResponse(saved);
         auditService.record(orgId, approver.getUser().getId(), approver.getId(), "time_entry", entryId,
                 "REJECT", null, "status=REJECTED", null);
         notificationService.createOnce(orgId, entry.getMembership().getId(),
@@ -376,6 +397,7 @@ public class TimeEntryService {
     public TimeEntry getRunningEntry(UUID orgId, UUID membershipId) {
         return timeEntryRepository.findTopByMembershipIdAndEndTimeIsNullOrderByStartTimeDesc(membershipId)
                 .filter(e -> e.getOrganization().getId().equals(orgId))
+                .map(this::initializeForResponse)
                 .orElse(null);
     }
 
@@ -385,6 +407,6 @@ public class TimeEntryService {
         if (!entry.getMembership().getId().equals(membershipId)) {
             throw new SecurityException("You can only manage your own time entries");
         }
-        return entry;
+        return initializeForResponse(entry);
     }
 }
