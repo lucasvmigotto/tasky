@@ -23,7 +23,7 @@ describe('AdminMembersPage organizational placement', () => {
   it('sends department when inviting a collaborator', async () => {
     let requestBody: Record<string, unknown> | null = null
     server.use(
-      http.get('/api/v1/organizations/:orgId/memberships/invitations', () => HttpResponse.json([{
+      http.get('http://localhost/api/v1/organizations/:orgId/memberships/invitations', () => HttpResponse.json([{
         id: 'invitation-1',
         email: 'pendente@orgao.gov.br',
         role: 'employee',
@@ -34,7 +34,7 @@ describe('AdminMembersPage organizational placement', () => {
         acceptedAt: null,
         revokedAt: null,
       }])),
-      http.post('/api/v1/organizations/:orgId/memberships/invite', async ({ request }) => {
+      http.post('http://localhost/api/v1/organizations/:orgId/memberships/invite', async ({ request }) => {
         requestBody = await request.json() as Record<string, unknown>
         return HttpResponse.json({
           id: 'member-new',

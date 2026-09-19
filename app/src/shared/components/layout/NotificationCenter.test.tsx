@@ -36,14 +36,14 @@ describe('NotificationCenter', () => {
   beforeEach(() => {
     useAuthStore.setState({ activeOrg: { id: 'org-1', name: 'Órgão', slug: 'orgao', role: 'employee', timezone: 'UTC', workWeekStartsOn: 1 } })
     server.use(
-      http.get('/api/v1/notifications', () => HttpResponse.json(notifications)),
-      http.get('/api/v1/notifications/unread-count', () => HttpResponse.json({ count: 1 })),
+      http.get('http://localhost/api/v1/notifications', () => HttpResponse.json(notifications)),
+      http.get('http://localhost/api/v1/notifications/unread-count', () => HttpResponse.json({ count: 1 })),
     )
   })
 
   it('filters unread notifications and marks all as read', async () => {
     let markAllCalls = 0
-    server.use(http.patch('/api/v1/notifications/read-all', () => {
+    server.use(http.patch('http://localhost/api/v1/notifications/read-all', () => {
       markAllCalls += 1
       return new HttpResponse(null, { status: 204 })
     }))
@@ -63,7 +63,7 @@ describe('NotificationCenter', () => {
 
   it('marks an item and navigates only through its known resource route', async () => {
     let readCalls = 0
-    server.use(http.patch('/api/v1/notifications/notification-1/read', () => {
+    server.use(http.patch('http://localhost/api/v1/notifications/notification-1/read', () => {
       readCalls += 1
       return HttpResponse.json({ ...notifications[0], readAt: '2026-08-02T14:00:00Z' })
     }))

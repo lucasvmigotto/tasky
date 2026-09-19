@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { apiClient, getAccessToken, isConflictError } from '@/core/api/apiClient'
+import { apiClient, apiUrl, getAccessToken, isConflictError } from '@/core/api/apiClient'
 import { useAuthStore } from '@/core/auth/authStore'
 import type {
   OrganizationResponse,
@@ -1138,7 +1138,7 @@ export function useExportJob(jobId: UUID | null) {
 }
 
 export async function downloadExportJobCsv(jobId: UUID) {
-  const response = await fetch(`/api/v1/reports/exports/${jobId}/download`, {
+  const response = await fetch(apiUrl(`/reports/exports/${jobId}/download`), {
     headers: { Authorization: `Bearer ${getAccessToken()}` },
   })
   if (!response.ok) throw new Error('Falha ao baixar o relatório exportado')
@@ -1228,7 +1228,7 @@ export function useUpdateNotificationPreferences() {
 export async function uploadFile(file: File): Promise<StoredFileResponse> {
   const formData = new FormData()
   formData.append('file', file)
-  const response = await fetch('/api/v1/files', {
+  const response = await fetch(apiUrl('/files'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${getAccessToken()}` },
     body: formData,
@@ -1335,7 +1335,7 @@ export function useRemoveDocumentAttachment(documentId: UUID) {
 }
 
 export async function exportDocumentHtml(documentId: UUID, title: string) {
-  const response = await fetch(`/api/v1/documents/${documentId}/export`, {
+  const response = await fetch(apiUrl(`/documents/${documentId}/export`), {
     headers: { Authorization: `Bearer ${getAccessToken()}` },
   })
   if (!response.ok) throw new Error('Falha ao exportar documento')

@@ -31,8 +31,12 @@ jobs:
         run: bun run lint
         working-directory: app/
 
-      - name: Run tests
-        run: bun run test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run tests (Node - MSW requires undici realms)
+        run: node ./node_modules/vitest/vitest.mjs run
         working-directory: app/
 
       - name: Install Playwright browsers

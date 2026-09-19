@@ -45,7 +45,7 @@ describe('MySectorPage', () => {
   })
 
   it('renders the server-scoped sector structure, workload and queue', async () => {
-    server.use(http.get('/api/v1/me/sector', () => HttpResponse.json(managerOverview)))
+    server.use(http.get('http://localhost/api/v1/me/sector', () => HttpResponse.json(managerOverview)))
     renderPage()
 
     expect(await screen.findByText('Tecnologia da Informação')).toBeInTheDocument()
@@ -61,7 +61,7 @@ describe('MySectorPage', () => {
       ...state,
       activeOrg: state.activeOrg ? { ...state.activeOrg, role: 'employee' } : null,
     }))
-    server.use(http.get('/api/v1/me/sector', () => HttpResponse.json({
+    server.use(http.get('http://localhost/api/v1/me/sector', () => HttpResponse.json({
       role: 'employee',
       departments: [],
       members: [],

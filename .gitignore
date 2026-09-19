@@ -56,3 +56,6 @@ vite.config.d.ts
 # Local file-storage fallback (created at runtime/tests)
 api/data/
 data/uploads/
+
+# Backup drill artifacts (live data, unencrypted - never commit)
+backups/

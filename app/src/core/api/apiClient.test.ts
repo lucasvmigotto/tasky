@@ -1,29 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import { http, HttpResponse, delay } from 'msw'
-import { setupServer } from 'msw/node'
-import { apiClient, setAccessToken, ApiError, setRefreshExecutor } from '@/core/api/apiClient'
-
-const server = setupServer(
-  http.get('/api/v1/time-entries', ({ request }) => {
-    const auth = request.headers.get('Authorization')
-    return HttpResponse.json({ ok: true, auth })
-  }),
-  http.get('/api/v1/time-entries/expired', () => {
-    return new HttpResponse(null, { status: 401 })
-  }),
-  http.post('/api/v1/auth/refresh', async () => {
-    await delay(20)
-    return HttpResponse.json({ token: 'refreshed-token' })
-  }),
-)
+import { server } from '@/test/server'
+import { apiClient, apiUrl, setAccessToken, setApiBaseUrl, ApiError, setRefreshExecutor } from '@/core/api/apiClient'
 
 let refreshCalls = 0
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' })
+  setApiBaseUrl('http://localhost')
   setRefreshExecutor(async () => {
     refreshCalls++
-    const res = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+    const res = await fetch(apiUrl('/auth/refresh'), { method: 'POST', credentials: 'include' })
     if (!res.ok) return null
     const body = (await res.json()) as { token: string }
     setAccessToken(body.token)
@@ -37,15 +23,11 @@ afterEach(() => {
   setAccessToken(null)
 })
 
-afterAll(() => {
-  server.close()
-})
-
 describe('apiClient 401 handling', () => {
   it('refreshes once and retries the original request', async () => {
     setAccessToken('expired-token')
     server.use(
-      http.get('/api/v1/time-entries', ({ request }) => {
+      http.get('http://localhost/api/v1/time-entries', ({ request }) => {
         const auth = request.headers.get('Authorization')
         if (auth === 'Bearer expired-token') {
           return new HttpResponse(null, { status: 401 })
@@ -62,8 +44,8 @@ describe('apiClient 401 handling', () => {
   it('throws ApiError when refresh fails', async () => {
     setAccessToken('expired-token')
     server.use(
-      http.get('/api/v1/time-entries', () => new HttpResponse(null, { status: 401 })),
-      http.post('/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
+      http.get('http://localhost/api/v1/time-entries', () => new HttpResponse(null, { status: 401 })),
+      http.post('http://localhost/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
     )
     await expect(apiClient.get('/time-entries')).rejects.toBeInstanceOf(ApiError)
   })
@@ -71,7 +53,7 @@ describe('apiClient 401 handling', () => {
   it('does not retry on the refresh path itself', async () => {
     setAccessToken('token')
     server.use(
-      http.post('/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
+      http.post('http://localhost/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
     )
     await expect(apiClient.post('/auth/refresh')).rejects.toBeInstanceOf(ApiError)
   })
@@ -81,7 +63,7 @@ describe('single-flight refresh under concurrency', () => {
   it('1 concurrent request triggers exactly one refresh', async () => {
     setAccessToken('expired-token')
     server.use(
-      http.get('/api/v1/time-entries', ({ request }) => {
+      http.get('http://localhost/api/v1/time-entries', ({ request }) => {
         const auth = request.headers.get('Authorization')
         if (auth === 'Bearer expired-token') return new HttpResponse(null, { status: 401 })
         return HttpResponse.json({ ok: true })
@@ -94,7 +76,7 @@ describe('single-flight refresh under concurrency', () => {
   it('10 concurrent requests trigger exactly one refresh', async () => {
     setAccessToken('expired-token')
     server.use(
-      http.get('/api/v1/time-entries', ({ request }) => {
+      http.get('http://localhost/api/v1/time-entries', ({ request }) => {
         const auth = request.headers.get('Authorization')
         if (auth === 'Bearer expired-token') return new HttpResponse(null, { status: 401 })
         return HttpResponse.json({ ok: true })
@@ -108,7 +90,7 @@ describe('single-flight refresh under concurrency', () => {
   it('100 concurrent requests trigger exactly one refresh', async () => {
     setAccessToken('expired-token')
     server.use(
-      http.get('/api/v1/time-entries', ({ request }) => {
+      http.get('http://localhost/api/v1/time-entries', ({ request }) => {
         const auth = request.headers.get('Authorization')
         if (auth === 'Bearer expired-token') return new HttpResponse(null, { status: 401 })
         return HttpResponse.json({ ok: true })
