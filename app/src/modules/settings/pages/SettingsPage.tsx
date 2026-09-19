@@ -14,6 +14,7 @@ import type { UUID, NotificationPreferenceType } from '@/core/api/types'
 const PREFERENCE_LABELS: Record<NotificationPreferenceType, { label: string; description: string }> = {
   ACTIVITY_DUE_SOON: { label: 'Prazo próximo', description: 'Lembre-me antes do vencimento de uma atividade.' },
   ACTIVITY_OVERDUE: { label: 'Atividade atrasada', description: 'Avisa quando uma atividade passar do prazo.' },
+  ACTIVITY_MENTION: { label: 'Menções', description: 'Avisa quando alguém mencionar você em um comentário.' },
   OPEN_TIMER: { label: 'Timer aberto', description: 'Lembra de encerrar ou pausar um timer que ficou aberto.' },
   TIME_ENTRY_PENDING_APPROVAL: { label: 'Apontamentos pendentes', description: 'Informa gestores sobre apontamentos aguardando aprovação.' },
 }
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const [preferenceValues, setPreferenceValues] = useState<Record<NotificationPreferenceType, boolean>>({
     ACTIVITY_DUE_SOON: true,
     ACTIVITY_OVERDUE: true,
+    ACTIVITY_MENTION: true,
     OPEN_TIMER: true,
     TIME_ENTRY_PENDING_APPROVAL: true,
   })

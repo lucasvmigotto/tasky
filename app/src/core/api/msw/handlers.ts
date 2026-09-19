@@ -157,6 +157,7 @@ export const handlers = [
       preferences: [
         { type: 'ACTIVITY_DUE_SOON', enabled: true },
         { type: 'ACTIVITY_OVERDUE', enabled: true },
+        { type: 'ACTIVITY_MENTION', enabled: true },
         { type: 'OPEN_TIMER', enabled: true },
         { type: 'TIME_ENTRY_PENDING_APPROVAL', enabled: true },
       ],
