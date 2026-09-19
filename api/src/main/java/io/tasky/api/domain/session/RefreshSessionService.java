@@ -6,6 +6,7 @@ import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.organization.OrganizationRepository;
 import io.tasky.api.domain.user.User;
 import io.tasky.api.domain.user.UserRepository;
+import io.tasky.api.config.TaskyMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -35,6 +36,7 @@ public class RefreshSessionService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final PlatformTransactionManager transactionManager;
+    private final TaskyMetrics metrics;
 
     private TransactionTemplate newRequiresNewTransaction() {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
@@ -62,6 +64,7 @@ public class RefreshSessionService {
 
         if (session.getRevokedAt() != null) {
             if (session.getReplacedBy() != null) {
+                metrics.refreshReused();
                 revokeFamilyCommitted(session.getFamilyId());
             }
             throw new SecurityException("Refresh session has been revoked");

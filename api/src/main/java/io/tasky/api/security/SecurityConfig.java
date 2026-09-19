@@ -42,6 +42,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/api/v1/auth/**").permitAll()
                             .requestMatchers("/actuator/health").permitAll()
+                            // Prometheus scrapes inside the cluster network; production
+                            // ingress must never route /actuator (see runbooks).
+                            .requestMatchers("/actuator/prometheus").permitAll()
                             .requestMatchers("/actuator/**").denyAll();
                     if (!isProd) {
                         auth.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**").permitAll();

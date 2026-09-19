@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -51,6 +52,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                MDC.put(io.tasky.api.config.RequestIdFilter.MDC_USER, securityUser.id().toString());
+                if (securityUser.activeOrganizationId() != null) {
+                    MDC.put(io.tasky.api.config.RequestIdFilter.MDC_ORG,
+                            securityUser.activeOrganizationId().toString());
+                }
             }
         }
 
