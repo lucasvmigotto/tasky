@@ -37,7 +37,8 @@ public class ProjectController {
             @Valid @RequestBody CreateProjectRequest request,
             @AuthenticationPrincipal SecurityUser user) {
 
-        Project project = projectService.createProject(deptId, request.name(), request.description(), request.color(), request.managerMembershipId(),
+        UUID orgId = requiredOrgId(user);
+        Project project = projectService.createProject(orgId, deptId, request.name(), request.description(), request.color(), request.managerMembershipId(),
                 request.hourlyRate(), request.estimatedSeconds(), request.budgetSeconds(), request.budgetAmount());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(project));
     }
