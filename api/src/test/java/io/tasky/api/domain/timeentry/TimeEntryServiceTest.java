@@ -140,6 +140,37 @@ class TimeEntryServiceTest {
                 entry.getDurationSeconds() == 6600L));
     }
 
+    @Test
+    void updateReassignProject_refreshesBillingSnapshotAndAudits() {
+        Fixture fixture = fixture(TimeEntryApprovalStatus.DRAFT, Instant.now());
+        fixture.entry.setBillingRateSnapshot(new java.math.BigDecimal("100.00"));
+        io.tasky.api.domain.user.User user = io.tasky.api.domain.user.User.builder()
+                .id(UUID.randomUUID()).build();
+        fixture.membership.setUser(user);
+        Project newProject = Project.builder().id(UUID.randomUUID())
+                .hourlyRate(new java.math.BigDecimal("200.00")).build();
+        when(timeEntryRepository.findByOrganizationIdAndId(fixture.orgId, fixture.entry.getId()))
+                .thenReturn(Optional.of(fixture.entry));
+        when(projectRepository.findByIdAndDepartment_Organization_Id(newProject.getId(), fixture.orgId))
+                .thenReturn(Optional.of(newProject));
+
+        service.updateEntry(fixture.orgId, fixture.membershipId, fixture.entry.getId(),
+                newProject.getId(), null, null, null, null, null, null, null);
+
+        org.junit.jupiter.api.Assertions.assertEquals(new java.math.BigDecimal("200.00"),
+                fixture.entry.getBillingRateSnapshot());
+        verify(auditService).record(
+                org.mockito.ArgumentMatchers.eq(fixture.orgId),
+                org.mockito.ArgumentMatchers.eq(user.getId()),
+                org.mockito.ArgumentMatchers.eq(fixture.membershipId),
+                org.mockito.ArgumentMatchers.eq("time_entry"),
+                org.mockito.ArgumentMatchers.eq(fixture.entry.getId()),
+                org.mockito.ArgumentMatchers.eq("REASSIGN"),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.isNull());
+    }
+
     private Fixture fixture(TimeEntryApprovalStatus status, Instant endTime) {
         UUID orgId = UUID.randomUUID();
         UUID membershipId = UUID.randomUUID();
