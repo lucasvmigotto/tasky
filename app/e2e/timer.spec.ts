@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 // Full timer journey against a live backend + mock OIDC provider.
 // Run: E2E_API_URL=http://localhost:8080 bun run test:e2e:timer
 // ( boots scratch PG + API + mock-oauth2, builds the SPA against them,
-//   then runs this file only. Skipped in the default demo/offline runs. )
+//   then runs this file only. Skipped in offline runs without E2E_API_URL. )
 const API = process.env.E2E_API_URL || ''
 
 // Logs in through the browser and returns the JWT from the login response.
@@ -15,8 +15,9 @@ async function mockLogin(page: Page, username: string): Promise<string> {
     { timeout: 30_000 },
   )
   await page.goto('/login')
+  const appPort = new URL(page.url()).port
   await page.getByRole('button', { name: 'Mock Google' }).click()
-  await page.waitForURL(/48080/, { timeout: 15_000 })
+  await page.waitForURL((url) => url.hostname === 'localhost' && url.port !== appPort, { timeout: 15_000 })
   await page.locator('input[name="username"]').fill(username)
   await page.locator('button[type="submit"], input[type="submit"]').first().click()
   const response = await codeExchange
@@ -45,7 +46,8 @@ test.describe('timer journey (backend-backed)', () => {
     const api = apiFor(page)
 
     // 1. Founder login (browser mock code flow → /auth/oidc/code).
-    const founderToken = await mockLogin(page, 'dev-user')
+    // Unique mock username per run: parallel runs must not share an identity.
+    const founderToken = await mockLogin(page, `founder${stamp}`)
 
     // 2. Seed org → departments → project.
     const org = await (
@@ -99,11 +101,11 @@ test.describe('timer journey (backend-backed)', () => {
       { membershipId: employee.id },
     )
     expect(assignRes.status()).toBe(201)
-    await employeePage.reload()
 
     // 6. Timer: start → pause → resume → stop.
+    // No reload: first visit mounts queries after the assignment exists.
     await employeePage.goto('/time-tracker')
-    await expect(employeePage).not.toHaveURL(/\/login/)
+    await expect(employeePage).not.toHaveURL(/\/login/, { timeout: 15_000 })
     await employeePage.getByLabel('Projeto').selectOption({ label: projectName })
     await employeePage.getByLabel('Observações').fill(description)
     await employeePage.getByRole('button', { name: 'Iniciar timer' }).click()
