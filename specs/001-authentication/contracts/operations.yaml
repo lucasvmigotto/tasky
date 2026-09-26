@@ -1,0 +1,8 @@
+# 001 — Auth operations (see contracts/openapi.yaml for canonical shapes)
+- POST /api/v1/auth/google {idToken} -> {token, user, organizations}
+- POST /api/v1/auth/oidc {provider, idToken} -> {token, user, organizations}
+- POST /api/v1/auth/oidc/code {provider, code, code_verifier} -> {...} | 501 for GOOGLE/MICROSOFT
+- POST /api/v1/auth/refresh (cookie) -> {token, ...} | 401
+- POST /api/v1/auth/logout (cookie) -> 204
+- GET /api/v1/auth/me (Bearer) -> SecurityUser | 401
+- POST /api/v1/auth/switch-org {orgId} (Bearer + cookie) -> {token, org}

@@ -1,0 +1,5 @@
+# 006 — Collaboration operations
+- GET/POST /api/v1/activities/{activityId}/comments | DELETE .../comments/{commentId}
+- GET /api/v1/activities/{activityId}/feed?limit | GET .../mention-candidates?q=
+- GET/POST /api/v1/activities/{activityId}/attachments | DELETE .../attachments/{attachmentId}
+- GET/POST /api/v1/activities/{activityId}/checklist | PATCH/DELETE .../checklist/{itemId}

@@ -1,0 +1,7 @@
+# 002 — Membership operations
+- POST /api/v1/organizations -> org + founder membership (201)
+- POST /api/v1/organizations/{orgId}/memberships/invite {email,role,...} (201)
+- GET .../invitations | PATCH .../{id}/revoke-invitation (204)
+- GET .../memberships | PUT .../{id}/settings | PATCH .../{id}/role | DELETE .../{id} (204)
+- GET/PUT /api/v1/admin/settings[/{key}] (super_admin)
+- GET/PUT /api/v1/organizations/{orgId}/settings[/{key}] (org admin)

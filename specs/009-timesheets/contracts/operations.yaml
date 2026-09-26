@@ -1,0 +1,5 @@
+# 009 — Timesheet operations
+- POST /api/v1/timesheets/periods {periodStart} | GET ...?from&to
+- POST .../periods/{periodId}/{submit,reopen,close}
+- POST .../periods/approve {periodIds} | POST .../periods/reject {periodIds,comment}
+- GET .../periods/approval-queue

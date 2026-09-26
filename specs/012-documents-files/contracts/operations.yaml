@@ -1,0 +1,4 @@
+# 012 — Document/file operations
+- POST/GET /api/v1/departments/{deptId}/documents | PUT/DELETE /api/v1/documents/{documentId}
+- POST /api/v1/files/{logo,project-logo,activity-attachment,avatar,public,private}/upload
+- GET /api/v1/files/public/... (no auth) | GET /api/v1/files/private/... (token)

@@ -1,0 +1,4 @@
+# 007 — Template operations
+- GET /api/v1/projects/{projectId}/activity-templates
+- POST /api/v1/activities/{activityId}/templates
+- POST /api/v1/activity-templates/{templateId}/use

@@ -1,0 +1,5 @@
+# 005 — Activity operations
+- POST/GET /api/v1/projects/{projectId}/activities
+- GET /api/v1/activities/{activityId} | GET /api/v1/activities?from&to&assignedTo&projectId&page&size
+- PUT /api/v1/activities/{activityId} | PATCH .../move | POST /api/v1/projects/{projectId}/activities/reorder | DELETE /api/v1/activities/{activityId}
+- POST /api/v1/activities/{childId}/dependencies | DELETE .../{parentId}

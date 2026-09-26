@@ -1,0 +1,3 @@
+# 003 — Structure operations
+- POST/GET /api/v1/organizations/{orgId}/departments | PUT/DELETE .../{deptId}
+- GET/POST /api/v1/departments/{deptId}/member-types | PUT/DELETE .../{memberTypeId}

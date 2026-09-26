@@ -1,0 +1,4 @@
+# 013 — Report operations
+- GET /api/v1/reports/{summary,by-project,hours-worked,daily,by-member,by-sector,detailed}
+- GET .../export?... (CSV inline, text/csv; XLSX/PDF via jobs)
+- POST /api/v1/report-exports | GET .../{id} (status/content)

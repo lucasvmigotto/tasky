@@ -1,0 +1,5 @@
+# 011 — Request operations
+- POST /api/v1/requests | GET ...?status&priority&assigneeId&responsibleDepartmentId&mine&page&size
+- GET/PUT/DELETE /api/v1/requests/{requestId}
+- PATCH .../{status,assign,link-project,link-activity} | POST .../tasks | POST .../convert-to-project
+- GET/POST .../{requestId}/comments | DELETE .../comments/{commentId}
