@@ -1,7 +1,7 @@
 ARG BUN_VERSION=1
 ARG NGINX_VERSION=stable-alpine
 
-FROM oven/bun:${BUN_VERSION}@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS build
+FROM docker.io/oven/bun:${BUN_VERSION}@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS build
 
 ARG GOOGLE_CLIENT_ID="00000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
 
@@ -22,7 +22,7 @@ RUN --mount=type=bind,source=package.json,target=package.json \
     bun install --frozen-lock-file \
     && bun run build
 
-FROM nginx:${NGINX_VERSION}@sha256:ef8676b33d681f272ba429b27658bdd7e640963279714c96bddf1dc76307f7b6
+FROM docker.io/library/nginx:${NGINX_VERSION}@sha256:ef8676b33d681f272ba429b27658bdd7e640963279714c96bddf1dc76307f7b6
 
 ARG API_UPSTREAM=http://api:8080
 ENV API_UPSTREAM=${API_UPSTREAM}

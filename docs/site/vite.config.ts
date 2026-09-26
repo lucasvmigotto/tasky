@@ -1,11 +1,24 @@
-import { readFileSync } from 'node:fs'
+import { cpSync, readFileSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { URL, fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { type Plugin, defineConfig, loadEnv } from 'vite'
+import { generateLlmsOutput } from './scripts/build-llms'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
+
+/**
+ * Vite's publicDir must exist before startup, and the LLM output is generated
+ * separately, so each build assembles a single served directory here:
+ * the checked-in `public/` assets plus the generated Markdown.
+ */
+const SERVED_DIR = resolve(here, '.build-public')
+
+function prepareServedDir(): void {
+  rmSync(SERVED_DIR, { recursive: true, force: true })
+  cpSync(resolve(here, 'public'), SERVED_DIR, { recursive: true })
+}
 
 /**
  * Version comes from the frontend manifest (one source of truth), with a
@@ -44,8 +57,13 @@ export default defineConfig(({ mode }) => {
   const siteName = env.VITE_APP_SITE_NAME || 'tasky'
   const siteUrl = env.VITE_SITE_URL || 'https://docs.tasky.example'
 
+  // Generated Markdown lands in the served dir before copying it in.
+  prepareServedDir()
+  generateLlmsOutput(SERVED_DIR)
+
   return {
     base: './',
+    publicDir: SERVED_DIR,
     plugins: [react(), tailwindcss(), brandingPlugin(siteName, siteUrl)],
     define: {
       __APP_VERSION__: JSON.stringify(resolveVersion()),

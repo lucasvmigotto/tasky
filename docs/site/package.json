@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "bun run build:content && tsc --noEmit && vite build",
-    "build:content": "bun run scripts/build-llms.ts",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "lint": "biome check .",
     "format": "biome check --write .",

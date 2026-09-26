@@ -1,9 +1,10 @@
 /**
  * Emits LLM-readable output from the SAME typed content the pages render:
- *   public/docs/<locale>/<page>.md   one Markdown file per page
- *   public/llms.txt                  index per llmstxt.org
- *   public/llms-full.txt             every page concatenated
- * Run by `bun run build:content` before the Vite build copies public/ to dist/.
+ *   <out>/docs/<locale>/<page>.md   one Markdown file per page
+ *   <out>/llms.txt                  index per llmstxt.org
+ *   <out>/llms-full.txt             every page concatenated
+ * Called by `vite.config.ts` during the build, into the served directory
+ * (checked-in `public/` assets + this generated Markdown).
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -21,7 +22,6 @@ import {
 } from '../src/i18n/types'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const PUBLIC = resolve(here, '..', 'public')
 const BUNDLES: Record<Locale, DocsContent> = { 'pt-BR': ptBR, en }
 
 const MARKER: Record<Locale, (m: Maturity) => string> = {
@@ -99,16 +99,16 @@ export function pageToMarkdown(
   return lines.join('\n')
 }
 
-export function write(locale: Locale) {
+export function write(locale: Locale, outRoot: string) {
   const content = BUNDLES[locale]
-  const outDir = resolve(PUBLIC, 'docs', locale)
+  const outDir = resolve(outRoot, 'docs', locale)
   mkdirSync(outDir, { recursive: true })
   for (const id of PAGE_IDS) {
     writeFileSync(resolve(outDir, `${id}.md`), pageToMarkdown(content, locale, id))
   }
 }
 
-export function writeIndex() {
+export function writeIndex(outRoot: string) {
   const content = BUNDLES['pt-BR']
   const lines: string[] = []
   lines.push(`# ${content.ui.siteName}`)
@@ -133,24 +133,30 @@ export function writeIndex() {
   lines.push('## Optional')
   lines.push('- [llms-full.txt](llms-full.txt): every page concatenated for one-shot ingestion')
   lines.push('')
-  writeFileSync(resolve(PUBLIC, 'llms.txt'), lines.join('\n'))
+  writeFileSync(resolve(outRoot, 'llms.txt'), lines.join('\n'))
 }
 
-export function writeFull() {
+export function writeFull(outRoot: string) {
   const parts: string[] = []
   for (const locale of LOCALES) {
     parts.push(`# TaskY documentation (${locale})`, '')
     for (const id of PAGE_IDS) parts.push(pageToMarkdown(BUNDLES[locale], locale, id, true))
     parts.push('')
   }
-  writeFileSync(resolve(PUBLIC, 'llms-full.txt'), parts.join('\n'))
+  writeFileSync(resolve(outRoot, 'llms-full.txt'), parts.join('\n'))
 }
 
-export function generateAll() {
-  rmSync(resolve(PUBLIC, 'docs'), { recursive: true, force: true })
-  for (const locale of LOCALES) write(locale)
-  writeIndex()
-  writeFull()
+export function generateLlmsOutput(outRoot: string): void {
+  mkdirSync(outRoot, { recursive: true })
+  for (const locale of LOCALES) write(locale, outRoot)
+  writeIndex(outRoot)
+  writeFull(outRoot)
+}
+
+// Standalone use (tests, debugging): writes into public/ like before.
+export function generateAll(outRoot = resolve(here, '..', 'public')): string {
+  rmSync(resolve(outRoot, 'docs'), { recursive: true, force: true })
+  generateLlmsOutput(outRoot)
   return `${LOCALES.length} locales × ${PAGE_IDS.length} pages + llms.txt + llms-full.txt`
 }
 
