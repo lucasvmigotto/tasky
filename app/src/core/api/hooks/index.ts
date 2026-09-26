@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiClient, getAccessToken } from '@/core/api/apiClient'
+import { toast } from 'sonner'
+import { apiClient, apiUrl, getAccessToken, isConflictError } from '@/core/api/apiClient'
 import { useAuthStore } from '@/core/auth/authStore'
 import type {
   OrganizationResponse,
@@ -98,6 +99,15 @@ import type {
 } from '@/core/api/types'
 
 const DEFAULT_ACTIVITY_PAGE_SIZE = 500
+const MAX_ACTIVITY_PAGE_SIZE = 500
+const MAX_TIME_ENTRY_PAGE_SIZE = 500
+const MAX_DETAILED_PAGE_SIZE = 500
+const MAX_REQUEST_PAGE_SIZE = 200
+
+function clampPageSize(size: number | undefined, fallback: number, max: number): number {
+  if (size == null || !Number.isFinite(size)) return fallback
+  return Math.min(Math.max(1, Math.floor(size)), max)
+}
 
 export function useOrganizations() {
   return useQuery({
@@ -275,7 +285,7 @@ export function useActivityQuery(params: ActivityQueryParams | null) {
     if (params.to) searchParams.set('to', params.to)
     if (params.assignedTo) searchParams.set('assignedTo', params.assignedTo)
     if (params.projectId) searchParams.set('projectId', params.projectId)
-    searchParams.set('size', String(DEFAULT_ACTIVITY_PAGE_SIZE))
+    searchParams.set('size', String(clampPageSize(params.size, DEFAULT_ACTIVITY_PAGE_SIZE, MAX_ACTIVITY_PAGE_SIZE)))
   }
 
   return useQuery({
@@ -285,6 +295,7 @@ export function useActivityQuery(params: ActivityQueryParams | null) {
       return res.content
     },
     enabled: !!params,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -347,6 +358,13 @@ export function useUpdateProject() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects'] })
       qc.invalidateQueries({ queryKey: ['project'] })
+    },
+    onError: (error) => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['project'] })
+      if (isConflictError(error)) {
+        toast.error('Registro alterado em outro lugar. Dados atualizados, revise e tente de novo.')
+      }
     },
   })
 }
@@ -438,7 +456,7 @@ export function useTimeEntries(params: TimeEntryQueryParams | null) {
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
     if (params.page != null) searchParams.set('page', String(params.page))
-    if (params.size != null) searchParams.set('size', String(params.size))
+    searchParams.set('size', String(clampPageSize(params.size, MAX_TIME_ENTRY_PAGE_SIZE, MAX_TIME_ENTRY_PAGE_SIZE)))
   }
   return useQuery({
     queryKey: ['time-entries', orgId, params],
@@ -447,6 +465,7 @@ export function useTimeEntries(params: TimeEntryQueryParams | null) {
       return res.content
     },
     enabled: !!orgId && !!params,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -457,10 +476,11 @@ export function useTimeEntriesOrg(params: TimeEntryQueryParams | null) {
     if (params.from) searchParams.set('from', params.from)
     if (params.to) searchParams.set('to', params.to)
     if (params.page != null) searchParams.set('page', String(params.page))
-    if (params.size != null) searchParams.set('size', String(params.size))
+    searchParams.set('size', String(clampPageSize(params.size, MAX_TIME_ENTRY_PAGE_SIZE, MAX_TIME_ENTRY_PAGE_SIZE)))
   }
   return useQuery({
     queryKey: ['time-entries', orgId, 'org', params],
+    placeholderData: (previous) => previous,
     queryFn: async () => {
       const res = await apiClient.get<PaginatedResponse<TimeEntryResponse>>(`/time-entries/org?${searchParams!.toString()}`)
       return res.content
@@ -469,13 +489,14 @@ export function useTimeEntriesOrg(params: TimeEntryQueryParams | null) {
   })
 }
 
-export function useRunningTimeEntry() {
+export function useRunningTimeEntry(poll = false) {
   const orgId = useAuthStore((state) => state.activeOrg?.id ?? null)
   return useQuery({
     queryKey: ['time-entries', orgId, 'running'],
     queryFn: () => apiClient.get<TimeEntryResponse | null>('/time-entries/running'),
     enabled: !!orgId,
     retry: false,
+    refetchInterval: poll && !!orgId ? 10_000 : false,
   })
 }
 
@@ -719,6 +740,12 @@ export function useUpdateTimeEntry() {
     mutationFn: ({ entryId, data }: { entryId: UUID; data: UpdateTimeEntryRequest }) =>
       apiClient.put<TimeEntryResponse>(`/time-entries/${entryId}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['time-entries'] }),
+    onError: (error) => {
+      qc.invalidateQueries({ queryKey: ['time-entries'] })
+      if (isConflictError(error)) {
+        toast.error('Apontamento alterado em outro lugar. Dados atualizados, revise e tente de novo.')
+      }
+    },
   })
 }
 
@@ -987,17 +1014,19 @@ export function useReportDetailed(params: ReportQueryParams | null) {
     if (params.projectId) searchParams.set('projectId', params.projectId)
     if (params.membershipId) searchParams.set('membershipId', params.membershipId)
     if (params.departmentId) searchParams.set('departmentId', params.departmentId)
-    searchParams.set('size', '500')
+    if (params.page != null) searchParams.set('page', String(params.page))
+    searchParams.set('size', String(clampPageSize(params.size, MAX_DETAILED_PAGE_SIZE, MAX_DETAILED_PAGE_SIZE)))
   }
   return useQuery({
     queryKey: ['reports', 'detailed', params],
     queryFn: async () => {
       const res = await apiClient.get<PaginatedResponse<ReportDetailedRow>>(
-        `/reports/detailed${searchParams ? `?${searchParams.toString()}` : ''}`,
+        `/reports/detailed/page${searchParams ? `?${searchParams.toString()}` : ''}`,
       )
-      return res.content
+      return { rows: res.content, total: res.totalElements }
     },
     enabled: params != null,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -1016,7 +1045,7 @@ export function useReportWorkload(params: ReportQueryParams | null) {
 
 export function useCreateReportExportJob() {
   return useMutation({
-    mutationFn: (format: string) => apiClient.get<ExportJobResponse>(`/reports/exports?format=${encodeURIComponent(format)}`),
+    mutationFn: (format: string) => apiClient.post<ExportJobResponse>('/reports/exports', { format }),
   })
 }
 
@@ -1110,7 +1139,7 @@ export function useExportJob(jobId: UUID | null) {
 }
 
 export async function downloadExportJobCsv(jobId: UUID) {
-  const response = await fetch(`/api/v1/reports/exports/${jobId}/download`, {
+  const response = await fetch(apiUrl(`/reports/exports/${jobId}/download`), {
     headers: { Authorization: `Bearer ${getAccessToken()}` },
   })
   if (!response.ok) throw new Error('Falha ao baixar o relatório exportado')
@@ -1197,33 +1226,10 @@ export function useUpdateNotificationPreferences() {
   })
 }
 
-export async function downloadReportCsv(params: ReportQueryParams | null) {
-  const searchParams = new URLSearchParams()
-  if (params?.from) searchParams.set('from', params.from)
-  if (params?.to) searchParams.set('to', params.to)
-  if (params?.projectId) searchParams.set('projectId', params.projectId)
-  if (params?.membershipId) searchParams.set('membershipId', params.membershipId)
-  if (params?.departmentId) searchParams.set('departmentId', params.departmentId)
-  const qs = searchParams.toString()
-  const response = await fetch(`/api/v1/reports/export${qs ? `?${qs}` : ''}`, {
-    headers: { Authorization: `Bearer ${getAccessToken()}` },
-  })
-  if (!response.ok) throw new Error('Falha ao exportar relatório')
-  const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'tasky-report.csv'
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
 export async function uploadFile(file: File): Promise<StoredFileResponse> {
   const formData = new FormData()
   formData.append('file', file)
-  const response = await fetch('/api/v1/files', {
+  const response = await fetch(apiUrl('/files'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${getAccessToken()}` },
     body: formData,
@@ -1330,7 +1336,7 @@ export function useRemoveDocumentAttachment(documentId: UUID) {
 }
 
 export async function exportDocumentHtml(documentId: UUID, title: string) {
-  const response = await fetch(`/api/v1/documents/${documentId}/export`, {
+  const response = await fetch(apiUrl(`/documents/${documentId}/export`), {
     headers: { Authorization: `Bearer ${getAccessToken()}` },
   })
   if (!response.ok) throw new Error('Falha ao exportar documento')
@@ -1359,7 +1365,7 @@ export function useRequests(params: InternalRequestQueryParams | null) {
       if (params?.responsibleDepartmentId) search.set('responsibleDepartmentId', params.responsibleDepartmentId)
       if (params?.mine) search.set('mine', 'true')
       if (params?.page != null) search.set('page', String(params.page))
-      if (params?.size != null) search.set('size', String(params.size))
+      search.set('size', String(clampPageSize(params?.size, MAX_REQUEST_PAGE_SIZE, MAX_REQUEST_PAGE_SIZE)))
       const qs = search.toString()
       return apiClient.get<PaginatedResponse<InternalRequest>>(`/requests${qs ? `?${qs}` : ''}`)
     },

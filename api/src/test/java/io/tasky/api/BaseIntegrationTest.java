@@ -22,7 +22,9 @@ public abstract class BaseIntegrationTest {
     static final PostgreSQLContainer<?> postgres;
 
     static {
-        postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+        // Digest-only form: Testcontainers rejects tag+digest combos.
+        postgres = new PostgreSQLContainer<>(
+                "postgres@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd");
         postgres.start();
     }
 

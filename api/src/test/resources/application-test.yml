@@ -3,6 +3,9 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
+    properties:
+      hibernate:
+        generate_statistics: true
   flyway:
     enabled: true
   security:
@@ -14,12 +17,18 @@ spring:
 
 tasky:
   jwt:
-    secret: dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItaHMyNTYtYWxnb3JpdGhtCg==
+    secret: dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItaHMyNTYtYWxnb3JpdGhtCg== #gitleaks:allow
     expiration-hours: 24
   cors:
     allowed-origins: "http://localhost:5173,http://127.0.0.1:5173"
   google:
     client-id: test-client-id.apps.googleusercontent.com
+  exports:
+    worker-delay-ms: 500
+
+# Isolate file uploads from the developer checkout (api/data may be
+# root-owned from container runs): the worker + upload paths write here.
+TASKY_UPLOAD_DIR: /tmp/tasky-test-uploads
 
 logging:
   level:

@@ -27,4 +27,5 @@ public interface TimeEntryProjection {
     BigDecimal getCostRateSnapshot();
     Boolean getBillable();
     Instant getCreatedAt();
+    long getVersion();
 }

@@ -1,0 +1,3 @@
+# 015 — Search/sector operations
+- GET /api/v1/search?q=&... | GET /api/v1/search/workload?q=
+- GET /api/v1/sectors?departmentId&from&to | GET /api/v1/sectors/my-sector?from&to | GET .../workload?from&to

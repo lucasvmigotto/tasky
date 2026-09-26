@@ -45,7 +45,8 @@ public class ProjectAssignmentController {
             @RequestBody Map<String, UUID> body,
             @AuthenticationPrincipal SecurityUser user) {
 
-        projectService.assignEmployee(projectId, body.get("membershipId"));
+        UUID orgId = requiredOrgId(user);
+        projectService.assignEmployee(orgId, projectId, body.get("membershipId"));
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -58,6 +59,13 @@ public class ProjectAssignmentController {
 
         projectService.removeAssignment(projectId, membershipId);
         return ResponseEntity.noContent().build();
+    }
+
+    private UUID requiredOrgId(SecurityUser user) {
+        if (user.activeOrganizationId() == null) {
+            throw new SecurityException("No active organization");
+        }
+        return user.activeOrganizationId();
     }
 
     private ProjectAssignmentResponse toResponse(ProjectAssignment assignment) {

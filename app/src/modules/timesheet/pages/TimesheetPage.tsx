@@ -35,6 +35,8 @@ import { cn } from '@/shared/lib/cn'
 import { useHoursMask, hoursToMaskDigits } from '@/shared/hooks/useHoursMask'
 import { useAuthStore } from '@/core/auth/authStore'
 import { useTimeEntries, useProjects, useCreateManualTimeEntry, useUpdateTimeEntry, useDeleteTimeEntry } from '@/core/api/hooks'
+import PeriodBar from '../components/PeriodBar'
+import ApprovalQueue from '../components/ApprovalQueue'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { EmptyState } from '@/shared/components/ui/EmptyState'
 import { toast } from 'sonner'
@@ -399,6 +401,8 @@ export default function TimesheetPage() {
         </div>
       </div>
 
+      <PeriodBar weekStartISO={queryRange.from} weekEndISO={queryRange.to} />
+
       {/* Planilha */}
       <Card className="overflow-hidden border-border/50 shadow-xl shadow-black/20">
         <div className="overflow-x-auto">
@@ -615,6 +619,8 @@ export default function TimesheetPage() {
           </div>
         </Card>
       </div>
+
+      <ApprovalQueue />
 
       {/* Modal de entradas */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

@@ -101,3 +101,28 @@ export const useTimeTrackerStore = create<TimeTrackerState>((set, get) => ({
     set({ entry: null, elapsed: 0, isRunning: false, formattedTime: '00:00:00' })
   },
 }))
+
+export type ReconcileOutcome =
+  | { action: 'ignore' }
+  | { action: 'adopt'; entry: TimeEntryResponse }
+  | { action: 'finished'; message: string }
+
+/**
+ * Server-authoritative reconcile (T-PAUSE): decides what the local tracker
+ * must do when a fresh `/running` poll arrives. Pure for testability.
+ */
+export function reconcileTrackerState(
+  local: { entry: TimeEntryResponse | null; isRunning: boolean },
+  server: TimeEntryResponse | null | undefined,
+): ReconcileOutcome {
+  if (server === undefined || !local.entry) return { action: 'ignore' }
+  if (!server) return { action: 'finished', message: 'Timer finalizado em outro dispositivo' }
+  if (server.id !== local.entry.id) return { action: 'adopt', entry: server }
+  if (server.endTime) return { action: 'finished', message: 'Tempo registrado em outro dispositivo' }
+  const serverPaused = !!server.pausedAt
+  if (serverPaused !== !local.isRunning
+    || (server.pausedSeconds ?? 0) !== (local.entry.pausedSeconds ?? 0)) {
+    return { action: 'adopt', entry: server }
+  }
+  return { action: 'ignore' }
+}

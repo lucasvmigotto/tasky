@@ -1,0 +1,6 @@
+# 010 — Capacity operations
+- POST/GET /api/v1/capacity/schedules | GET/PUT/DELETE .../{scheduleId}
+- POST/GET /api/v1/capacity/holidays | DELETE .../{holidayId}
+- POST/GET /api/v1/capacity/leave | GET/PUT/DELETE .../{leaveId}
+- POST/GET /api/v1/capacity/members/{membershipId}/schedules | DELETE .../{placementId}
+- GET /api/v1/capacity/members?from&to

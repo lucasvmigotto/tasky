@@ -9,21 +9,41 @@ export class ApiError extends Error {
   }
 }
 
+export function isConflictError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409
+}
+
 let accessToken: string | null = null
 const REQUEST_TIMEOUT_MS = 15_000
 
-async function fetchWithTimeout(input: RequestInfo | URL, options: RequestInit): Promise<Response> {
-  const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  const externalSignal = options.signal
-  const abortExternal = () => controller.abort()
-  externalSignal?.addEventListener('abort', abortExternal, { once: true })
+// Base URL seam: '' in browsers (same-origin /api proxy), absolute in tests.
+// Honours VITE_API_URL when set (e.g. E2E against a remote API).
+let apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? ''
 
+export function setApiBaseUrl(url: string): void {
+  apiBaseUrl = url.replace(/\/$/, '')
+}
+
+export function apiUrl(path: string): string {
+  return `${apiBaseUrl}/api/v1${path}`
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, options: RequestInit): Promise<Response> {
+  // Race-based timeout: no AbortController, so there is no cross-realm
+  // AbortSignal mismatch (jsdom tests vs undici fetch) and no window
+  // dependency. The late response is discarded; callers see a timeout error.
+  // Note: callers must not pass options.signal (unsupported, would be ignored).
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`)),
+      REQUEST_TIMEOUT_MS,
+    )
+  })
   try {
-    return await fetch(input, { ...options, signal: controller.signal })
+    return await Promise.race([fetch(input, options), timeout])
   } finally {
-    window.clearTimeout(timeoutId)
-    externalSignal?.removeEventListener('abort', abortExternal)
+    clearTimeout(timeoutId)
   }
 }
 
@@ -36,7 +56,7 @@ export function getAccessToken(): string | null {
 }
 
 function isRefreshPath(path: string): boolean {
-  return path === '/auth/refresh' || path === '/auth/google' || path === '/auth/logout'
+  return path === '/auth/refresh' || path === '/auth/google' || path === '/auth/oidc' || path === '/auth/logout'
 }
 
 export async function rawRequest<T>(path: string, options: RequestInit = {}): Promise<Response> {
@@ -44,7 +64,7 @@ export async function rawRequest<T>(path: string, options: RequestInit = {}): Pr
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   }
-  return fetchWithTimeout(`/api/v1${path}`, {
+  return fetchWithTimeout(apiUrl(path), {
     ...options,
     headers,
     credentials: 'include',
@@ -89,7 +109,7 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
     headers['Authorization'] = `Bearer ${accessToken}`
   }
 
-  const response = await fetchWithTimeout(`/api/v1${path}`, {
+  const response = await fetchWithTimeout(apiUrl(path), {
     ...options,
     headers,
     credentials: 'include',

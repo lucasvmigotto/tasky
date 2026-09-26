@@ -92,6 +92,52 @@ class RefreshSessionIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    void rotate_pastAbsoluteLifetime_wipesFamily() {
+        var created = sessionService.create(user, org, "127.0.0.1");
+        // force the family into the past
+        sessionRepository.findByTokenHash(RefreshSessionService.hash(created.rawToken()))
+                .ifPresent(s -> {
+                    s.setFamilyExpiresAt(java.time.Instant.now().minusSeconds(60));
+                    sessionRepository.save(s);
+                });
+
+        assertThatThrownBy(() -> sessionService.rotate(created.rawToken(), "127.0.0.1"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("family has expired");
+        sessionRepository.findByFamilyId(created.session().getFamilyId())
+                .forEach(s -> assertThat(s.getRevokedAt()).isNotNull());
+    }
+
+    @Test
+    void rotate_doesNotExtendAbsoluteLifetime() {
+        var created = sessionService.create(user, org, "127.0.0.1");
+        java.time.Instant before = created.session().getFamilyExpiresAt();
+
+        var result = sessionService.rotate(created.rawToken(), "127.0.0.1");
+
+        assertThat(result.familyExpiresAt().truncatedTo(java.time.temporal.ChronoUnit.MILLIS))
+                .isEqualTo(before.truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+    }
+
+    
+
+    @Test
+    void replayedPreSwitchToken_wipesFamily() {
+        var orgB = organizationService.createOrganization("Session B " + uid, "session-b-" + uid, user);
+        try {
+            var created = sessionService.create(user, org, "127.0.0.1");
+            sessionService.switchOrg(created.rawToken(), orgB, "127.0.0.1");
+
+            assertThatThrownBy(() -> sessionService.switchOrg(created.rawToken(), orgB, "127.0.0.1"))
+                    .isInstanceOf(SecurityException.class);
+            sessionRepository.findByFamilyId(created.session().getFamilyId())
+                    .forEach(s -> assertThat(s.getRevokedAt()).isNotNull());
+        } finally {
+            organizationRepository.delete(orgB);
+        }
+    }
+
+    @Test
     void logout_revokesSession() {
         var created = sessionService.create(user, org, "127.0.0.1");
 

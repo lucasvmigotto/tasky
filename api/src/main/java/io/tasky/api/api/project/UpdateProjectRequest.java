@@ -12,5 +12,6 @@ public record UpdateProjectRequest(
         Long estimatedSeconds,
         Long budgetSeconds,
         BigDecimal budgetAmount,
-        Boolean isActive
+        Boolean isActive,
+        Long expectedVersion
 ) {}

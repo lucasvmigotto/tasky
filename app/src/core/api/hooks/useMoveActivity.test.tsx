@@ -41,7 +41,7 @@ describe('useMoveActivity', () => {
     queryClient.setQueryData(listKey, [activity])
     queryClient.setQueryData(detailKey, activity)
     server.use(
-      http.patch('/api/v1/activities/:activityId/move', () =>
+      http.patch('http://localhost/api/v1/activities/:activityId/move', () =>
         HttpResponse.json({ detail: 'Falha simulada' }, { status: 500 }),
       ),
     )

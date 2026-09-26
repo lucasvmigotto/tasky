@@ -49,7 +49,10 @@ class CorsConfigurationTest {
         TaskYProperties properties = new TaskYProperties(
                 new TaskYProperties.Jwt("unused", 1),
                 new TaskYProperties.Cors(origins),
-                new TaskYProperties.Google("unused"),
+                new TaskYProperties.Google("unused", null),
+                new TaskYProperties.Microsoft(null, null, "common"),
+                new TaskYProperties.MockOAuth2(false, null, null, null, null),
+                new TaskYProperties.Exports(5000),
                 new TaskYProperties.Reminders(60_000, java.time.Duration.ofHours(24),
                         java.time.Duration.ofHours(8), java.time.Duration.ofHours(24), 100),
                 new TaskYProperties.Platform(List.of()));

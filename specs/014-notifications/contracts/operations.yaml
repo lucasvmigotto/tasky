@@ -1,0 +1,4 @@
+# 014 — Notification operations
+- GET /api/v1/notifications?page&size&type&unreadOnly | GET .../unread-count
+- PATCH .../{id}/read | POST .../mark-all-read
+- GET/PUT /api/v1/notifications/preferences[/{type}]

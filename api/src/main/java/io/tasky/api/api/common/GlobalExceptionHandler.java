@@ -58,6 +58,11 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(PagedResultRequiredException.class)
+    public ProblemDetail handlePagedRequired(PagedResultRequiredException ex) {
+        return ex.getProblem();
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException ex) {
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
@@ -89,6 +94,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex) {
         log.error("Unhandled exception", ex);
+        io.sentry.Sentry.captureException(ex);
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         pd.setTitle("Internal Server Error");
         pd.setDetail("An unexpected error occurred");

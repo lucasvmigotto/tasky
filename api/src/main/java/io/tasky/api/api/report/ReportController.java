@@ -1,6 +1,7 @@
 package io.tasky.api.api.report;
 
 import io.tasky.api.api.common.PaginatedResponse;
+import org.springframework.http.ProblemDetail;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.report.ReportExportService;
 import io.tasky.api.domain.report.ReportService;
@@ -18,7 +19,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,8 +36,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
-@Transactional
 public class ReportController {
+
+    private static final int DETAILED_INLINE_LIMIT = 2000;
 
     private final ReportService reportService;
     private final SavedReportService savedReportService;
@@ -72,10 +73,20 @@ public class ReportController {
             @AuthenticationPrincipal SecurityUser user) {
 
         UUID orgId = requireFinancialReportsAccess(user);
-        return ResponseEntity.ok(reportService.getDetailed(
+        Page<ReportDetailedRow> page = reportService.getDetailedPage(
                 orgId, from.orElse(null), to.orElse(null),
                 projectId.orElse(null), membershipId.orElse(null),
-                reportScope(user, orgId, departmentId.orElse(null))));
+                reportScope(user, orgId, departmentId.orElse(null)),
+                PageRequest.of(0, DETAILED_INLINE_LIMIT + 1));
+        if (page.getTotalElements() > DETAILED_INLINE_LIMIT) {
+            ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+            problem.setTitle("Result set too large");
+            problem.setDetail("Use GET /reports/detailed/page for result sets above "
+                    + DETAILED_INLINE_LIMIT + " rows.");
+            problem.setProperty("code", "USE_DETAILED_PAGE");
+            throw new io.tasky.api.api.common.PagedResultRequiredException(problem);
+        }
+        return ResponseEntity.ok(page.getContent());
     }
 
     @GetMapping("/detailed/page")
@@ -229,9 +240,28 @@ public class ReportController {
         return ResponseEntity.ok(savedReportService.get(orgId, requireMembershipId(user, orgId), isAdmin(user, orgId), reportId));
     }
 
-    @GetMapping("/exports")
+    @PostMapping("/exports")
     @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
     public ResponseEntity<ExportJobResponse> createExportJob(
+            @Valid @RequestBody CreateExportJobRequest request,
+            @AuthenticationPrincipal SecurityUser user) {
+        UUID orgId = requireFinancialReportsAccess(user);
+        ExportJobResponse job = reportExportService.create(
+                orgId, requireMembershipId(user, orgId),
+                request.from(), request.to(),
+                request.projectId(), request.membershipId(),
+                reportScope(user, orgId, null), request.format() != null ? request.format() : "csv");
+        return ResponseEntity.accepted().body(job);
+    }
+
+    /**
+     * @deprecated Side-effecting GET kept for one release for old clients.
+     * Sends {@code Deprecation} and never caches. Use {@code POST /exports}.
+     */
+    @Deprecated
+    @GetMapping("/exports")
+    @PreAuthorize("@access.canViewFinancialReports(authentication.principal, authentication.principal.activeOrganizationId)")
+    public ResponseEntity<ExportJobResponse> createExportJobLegacy(
             @RequestParam("from") Optional<Instant> from,
             @RequestParam("to") Optional<Instant> to,
             @RequestParam("projectId") Optional<UUID> projectId,
@@ -244,7 +274,10 @@ public class ReportController {
                 from.orElse(null), to.orElse(null),
                 projectId.orElse(null), membershipId.orElse(null),
                 reportScope(user, orgId, null), format.orElse("csv"));
-        return ResponseEntity.accepted().body(job);
+        return ResponseEntity.accepted()
+                .header("Deprecation", "true")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(job);
     }
 
     @GetMapping("/exports/{jobId}")

@@ -191,6 +191,13 @@ export interface AuthRefreshResponse {
   activeOrganizationId: UUID | null
 }
 
+export type OidcProvider = 'GOOGLE' | 'MICROSOFT' | 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'
+
+export interface OidcAuthRequest {
+  provider: OidcProvider
+  idToken: string
+}
+
 export interface ApiKeyResponse {
   token: string
   expiresAt: ISO8601
@@ -328,6 +335,7 @@ export interface ProjectResponse {
   budgetAmount: number | null
   isActive: boolean
   createdAt: ISO8601
+  version: number
 }
 
 export interface CreateActivityRequest {
@@ -396,6 +404,7 @@ export interface ActivityQueryParams {
   to?: ISO8601
   assignedTo?: UUID
   projectId?: UUID
+  size?: number
 }
 
 export interface UpdateProjectRequest {
@@ -408,6 +417,7 @@ export interface UpdateProjectRequest {
   budgetSeconds?: number
   budgetAmount?: number
   isActive?: boolean
+  expectedVersion?: number
 }
 
 export interface ProjectAssignmentResponse {
@@ -673,6 +683,7 @@ export interface TimeEntryResponse {
   costRateSnapshot: number | null
   billable: boolean
   createdAt: ISO8601
+  version: number
 }
 
 export interface ManualTimeEntryRequest {
@@ -701,6 +712,7 @@ export interface UpdateTimeEntryRequest {
   startTime?: ISO8601
   endTime?: ISO8601
   billable?: boolean
+  expectedVersion?: number
 }
 
 export interface TimeEntryQueryParams {
@@ -772,6 +784,9 @@ export interface ReportQueryParams {
   projectId?: UUID
   membershipId?: UUID
   departmentId?: UUID
+  size?: number
+  page?: number
+  format?: 'csv' | 'xlsx' | 'pdf'
 }
 
 export interface SwitchOrgResponse {
@@ -1069,6 +1084,7 @@ export interface NotificationResponse {
 export type NotificationPreferenceType =
   | 'ACTIVITY_DUE_SOON'
   | 'ACTIVITY_OVERDUE'
+  | 'ACTIVITY_MENTION'
   | 'OPEN_TIMER'
   | 'TIME_ENTRY_PENDING_APPROVAL'
 

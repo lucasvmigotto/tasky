@@ -5,7 +5,6 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/shared/lib/cn'
 
 interface TooltipContextValue {
@@ -66,26 +65,16 @@ function TooltipContent({ children, className, side = 'top', ...props }: Tooltip
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="relative">
-          <motion.div
-            className={cn(
-              'absolute z-50 overflow-hidden rounded-md border border-border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md',
-              sideClasses[side],
-              className,
-            )}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.1 }}
-            {...(props as Record<string, unknown>)}
-          >
-            {children}
-          </motion.div>
-        </div>
+    <div
+      className={cn(
+        'absolute z-50 overflow-hidden rounded-md border border-border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md transition-all duration-100 ease-out',
+        sideClasses[side],
+        className,
+        open ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'
       )}
-    </AnimatePresence>
+      {...(props as Record<string, unknown>)}>
+    {children}
+  </div>
   )
 }
 TooltipContent.displayName = 'TooltipContent'

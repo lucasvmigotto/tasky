@@ -9,6 +9,14 @@ spring:
     username: ${POSTGRES_USER:tasky}
     password: ${POSTGRES_PASSWORD:tasky}
     driver-class-name: org.postgresql.Driver
+  data:
+    web:
+      pageable:
+        default-page-size: 50
+        max-page-size: 500
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -28,14 +36,54 @@ spring:
           issuer-uri: https://accounts.google.com
           jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  health:
+    # Cache is fail-open by design: a down Redis must not mark the app DOWN.
+    # Redis itself is monitored via metrics (Phase 6 alerts).
+    redis:
+      enabled: false
+  metrics:
+    tags:
+      application: tasky
+  tracing:
+    sampling:
+      probability: ${OTEL_SAMPLING_PROBABILITY:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  traces-sample-rate: 0.1
+  send-default-pii: false
+
 tasky:
   jwt:
     secret: ${JWT_SECRET}
     expiration-hours: ${JWT_EXPIRATION_HOURS:24}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
+  cache:
+    report-summary-ttl: ${TASKY_SUMMARY_CACHE_TTL:PT30S}
+  exports:
+    worker-delay-ms: ${TASKY_EXPORT_WORKER_DELAY_MS:5000}
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+  microsoft:
+    client-id: ${MICROSOFT_CLIENT_ID:}
+    client-secret: ${MICROSOFT_CLIENT_SECRET:}
+    tenant-id: ${MICROSOFT_TENANT_ID:common}
+  mock-oauth2:
+    enabled: ${MOCK_OAUTH2_ENABLED:false}
+    google-issuer: ${MOCK_OAUTH2_GOOGLE_ISSUER:}
+    microsoft-issuer: ${MOCK_OAUTH2_MICROSOFT_ISSUER:}
+    google-jwks-uri: ${MOCK_OAUTH2_GOOGLE_JWKS_URI:}
+    microsoft-jwks-uri: ${MOCK_OAUTH2_MICROSOFT_JWKS_URI:}
   platform:
     super-admin-emails: ${TASKY_SUPER_ADMINS:}
   reminders:

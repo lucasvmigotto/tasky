@@ -90,6 +90,18 @@ public class TimesheetPeriodService {
         if (!permissionService.canSubmitTimesheet(user, period.getMembership().getId())) {
             throw new SecurityException("You cannot reopen this timesheet period");
         }
+        if (period.getStatus() == TimesheetPeriodStatus.LOCKED) {
+            // Audited exception path: reopening a closed period requires org admin.
+            if (!actor.getRole().isAdminLevel()) {
+                throw new SecurityException("Only admins can reopen a closed timesheet period");
+            }
+            period.setStatus(TimesheetPeriodStatus.DRAFT);
+            period.setRejectionComment(null);
+            TimesheetPeriod saved = timesheetPeriodRepository.save(period);
+            auditService.record(orgId, actor.getUser().getId(), actor.getId(), "timesheet_period", periodId,
+                    "REOPEN_LOCKED", "status=LOCKED", "status=DRAFT", null);
+            return saved;
+        }
         if (period.getStatus() != TimesheetPeriodStatus.REJECTED) {
             throw new ConflictException("Only rejected timesheet periods can be reopened");
         }

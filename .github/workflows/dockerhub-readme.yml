@@ -1,0 +1,41 @@
+name: Docker Hub description
+
+# Keeps the Docker Hub repository description in sync with dockerhub.README.md,
+# substituting each image's version at publish time (mirrors devenv's pattern).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dockerhub.README.md"
+      - "app/package.json"
+      - "api/build.gradle"
+      - "docs/site/package.json"
+      - ".github/workflows/dockerhub-readme.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  description:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Substitute version placeholders
+        run: |
+          APP_VERSION="$(jq -r '.version' app/package.json)"
+          API_VERSION="$(awk -F"'" '/^version = / { print $2; exit }' api/build.gradle)"
+          DOCS_VERSION="$(jq -r '.version' docs/site/package.json)"
+          sed -e "s/##APP_VERSION##/${APP_VERSION}/g" \
+              -e "s/##API_VERSION##/${API_VERSION}/g" \
+              -e "s/##DOCS_VERSION##/${DOCS_VERSION}/g" \
+              dockerhub.README.md > /tmp/dockerhub.README.md
+
+      - name: Push description to Docker Hub
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
+          repository: ${{ github.repository_owner }}/tasky
+          readme-filepath: /tmp/dockerhub.README.md

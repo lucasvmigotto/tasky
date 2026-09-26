@@ -3,6 +3,8 @@ package io.tasky.api.api;
 import io.tasky.api.BaseIntegrationTest;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
+import io.tasky.api.domain.notification.NotificationPreferenceService;
+import io.tasky.api.domain.notification.NotificationPreferenceType;
 import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.organization.OrganizationRepository;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class NotificationInboxIntegrationTest extends BaseIntegrationTest {
 
     @Autowired private NotificationService notificationService;
+    @Autowired private NotificationPreferenceService preferenceService;
     @Autowired private OrganizationMembershipRepository membershipRepository;
     @Autowired private OrganizationService organizationService;
     @Autowired private OrganizationRepository organizationRepository;
@@ -77,5 +81,26 @@ class NotificationInboxIntegrationTest extends BaseIntegrationTest {
 
         assertThat(notificationService.markAllRead(firstMembership.getId())).isEqualTo(1);
         assertThat(notificationService.unread(firstMembership.getId())).isZero();
+    }
+
+    @Test
+    void mentionPreferenceOff_suppressesNotification() {
+        UUID resourceId = UUID.randomUUID();
+
+        assertThat(notificationService.createOnce(firstOrg.getId(), firstMembership.getId(),
+                "mention:on", "ACTIVITY_MENTION", "Mention", "Hey", "activity", resourceId,
+                NotificationPreferenceType.ACTIVITY_MENTION)).isTrue();
+
+        preferenceService.replace(firstMembership.getId(), Map.of(
+                NotificationPreferenceType.ACTIVITY_DUE_SOON, true,
+                NotificationPreferenceType.ACTIVITY_OVERDUE, true,
+                NotificationPreferenceType.ACTIVITY_MENTION, false,
+                NotificationPreferenceType.OPEN_TIMER, true,
+                NotificationPreferenceType.TIME_ENTRY_PENDING_APPROVAL, true));
+
+        assertThat(notificationService.createOnce(firstOrg.getId(), firstMembership.getId(),
+                "mention:off", "ACTIVITY_MENTION", "Mention", "Hey", "activity", resourceId,
+                NotificationPreferenceType.ACTIVITY_MENTION)).isFalse();
+        assertThat(notificationService.unread(firstMembership.getId())).isEqualTo(1);
     }
 }

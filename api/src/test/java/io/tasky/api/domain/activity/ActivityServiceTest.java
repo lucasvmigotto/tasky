@@ -1,11 +1,14 @@
 package io.tasky.api.domain.activity;
 
+import io.tasky.api.domain.membership.MembershipService;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.membership.Role;
+import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.organization.Organization;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
+import io.tasky.api.domain.projectcolumn.ProjectColumnRepository;
 import io.tasky.api.security.PermissionService;
 import io.tasky.api.security.SecurityUser;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * PHASE 3 (T-15): unit tests target the split services directly.
+ * The {@link ActivityService} facade is covered by integration tests.
+ */
 @ExtendWith(MockitoExtension.class)
 class ActivityServiceTest {
 
@@ -36,20 +43,38 @@ class ActivityServiceTest {
     @Mock
     private ActivityDependencyRepository dependencyRepository;
     @Mock
+    private ActivityChecklistItemRepository checklistRepository;
+    @Mock
     private ProjectRepository projectRepository;
+    @Mock
+    private ProjectColumnRepository projectColumnRepository;
     @Mock
     private OrganizationMembershipRepository membershipRepository;
     @Mock
+    private MembershipService membershipService;
+    @Mock
     private PermissionService permissionService;
+    @Mock
+    private NotificationService notificationService;
+    @Mock
+    private ActivityEventHelper eventHelper;
+    @Mock
+    private ActivityDependencyService dependencyService;
 
     @InjectMocks
-    private ActivityService activityService;
+    private ActivityCoreService coreService;
+
+    @InjectMocks
+    private ActivityDependencyService activityDependencyService;
+
+    @InjectMocks
+    private ActivityCollaborationService collaborationService;
 
     @Test
     void createActivity_startAfterEnd_throwsException() {
         SecurityUser user = adminUser();
         assertThrows(IllegalArgumentException.class, () ->
-                activityService.createActivity(
+                coreService.createActivity(
                         UUID.randomUUID(), "Test", "Desc", (short) 1,
                         Instant.now().plusSeconds(3600), Instant.now(),
                         UUID.randomUUID(), null, user
@@ -60,7 +85,7 @@ class ActivityServiceTest {
     void createActivity_withInvalidWeight_throwsException() {
         SecurityUser user = adminUser();
         assertThrows(IllegalArgumentException.class, () ->
-                activityService.createActivity(
+                coreService.createActivity(
                         UUID.randomUUID(), "Test", "Desc", (short) 4,
                         Instant.now(), Instant.now().plusSeconds(3600),
                         UUID.randomUUID(), null, user
@@ -72,7 +97,7 @@ class ActivityServiceTest {
         SecurityUser user = adminUser();
         Instant now = Instant.now();
         assertThrows(IllegalArgumentException.class, () ->
-                activityService.createActivity(
+                coreService.createActivity(
                         UUID.randomUUID(), "Test", "Desc", (short) 1,
                         now, now,
                         UUID.randomUUID(), null, user
@@ -98,7 +123,7 @@ class ActivityServiceTest {
         when(dependencyRepository.findByParentActivityId(child.getId())).thenReturn(List.of(existingPath));
 
         assertThrows(IllegalArgumentException.class,
-                () -> activityService.addDependency(orgId, child.getId(), parent.getId()));
+                () -> activityDependencyService.addDependency(orgId, child.getId(), parent.getId()));
         verify(dependencyRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 
@@ -116,7 +141,7 @@ class ActivityServiceTest {
                 .thenReturn(Optional.of(parent));
 
         assertThrows(IllegalArgumentException.class,
-                () -> activityService.addDependency(orgId, child.getId(), parent.getId()));
+                () -> activityDependencyService.addDependency(orgId, child.getId(), parent.getId()));
         verify(dependencyRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 
@@ -131,7 +156,7 @@ class ActivityServiceTest {
         when(activityRepository.findByIdAndProject_Department_Organization_Id(activity.getId(), orgId))
                 .thenReturn(Optional.of(activity));
 
-        assertThrows(IllegalArgumentException.class, () -> activityService.addAttachment(
+        assertThrows(IllegalArgumentException.class, () -> collaborationService.addAttachment(
                 orgId, activity.getId(), uploader, "payload.txt", "text/plain", 10,
                 "javascript:alert(1)", null));
         verify(activityAttachmentRepository, never()).save(org.mockito.ArgumentMatchers.any());

@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -34,7 +33,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/time-entries")
 @RequiredArgsConstructor
-@Transactional
 public class TimeEntryController {
 
     private final TimeEntryService timeEntryService;
@@ -112,7 +110,7 @@ public class TimeEntryController {
         boolean isOrgManager = permissionService.canManageOrganization(user, orgId)
                 || membership.getRole() == Role.manager;
 
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 5000));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500));
         if (isOrgManager && membershipId.isPresent()) {
             return ResponseEntity.ok(timeEntryService.getPage(
                     orgId, membershipId.get(), from.orElse(null), to.orElse(null), projectId.orElse(null), pageable));
@@ -147,7 +145,7 @@ public class TimeEntryController {
         if (!isOrgManager) {
             throw new SecurityException("Only managers and admins can view organization time entries");
         }
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 5000));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500));
         return ResponseEntity.ok(timeEntryService.getOrganizationPage(
                 orgId, from.orElse(null), to.orElse(null), pageable));
     }
@@ -222,7 +220,7 @@ public class TimeEntryController {
         TimeEntry entry = timeEntryService.updateEntry(
                 user.activeOrganizationId(), membership.getId(), entryId,
                 request.projectId(), request.activityId(), request.description(), request.glpiTicketId(),
-                request.startTime(), request.endTime(), request.billable()
+                request.startTime(), request.endTime(), request.billable(), request.expectedVersion()
         );
         return ResponseEntity.ok(toResponse(entry));
     }
@@ -265,7 +263,8 @@ public class TimeEntryController {
                 entry.getBillingRateSnapshot(),
                 entry.getCostRateSnapshot(),
                 entry.isBillable(),
-                entry.getCreatedAt()
+                entry.getCreatedAt(),
+                entry.getVersion()
         );
     }
 }

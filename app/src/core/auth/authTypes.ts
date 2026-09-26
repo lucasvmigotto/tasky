@@ -7,7 +7,6 @@ export interface AuthState {
   activeOrg: OrgInfo | null
   isAuthenticated: boolean
   isLoading: boolean
-  isDemo: boolean
 }
 
 export interface UserInfo {

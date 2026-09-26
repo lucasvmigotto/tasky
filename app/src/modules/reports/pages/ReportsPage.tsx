@@ -38,10 +38,11 @@ import {
   useDepartments,
   useReportSummary,
   useReportDetailed,
-  downloadReportCsv,
   useTimeEntries,
+  downloadExportJobCsv,
 } from '@/core/api/hooks'
-import type { UUID, ReportSummaryResponse, ReportDetailedRow } from '@/core/api/types'
+import { apiClient } from '@/core/api/apiClient'
+import type { UUID, ReportSummaryResponse, ReportDetailedRow, ExportJobResponse, ReportQueryParams } from '@/core/api/types'
 import { toast } from 'sonner'
 
 const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899']
@@ -53,6 +54,19 @@ function startOfWeek() {
   monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day))
   monday.setHours(0, 0, 0, 0)
   return monday.toISOString().split('T')[0]
+}
+
+async function exportViaJob(params: ReportQueryParams) {
+  const job = await apiClient.post<ExportJobResponse>('/reports/exports', { ...params, format: params.format ?? 'csv' })
+  const deadline = Date.now() + 30_000
+  for (;;) {
+    const status = await apiClient.get<ExportJobResponse>(`/reports/exports/${job.id}`)
+    if (status.status === 'READY') break
+    if (status.status === 'FAILED') throw new Error('Falha ao gerar relatório')
+    if (Date.now() > deadline) throw new Error('Exportação demorou demais; tente de novo')
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  await downloadExportJobCsv(job.id)
 }
 
 function endOfWeek() {
@@ -97,16 +111,21 @@ function CollaboratorReport() {
   const [to, setTo] = useState(endOfWeek())
   const [projectId, setProjectId] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [detailPage, setDetailPage] = useState(0)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv')
 
   const params = useMemo(() => ({
     from: new Date(`${from}T00:00:00.000Z`).toISOString(),
     to: new Date(`${to}T23:59:59.999Z`).toISOString(),
     projectId: projectId || undefined,
-  }), [from, to, projectId])
+    page: detailPage,
+    format: exportFormat,
+  }), [from, to, projectId, detailPage, exportFormat])
 
   const { data, isLoading, error } = useReportSummary(params)
   const { data: projects = [] } = useProjects(orgId as UUID)
-  const { data: entries = [] } = useTimeEntries(orgId ? { ...params, size: 5000 } : null)
+  const { data: entries = [] } = useTimeEntries(orgId ? { ...params, size: 500 } : null)
+  const { data: detailedData, isLoading: detailedLoading } = useReportDetailed(params)
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? 'Projeto'
   const projectColor = (id: string) => projects.find((p) => p.id === id)?.color ?? '#64748B'
@@ -139,7 +158,7 @@ function CollaboratorReport() {
   async function handleExport() {
     setExporting(true)
     try {
-      await downloadReportCsv(params)
+      await exportViaJob({ ...params, format: exportFormat })
       toast.success('Relatório exportado')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao exportar')
@@ -175,10 +194,22 @@ function CollaboratorReport() {
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
       <PageHeader title="Meu Relatório" description="Horas registradas na semana">
-        <Button onClick={handleExport} disabled={exporting}>
-          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-          Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx' | 'pdf')}
+            className="w-[160px]"
+            options={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'xlsx', label: 'XLSX' },
+              { value: 'pdf', label: 'PDF' },
+            ]}
+          />
+          <Button onClick={handleExport} disabled={exporting}>
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Exportar {exportFormat.toUpperCase()}
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-card p-4 sm:grid-cols-3">
@@ -311,6 +342,8 @@ function ManagerReport() {
   const [selectedMemberId, setSelectedMemberId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [detailPage, setDetailPage] = useState(0)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv')
 
   const { data: projects = [] } = useProjects(orgId as UUID)
   const { data: members = [] } = useMemberships(orgId as UUID)
@@ -330,12 +363,16 @@ function ManagerReport() {
     projectId: projectId || undefined,
     membershipId: selectedMemberId || undefined,
     departmentId: sectorId || undefined,
-  }), [from, to, projectId, selectedMemberId, sectorId])
+    page: detailPage,
+    format: exportFormat,
+  }), [from, to, projectId, selectedMemberId, sectorId, detailPage, exportFormat])
 
   const reportParams = isAdmin && !sectorId ? null : params
 
   const { data, isLoading, error } = useReportSummary(reportParams)
-  const { data: detailed, isLoading: detailedLoading } = useReportDetailed(reportParams)
+  const { data: detailedData, isLoading: detailedLoading } = useReportDetailed(reportParams)
+  const detailed = detailedData?.rows ?? []
+  const detailedTotal = detailedData?.total ?? 0
 
   const projectHours = useMemo(
     () => (data?.projectHours ?? []).map((p) => ({ ...p, color: p.color || '#64748B' })),
@@ -364,7 +401,7 @@ function ManagerReport() {
     if (!reportParams) return
     setExporting(true)
     try {
-      await downloadReportCsv(reportParams)
+      await exportViaJob({ ...reportParams, format: exportFormat })
       toast.success('Relatório exportado')
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao exportar')
@@ -399,11 +436,23 @@ function ManagerReport() {
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Relatório do Setor" description="Semana da equipe: horas e produtividade">
-        <Button onClick={handleExport} disabled={exporting || (isAdmin && !sectorId)}>
-          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-          Exportar CSV
-        </Button>
+<PageHeader title="Relatório do Setor" description="Semana da equipe: horas e produtividade">
+        <div className="flex items-center gap-2">
+          <Select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx' | 'pdf')}
+            className="w-[160px]"
+            options={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'xlsx', label: 'XLSX' },
+              { value: 'pdf', label: 'PDF' },
+            ]}
+          />
+          <Button onClick={handleExport} disabled={exporting || (isAdmin && !sectorId)}>
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Exportar {exportFormat.toUpperCase()}
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-card p-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -539,6 +588,11 @@ function ManagerReport() {
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-border/50 bg-card">
+                {detailedTotal > detailed.length && (
+                  <p className="border-b border-border/50 px-4 py-2 text-xs text-muted-foreground">
+                    Mostrando {detailed.length} de {detailedTotal} registros. Refine o período ou exporte o CSV completo.
+                  </p>
+                )}
                 {detailedLoading ? (
                   <div className="p-6"><Skeleton className="h-64 w-full" /></div>
                 ) : (detailed ?? []).length === 0 ? (
@@ -582,6 +636,34 @@ function ManagerReport() {
                       ))}
                     </tbody>
                   </table>
+                )}
+                {detailedTotal > 0 && (
+                  <div className="border-t border-border/50 px-4 py-3 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Mostrando {detailed.length} de {detailedTotal} registros
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDetailPage((p) => Math.max(0, p - 1))}
+                        disabled={detailPage === 0}
+                      >
+                        Anterior
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Página {detailPage + 1} de {Math.ceil(detailedTotal / 50) || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDetailPage((p) => p + 1)}
+                        disabled={detailed.length < 50}
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

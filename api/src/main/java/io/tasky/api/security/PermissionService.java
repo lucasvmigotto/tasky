@@ -254,10 +254,13 @@ public class PermissionService {
         if (!departmentRepository.findByIdAndOrganizationId(departmentId, orgId).isPresent()) {
             throw new IllegalArgumentException("Department not found in this organization");
         }
-        return membershipRepository.findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdIn(orgId, Set.of(departmentId))
+        Set<UUID> scoped = membershipRepository.findByOrganizationIdAndIsActiveTrueAndPrimaryDepartmentIdIn(orgId, Set.of(departmentId))
                 .stream()
                 .map(OrganizationMembership::getId)
                 .collect(Collectors.toSet());
+        // Admins always see their own entries, even without a primary department.
+        scoped.add(actor.getId());
+        return scoped;
     }
 
     public Set<UUID> scopedMembershipIds(SecurityUser user, UUID orgId) {

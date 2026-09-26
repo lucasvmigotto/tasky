@@ -14,7 +14,6 @@ describe('authStore session restoration', () => {
       activeOrg: null,
       isAuthenticated: false,
       isLoading: true,
-      isDemo: false,
     })
   })
 
@@ -34,8 +33,8 @@ describe('authStore session restoration', () => {
   it('clears an invalid session locally without sending a racing logout request', async () => {
     let logoutCalls = 0
     server.use(
-      http.post('/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
-      http.post('/api/v1/auth/logout', () => {
+      http.post('http://localhost/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
+      http.post('http://localhost/api/v1/auth/logout', () => {
         logoutCalls++
         return new HttpResponse(null, { status: 204 })
       }),

@@ -1,7 +1,7 @@
 {
   "name": "tasky-app",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,9 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:timer": "VITE_API_URL=http://localhost:8080 VITE_MOCK_OAUTH2_ENABLED=true VITE_MOCK_OAUTH2_URL=https://localhost:48443 bun run build && E2E_API_URL=http://localhost:8080 E2E_BASE_URL=http://localhost:5173 playwright test timer.spec.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -53,7 +55,8 @@
     "tailwind-merge": "^2.6.0",
     "tw-animate-css": "^1.3.0",
     "zod": "^3.24.2",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "@sentry/react": "^9.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -63,11 +66,14 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "@axe-core/playwright": "^4.8.0",
+    "vitest-axe": "^0.1.0",
     "jsdom": "^25.0.0",
     "msw": "^2.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "~5.7.3",
     "vite": "^6.1.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "@playwright/test": "^1.49.0"
   }
 }

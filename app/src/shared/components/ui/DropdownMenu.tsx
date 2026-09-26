@@ -11,7 +11,6 @@ import {
   type SetStateAction,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/shared/lib/cn'
 
 interface DropdownMenuContextValue {
@@ -145,25 +144,18 @@ function DropdownMenuContent({ children, className, align = 'center', ...props }
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          ref={ref}
-          className={cn(
-            'fixed z-[1000] min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl shadow-black/20',
-            className,
-          )}
-          style={{ top: position.top, left: position.left, minWidth: position.minWidth }}
-          initial={{ opacity: 0, y: -4, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -4, scale: 0.98 }}
-          transition={{ duration: 0.1 }}
-          {...(props as Record<string, unknown>)}
-        >
-          {children}
-        </motion.div>
+    <div
+      ref={ref}
+      className={cn(
+        'fixed z-[1000] min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl shadow-black/20 transition-all duration-100 ease-out',
+        className,
+        open ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-1 scale-98'
       )}
-    </AnimatePresence>,
+style={{ top: position.top, left: position.left, minWidth: position.minWidth }}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </div>,
     document.body,
   )
 }

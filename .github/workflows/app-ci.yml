@@ -31,9 +31,34 @@ jobs:
         run: bun run lint
         working-directory: app/
 
-      - name: Run tests
-        run: bun run test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run tests (Node - MSW requires undici realms)
+        run: node ./node_modules/vitest/vitest.mjs run
         working-directory: app/
+
+      - name: Install Playwright browsers
+        run: bunx playwright install chromium --with-deps
+        working-directory: app/
+
+      - name: Build (E2E demo+mock profile)
+        run: VITE_DEMO_MODE=true VITE_MOCK_OAUTH2_ENABLED=true bun run build
+        working-directory: app/
+        env:
+          VITE_DEMO_MODE: 'true'
+          VITE_MOCK_OAUTH2_ENABLED: 'true'
+
+      - name: Run Playwright smoke (demo profile)
+        run: |
+          printf 'window.__TASKY_CONFIG__ = {\n  DEMO_MODE: '"'"'true'"'"',\n  GOOGLE_CLIENT_ID: '"'"''"'"',\n  MICROSOFT_CLIENT_ID: '"'"''"'"',\n  MOCK_OAUTH2_ENABLED: '"'"'true'"'"',\n  MOCK_OAUTH2_URL: '"'"'http://localhost:48080'"'"'\n}\n' > dist/runtime-config.js
+          (bun run preview -- --port 5173 --strictPort --host 127.0.0.1 > /tmp/preview.log 2>&1 &) 
+          sleep 8
+          E2E_NO_SERVER=1 bunx playwright test
+        working-directory: app/
+        env:
+          E2E_NO_SERVER: '1'
 
       - name: Extract version
         id: version
@@ -76,7 +101,7 @@ jobs:
       - name: Log in to Docker Hub Container registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.DOCKER_HUB_PAT }}
 
       - name: Log in to GitHub Container registry
@@ -91,8 +116,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-app
-            ghcr.io/${{ github.repository }}-app
+            ${{ github.repository_owner }}/tasky
+            ghcr.io/${{ github.repository }}
 
       - name: Build and push Docker image
         id: push
@@ -105,15 +130,15 @@ jobs:
           provenance: mode=max
           labels: ${{ steps.meta.outputs.labels }}
           tags: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-app:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}-app:${{ steps.version.outputs.version }}
-            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-app:latest
-            ghcr.io/${{ github.repository }}-app:latest
+            ${{ github.repository_owner }}/tasky:app-${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:app-${{ steps.version.outputs.version }}
+            ${{ github.repository_owner }}/tasky:app-latest
+            ghcr.io/${{ github.repository }}:app-latest
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v3
         with:
-          subject-name: ghcr.io/${{ github.repository }}-app
+          subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}
 
   release-artifact:

@@ -9,6 +9,11 @@ import io.tasky.api.domain.user.User;
 import io.tasky.api.domain.user.UserService;
 import io.tasky.api.security.GoogleTokenVerifier;
 import io.tasky.api.security.JwtTokenProvider;
+import io.tasky.api.security.MicrosoftTokenVerifier;
+import io.tasky.api.security.MockOidcTokenVerifier;
+import io.tasky.api.security.OidcCodeExchangeService;
+import io.tasky.api.security.OidcProvider;
+import io.tasky.api.security.OidcTokenPayload;
 import io.tasky.api.security.SecurityUser;
 import io.tasky.api.security.SuperAdminService;
 import jakarta.servlet.http.Cookie;
@@ -38,6 +43,9 @@ public class AuthController {
     public static final String REFRESH_COOKIE = "tasky_refresh";
 
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final MicrosoftTokenVerifier microsoftTokenVerifier;
+    private final MockOidcTokenVerifier mockOidcTokenVerifier;
+    private final OidcCodeExchangeService oidcCodeExchangeService;
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final OrganizationMembershipRepository membershipRepository;
@@ -52,9 +60,61 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         var payload = googleTokenVerifier.verify(request.idToken());
+        return completeLogin(payload.email(), payload.sub(), payload.name(), payload.picture(),
+                httpRequest, httpResponse);
+    }
 
-        User user = userService.getOrCreateUser(payload.email(), payload.sub(), payload.name(), payload.picture());
-        membershipService.acceptPendingInvitations(user, payload.email());
+    @PostMapping("/oidc")
+    public ResponseEntity<AuthResponse> loginWithOidc(
+            @Valid @RequestBody OidcAuthRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        OidcTokenPayload payload = switch (request.provider()) {
+            case GOOGLE -> {
+                var google = googleTokenVerifier.verify(request.idToken());
+                yield new OidcTokenPayload(google.sub(), google.email(), google.name(), google.picture());
+            }
+            case MICROSOFT -> microsoftTokenVerifier.verify(request.idToken());
+            case MOCK_GOOGLE, MOCK_MICROSOFT ->
+                    mockOidcTokenVerifier.verify(request.provider(), request.idToken());
+        };
+        return completeLogin(payload.email(), payload.subjectKey(), payload.name(), payload.picture(),
+                httpRequest, httpResponse);
+    }
+
+    @PostMapping("/oidc/code")
+    public ResponseEntity<AuthResponse> loginWithOidcCode(
+            @Valid @RequestBody OidcCodeRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        // Exchange authorization code for tokens at provider's token endpoint
+        OidcTokenPayload payload = exchangeCodeForTokens(
+                request.provider(), request.code(), request.codeVerifier(), request.redirectUri());
+        return completeLogin(payload.email(), payload.subjectKey(), payload.name(), payload.picture(),
+                httpRequest, httpResponse);
+    }
+
+    private OidcTokenPayload exchangeCodeForTokens(
+            OidcProvider provider, String code, String codeVerifier, String redirectUri) {
+        return switch (provider) {
+            case GOOGLE -> {
+                String idToken = oidcCodeExchangeService.exchangeForIdToken(
+                        provider, code, codeVerifier, redirectUri);
+                var google = googleTokenVerifier.verify(idToken);
+                yield new OidcTokenPayload(google.sub(), google.email(), google.name(), google.picture());
+            }
+            case MICROSOFT -> microsoftTokenVerifier.verify(oidcCodeExchangeService.exchangeForIdToken(
+                    provider, code, codeVerifier, redirectUri));
+            case MOCK_GOOGLE, MOCK_MICROSOFT -> mockOidcTokenVerifier.verify(provider,
+                    oidcCodeExchangeService.exchangeForIdToken(provider, code, codeVerifier, redirectUri));
+        };
+    }
+
+    private ResponseEntity<AuthResponse> completeLogin(
+            String email, String subjectKey, String name, String picture,
+            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        User user = userService.getOrCreateUser(email, subjectKey, name, picture);
+        membershipService.acceptPendingInvitations(user, email);
         superAdminService.ensureSuperAdmin(user);
 
         List<OrganizationMembership> memberships = membershipRepository.findByUserIdAndIsActiveTrue(user.getId());
@@ -233,12 +293,21 @@ public class AuthController {
     }
 
     private void setRefreshCookie(HttpServletResponse response, String rawToken) {
+        setRefreshCookie(response, rawToken, null);
+    }
+
+    private void setRefreshCookie(HttpServletResponse response, String rawToken, java.time.Instant familyExpiresAt) {
         boolean secure = Arrays.asList(environment.getActiveProfiles()).contains("prod");
         Cookie cookie = new Cookie(REFRESH_COOKIE, rawToken);
         cookie.setHttpOnly(true);
         cookie.setSecure(secure);
         cookie.setPath("/");
-        cookie.setMaxAge((int) (14 * 24 * 3600));
+        long maxAge = 14 * 24 * 3600;
+        if (familyExpiresAt != null) {
+            long remaining = familyExpiresAt.getEpochSecond() - java.time.Instant.now().getEpochSecond();
+            maxAge = Math.max(0, Math.min(maxAge, remaining));
+        }
+        cookie.setMaxAge((int) maxAge);
         cookie.setAttribute("SameSite", "Lax");
         response.addCookie(cookie);
     }

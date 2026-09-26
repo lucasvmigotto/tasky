@@ -37,7 +37,8 @@ public class ProjectController {
             @Valid @RequestBody CreateProjectRequest request,
             @AuthenticationPrincipal SecurityUser user) {
 
-        Project project = projectService.createProject(deptId, request.name(), request.description(), request.color(), request.managerMembershipId(),
+        UUID orgId = requiredOrgId(user);
+        Project project = projectService.createProject(orgId, deptId, request.name(), request.description(), request.color(), request.managerMembershipId(),
                 request.hourlyRate(), request.estimatedSeconds(), request.budgetSeconds(), request.budgetAmount());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(project));
     }
@@ -88,7 +89,8 @@ public class ProjectController {
                 request.estimatedSeconds(),
                 request.budgetSeconds(),
                 request.budgetAmount(),
-                request.isActive()
+                request.isActive(),
+                request.expectedVersion()
         );
         return ResponseEntity.ok(toResponse(project));
     }
@@ -124,7 +126,8 @@ public class ProjectController {
                 project.getBudgetSeconds(),
                 project.getBudgetAmount(),
                 project.isActive(),
-                project.getCreatedAt()
+                project.getCreatedAt(),
+                project.getVersion()
         );
     }
 }

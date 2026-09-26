@@ -4,6 +4,7 @@ import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.department.DepartmentRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
+import io.tasky.api.api.common.ConflictException;
 import io.tasky.api.domain.projectcolumn.ProjectColumnService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,15 +30,14 @@ public class ProjectService {
     private final OrganizationMembershipRepository membershipRepository;
     private final ProjectColumnService columnService;
 
-    public Project createProject(UUID departmentId, String name, String description, String color, UUID managerMembershipId,
-                                  BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
-                                  BigDecimal budgetAmount) {
+    public Project createProject(UUID orgId, UUID departmentId, String name, String description, String color, UUID managerMembershipId,
+                                   BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
+                                   BigDecimal budgetAmount) {
+        Department dept = departmentRepository.findByIdAndOrganizationId(departmentId, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Department not found"));
         if (projectRepository.existsByDepartmentIdAndName(departmentId, name)) {
             throw new IllegalArgumentException("Project name already exists in this department");
         }
-
-        Department dept = departmentRepository.getReferenceById(departmentId);
-        UUID orgId = dept.getOrganization().getId();
         OrganizationMembership manager = managerMembershipId != null
                 ? membershipRepository.findById(managerMembershipId)
                         .filter(m -> m.getOrganization().getId().equals(orgId))
@@ -71,9 +71,13 @@ public class ProjectService {
     }
 
     public Project updateProject(UUID orgId, UUID projectId, String name, String description, String color, UUID managerMembershipId,
-                                  BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
-                                  BigDecimal budgetAmount, Boolean isActive) {
+                                   BigDecimal hourlyRate, Long estimatedSeconds, Long budgetSeconds,
+                                   BigDecimal budgetAmount, Boolean isActive, Long expectedVersion) {
         Project project = getProject(orgId, projectId);
+        if (expectedVersion != null && project.getVersion() != expectedVersion) {
+            throw new ConflictException("Project was modified concurrently; expected version "
+                    + expectedVersion + " but current version is " + project.getVersion());
+        }
 
         if (name != null && !name.isBlank() && !name.equals(project.getName())) {
             if (projectRepository.existsByDepartmentIdAndName(project.getDepartment().getId(), name)) {
@@ -137,12 +141,12 @@ public class ProjectService {
                 .ifPresent(crossDeptAccessRepository::delete);
     }
 
-    public ProjectAssignment assignEmployee(UUID projectId, UUID membershipId) {
+    public ProjectAssignment assignEmployee(UUID orgId, UUID projectId, UUID membershipId) {
         if (assignmentRepository.existsByProjectIdAndMembershipId(projectId, membershipId)) {
             throw new IllegalArgumentException("Employee already assigned to this project");
         }
-        Project project = projectRepository.getReferenceById(projectId);
-        UUID orgId = project.getDepartment().getOrganization().getId();
+        Project project = projectRepository.findByIdAndDepartment_Organization_Id(projectId, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
         OrganizationMembership membership = membershipRepository.findById(membershipId)
                 .filter(m -> m.getOrganization().getId().equals(orgId))
                 .orElseThrow(() -> new IllegalArgumentException("Membership not found"));
@@ -158,13 +162,13 @@ public class ProjectService {
                 .ifPresent(assignmentRepository::delete);
     }
 
-    public void grantCrossDepartmentAccess(UUID projectId, UUID departmentId, UUID grantedByMembershipId) {
+    public void grantCrossDepartmentAccess(UUID orgId, UUID projectId, UUID departmentId, UUID grantedByMembershipId) {
         if (crossDeptAccessRepository.existsByProjectIdAndDepartmentId(projectId, departmentId)) {
             throw new IllegalArgumentException("Access already granted to this department");
         }
-        Project project = projectRepository.getReferenceById(projectId);
-        UUID orgId = project.getDepartment().getOrganization().getId();
-        Department dept = departmentRepository.findById(departmentId)
+        Project project = projectRepository.findByIdAndDepartment_Organization_Id(projectId, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        Department dept = departmentRepository.findByIdAndOrganizationId(departmentId, orgId)
                 .filter(d -> d.getOrganization().getId().equals(orgId))
                 .orElseThrow(() -> new IllegalArgumentException("Department not found"));
         OrganizationMembership granter = membershipRepository.findById(grantedByMembershipId)

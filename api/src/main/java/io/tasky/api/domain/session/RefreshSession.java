@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -62,6 +63,13 @@ public class RefreshSession {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "family_expires_at", nullable = false)
+    private Instant familyExpiresAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @PrePersist
     protected void onCreate() {

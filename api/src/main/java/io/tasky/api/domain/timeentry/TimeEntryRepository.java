@@ -60,6 +60,7 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
                e.billing_rate_snapshot AS "billingRateSnapshot",
                e.cost_rate_snapshot AS "costRateSnapshot",
                e.billable AS "billable",
+                e.version AS "version",
                e.created_at AS "createdAt"
         FROM time_entries e
         JOIN organization_memberships m ON m.id = e.membership_id
@@ -107,6 +108,7 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, UUID>, Jpa
                e.billing_rate_snapshot AS "billingRateSnapshot",
                e.cost_rate_snapshot AS "costRateSnapshot",
                e.billable AS "billable",
+                e.version AS "version",
                e.created_at AS "createdAt"
         FROM time_entries e
         JOIN organization_memberships m ON m.id = e.membership_id

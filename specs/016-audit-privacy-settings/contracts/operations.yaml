@@ -1,0 +1,6 @@
+# 016 — Audit/privacy/settings operations
+- GET /api/v1/organizations/{orgId}/audit-logs?page&size&...</audit>{...}
+- GET /api/v1/organizations/{orgId}/audit-export
+- GET /api/v1/privacy/export | POST /api/v1/privacy/members/{membershipId}/delete?confirm=CONFIRM
+- GET /api/v1/member/sessions | DELETE .../sessions/{sessionId}
+- GET/PUT /api/v1/admin/settings[/{key}] | GET/PUT /api/v1/organizations/{orgId}/settings[/{key}] | GET/PUT /api/v1/settings[/{key}]

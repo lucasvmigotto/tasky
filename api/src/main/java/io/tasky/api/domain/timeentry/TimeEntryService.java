@@ -11,7 +11,9 @@ import io.tasky.api.domain.organization.OrganizationRepository;
 import io.tasky.api.domain.notification.NotificationService;
 import io.tasky.api.domain.project.Project;
 import io.tasky.api.domain.project.ProjectRepository;
+import io.tasky.api.config.TaskyMetrics;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,16 +31,36 @@ import java.util.UUID;
 public class TimeEntryService {
 
     private final TimeEntryRepository timeEntryRepository;
+    private final TaskyMetrics metrics;
     private final OrganizationRepository organizationRepository;
     private final ProjectRepository projectRepository;
     private final ActivityRepository activityRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
 
+
+    private TimeEntry initializeForResponse(TimeEntry entry) {
+        Hibernate.initialize(entry.getMembership());
+        if (entry.getMembership() != null) {
+            Hibernate.initialize(entry.getMembership().getUser());
+        }
+        if (entry.getProject() != null) {
+            Hibernate.initialize(entry.getProject());
+        }
+        if (entry.getActivity() != null) {
+            Hibernate.initialize(entry.getActivity());
+        }
+        if (entry.getApprovedBy() != null) {
+            Hibernate.initialize(entry.getApprovedBy());
+        }
+        return entry;
+    }
+
     public TimeEntry startEntry(UUID orgId, OrganizationMembership membership,
                                 UUID projectId, UUID activityId, String description, String glpiTicketId,
                                 boolean billable) {
-        Organization org = organizationRepository.getReferenceById(orgId);
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
         timeEntryRepository.acquireMembershipLock(membership.getId());
 
         timeEntryRepository.findTopByMembershipIdAndEndTimeIsNullOrderByStartTimeDesc(membership.getId())
@@ -63,7 +85,9 @@ public class TimeEntryService {
                 .billingRateSnapshot(project != null ? project.getHourlyRate() : null)
                 .costRateSnapshot(membership.getCostRate())
                 .build();
-        return timeEntryRepository.save(entry);
+        TimeEntry created = timeEntryRepository.save(entry);
+        metrics.timerStarted();
+        return created;
     }
 
     public TimeEntry manualEntry(UUID orgId, OrganizationMembership membership,
@@ -74,7 +98,8 @@ public class TimeEntryService {
         if (endTime == null || !endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("End time must be after start time");
         }
-        Organization org = organizationRepository.getReferenceById(orgId);
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
 
         Project project = resolveProject(orgId, projectId);
         Activity activity = resolveActivity(orgId, activityId);
@@ -124,6 +149,7 @@ public class TimeEntryService {
         if (entry.getEndTime() != null) {
             return entry;
         }
+        requirePeriodNotClosedOrLocked(entry);
         Instant end = Instant.now();
         entry.setEndTime(end);
         entry.setDurationSeconds(effectiveElapsedSeconds(entry, end));
@@ -168,17 +194,33 @@ public class TimeEntryService {
 
     public TimeEntry updateEntry(UUID orgId, UUID membershipId, UUID entryId,
                                  UUID projectId, UUID activityId, String description, String glpiTicketId,
-                                 Instant startTime, Instant endTime, Boolean billable) {
+                                 Instant startTime, Instant endTime, Boolean billable, Long expectedVersion) {
         timeEntryRepository.acquireMembershipLock(membershipId);
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
 
         requireEditable(entry);
+        requirePeriodNotClosedOrLocked(entry);
+        if (expectedVersion != null && entry.getVersion() != expectedVersion) {
+            throw new io.tasky.api.api.common.ConflictException("Time entry was modified concurrently; expected version "
+                    + expectedVersion + " but current version is " + entry.getVersion());
+        }
 
         Project project = projectId != null ? resolveProject(orgId, projectId) : entry.getProject();
         Activity activity = activityId != null ? resolveActivity(orgId, activityId) : entry.getActivity();
         ensureProjectActivityConsistency(project, activity);
+        UUID previousProjectId = entry.getProject() != null ? entry.getProject().getId() : null;
+        UUID nextProjectId = project != null ? project.getId() : null;
         entry.setProject(project);
         entry.setActivity(activity);
+        if (!java.util.Objects.equals(previousProjectId, nextProjectId)) {
+            java.math.BigDecimal previousRate = entry.getBillingRateSnapshot();
+            java.math.BigDecimal nextRate = project != null ? project.getHourlyRate() : null;
+            entry.setBillingRateSnapshot(nextRate);
+            auditService.record(orgId, entry.getMembership().getUser().getId(), membershipId,
+                    "time_entry", entryId, "REASSIGN",
+                    "projectId=" + previousProjectId + ",billingRate=" + previousRate,
+                    "projectId=" + nextProjectId + ",billingRate=" + nextRate, null);
+        }
 
         if (description != null) {
             entry.setDescription(description);
@@ -197,7 +239,7 @@ public class TimeEntryService {
         }
         entry.setStartTime(start);
         entry.setEndTime(end);
-        entry.setDurationSeconds(end != null ? Duration.between(start, end).getSeconds() : null);
+        entry.setDurationSeconds(end != null ? effectiveElapsedSeconds(entry, end) : null);
 
         if (end != null) {
             validateNoOverlap(orgId, membershipId, entryId, start, end);
@@ -208,6 +250,7 @@ public class TimeEntryService {
 
     public TimeEntry submitEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
+        requirePeriodNotClosedOrLocked(entry);
         if (entry.getEndTime() == null) {
             throw new io.tasky.api.api.common.ConflictException("Running time entries cannot be submitted");
         }
@@ -225,17 +268,15 @@ public class TimeEntryService {
     }
 
     public TimeEntry approveEntry(UUID orgId, UUID entryId, OrganizationMembership approver) {
-        TimeEntry entry = timeEntryRepository.findById(entryId)
+        TimeEntry entry = timeEntryRepository.findByOrganizationIdAndId(orgId, entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Time entry not found"));
-        if (!entry.getOrganization().getId().equals(orgId)) {
-            throw new SecurityException("Time entry does not belong to this organization");
-        }
         requireSubmittedAndStopped(entry);
         entry.setApprovalStatus(TimeEntryApprovalStatus.APPROVED);
         entry.setApprovedAt(Instant.now());
         entry.setApprovedBy(approver);
         entry.setRejectionComment(null);
         TimeEntry saved = timeEntryRepository.save(entry);
+        initializeForResponse(saved);
         auditService.record(orgId, approver.getUser().getId(), approver.getId(), "time_entry", entryId,
                 "APPROVE", null, "status=APPROVED", null);
         notificationService.createOnce(orgId, entry.getMembership().getId(),
@@ -245,17 +286,15 @@ public class TimeEntryService {
     }
 
     public TimeEntry rejectEntry(UUID orgId, UUID entryId, OrganizationMembership approver, String comment) {
-        TimeEntry entry = timeEntryRepository.findById(entryId)
+        TimeEntry entry = timeEntryRepository.findByOrganizationIdAndId(orgId, entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Time entry not found"));
-        if (!entry.getOrganization().getId().equals(orgId)) {
-            throw new SecurityException("Time entry does not belong to this organization");
-        }
         requireSubmittedAndStopped(entry);
         entry.setApprovalStatus(TimeEntryApprovalStatus.REJECTED);
         entry.setApprovedAt(Instant.now());
         entry.setApprovedBy(approver);
         entry.setRejectionComment(comment);
         TimeEntry saved = timeEntryRepository.save(entry);
+        initializeForResponse(saved);
         auditService.record(orgId, approver.getUser().getId(), approver.getId(), "time_entry", entryId,
                 "REJECT", null, "status=REJECTED", null);
         notificationService.createOnce(orgId, entry.getMembership().getId(),
@@ -276,6 +315,7 @@ public class TimeEntryService {
         List<TimeEntry> overlapping = timeEntryRepository.findOverlapping(
                 orgId, membershipId, start, end, editingId);
         if (!overlapping.isEmpty()) {
+            metrics.overlapRejected();
             String ids = overlapping.stream().map(e -> e.getId().toString()).reduce((a, b) -> a + ", " + b).orElse("");
             throw new io.tasky.api.api.common.ConflictException(
                     "Time entry overlaps with existing entries: " + ids);
@@ -284,6 +324,8 @@ public class TimeEntryService {
 
     public void deleteEntry(UUID orgId, UUID membershipId, UUID entryId) {
         TimeEntry entry = getOwnedEntry(orgId, membershipId, entryId);
+        requireEditable(entry);
+        requirePeriodNotClosedOrLocked(entry);
         timeEntryRepository.delete(entry);
     }
 
@@ -363,25 +405,24 @@ public class TimeEntryService {
                 entry.getBillingRateSnapshot(),
                 entry.getCostRateSnapshot(),
                 Boolean.TRUE.equals(entry.getBillable()),
-                entry.getCreatedAt()
+                entry.getCreatedAt(),
+                entry.getVersion()
         );
     }
 
     public TimeEntry getRunningEntry(UUID orgId, UUID membershipId) {
         return timeEntryRepository.findTopByMembershipIdAndEndTimeIsNullOrderByStartTimeDesc(membershipId)
                 .filter(e -> e.getOrganization().getId().equals(orgId))
+                .map(this::initializeForResponse)
                 .orElse(null);
     }
 
     private TimeEntry getOwnedEntry(UUID orgId, UUID membershipId, UUID entryId) {
-        TimeEntry entry = timeEntryRepository.findById(entryId)
+        TimeEntry entry = timeEntryRepository.findByOrganizationIdAndId(orgId, entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Time entry not found"));
-        if (!entry.getOrganization().getId().equals(orgId)) {
-            throw new SecurityException("Time entry does not belong to this organization");
-        }
         if (!entry.getMembership().getId().equals(membershipId)) {
             throw new SecurityException("You can only manage your own time entries");
         }
-        return entry;
+        return initializeForResponse(entry);
     }
 }

@@ -1,10 +1,9 @@
 import { create } from 'zustand'
 import { setAccessToken, apiClient, ApiError, setRefreshExecutor } from '@/core/api/apiClient'
 import { setLogoutHandler } from '@/core/api/interceptors'
-import { getConfig } from '@/core/config/runtimeConfig'
 import type { AuthState, UserInfo, OrgInfo } from './authTypes'
 import type { Role } from './permissions'
-import type { AuthRefreshResponse, AuthResponse } from '@/core/api/types'
+import type { AuthRefreshResponse, AuthResponse, OidcProvider } from '@/core/api/types'
 import { queryClient } from '@/app/providers/QueryProvider'
 import { useTimeTrackerStore } from '@/core/tracker/timeTrackerStore'
 
@@ -16,7 +15,8 @@ function resetTenantState() {
 
 type AuthActions = {
   loginWithGoogle: (idToken: string) => Promise<void>
-  loginWithDemo: () => Promise<void>
+  loginWithOidc: (provider: OidcProvider, idToken: string) => Promise<void>
+  loginWithOidcCode: (provider: OidcProvider, code: string, codeVerifier: string) => Promise<void>
   refreshToken: () => Promise<string | null>
   setActiveOrg: (org: OrgInfo) => Promise<void>
   logout: () => Promise<void>
@@ -53,7 +53,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       activeOrg: orgs.length > 0 ? orgs[0] : null,
       isAuthenticated: true,
       isLoading: false,
-      isDemo: false,
     })
   }
 
@@ -69,7 +68,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       activeOrg,
       isAuthenticated: true,
       isLoading: false,
-      isDemo: false,
     })
   }
 
@@ -85,7 +83,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       activeOrg: null,
       isAuthenticated: false,
       isLoading: false,
-      isDemo: false,
     })
   }
 
@@ -124,7 +121,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     activeOrg: null,
     isAuthenticated: false,
     isLoading: true,
-    isDemo: false,
 
     loginWithGoogle: async (idToken: string) => {
       authVersion += 1
@@ -138,20 +134,33 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       }
     },
 
-    loginWithDemo: async () => {
+    loginWithOidc: async (provider: OidcProvider, idToken: string) => {
       authVersion += 1
       set({ isLoading: true })
-      const { getDemoAuth } = await import('./demoAuth')
-      const demo = getDemoAuth()
-      set({
-        token: demo.token,
-        user: demo.user,
-        organizations: demo.organizations,
-        activeOrg: demo.organizations[0] || null,
-        isAuthenticated: true,
-        isLoading: false,
-        isDemo: true,
-      })
+      try {
+        const data = await apiClient.post<AuthResponse>('/auth/oidc', { provider, idToken })
+        handleAuthResponse(data)
+      } catch (err) {
+        set({ isLoading: false })
+        throw err
+      }
+    },
+
+    loginWithOidcCode: async (provider: OidcProvider, code: string, codeVerifier: string) => {
+      authVersion += 1
+      set({ isLoading: true })
+      try {
+        const data = await apiClient.post<AuthResponse>('/auth/oidc/code', {
+          provider,
+          code,
+          codeVerifier,
+          redirectUri: `${window.location.origin}/`,
+        })
+        handleAuthResponse(data)
+      } catch (err) {
+        set({ isLoading: false })
+        throw err
+      }
     },
 
     refreshToken: async () => {
@@ -191,9 +200,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
     restore: async () => {
       if (restorePromise) return restorePromise
       restorePromise = (async () => {
-        const config = getConfig()
-        if (config.demoMode === 'true') {
-          await get().loginWithDemo()
+        const { handleOidcCallback } = await import('./oidc')
+        if (await handleOidcCallback()) {
           return
         }
         const { handleGoogleCallback } = await import('./googleOAuth')
