@@ -12,6 +12,8 @@ import io.tasky.api.domain.activity.ActivityTaskType;
 import io.tasky.api.domain.department.Department;
 import io.tasky.api.domain.department.DepartmentService;
 import io.tasky.api.domain.membership.InvitationStatus;
+import io.tasky.api.domain.membership.ManagerDepartment;
+import io.tasky.api.domain.membership.ManagerDepartmentRepository;
 import io.tasky.api.domain.membership.OrganizationMembership;
 import io.tasky.api.domain.membership.OrganizationMembershipRepository;
 import io.tasky.api.domain.membership.Role;
@@ -52,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * Synthetic development dataset (dev profile only, opt-in via
@@ -71,12 +74,20 @@ public class DevDataSeeder implements ApplicationRunner {
     static final String MARKER_KEY = "seed.dev-dataset";
     private static final long RNG_SEED = 42L;
     private static final short[] FIB_WEIGHTS = {1, 2, 3, 5, 8};
+    /**
+     * The local mock OIDC provider namespaces its subject as
+     * {@code mock-google:<sub>} (see MockOidcTokenVerifier). Seeding googleSub
+     * with the same prefix lets a developer log in as a seeded user by
+     * entering the bare sub (e.g. {@code seed-sub-1}) in the mock login form.
+     */
+    private static final String MOCK_GOOGLE_PREFIX = "mock-google:";
 
     private final Environment environment;
     private final UserService userService;
     private final OrganizationService organizationService;
     private final DepartmentService departmentService;
     private final OrganizationMembershipRepository membershipRepository;
+    private final ManagerDepartmentRepository managerDepartmentRepository;
     private final ProjectService projectService;
     private final ActivityRepository activityRepository;
     private final ActivityDependencyRepository dependencyRepository;
@@ -109,13 +120,16 @@ public class DevDataSeeder implements ApplicationRunner {
                 profile, scale.users(), scale.departments(), scale.projects(), scale.activities());
 
         Random rng = new Random(RNG_SEED);
+        // Window of 8 weeks ending in the current week, so a seeded user has
+        // hours "this week" (the work home and timesheet are not empty).
         Instant baseMonday = LocalDate.now(ZoneOffset.UTC)
-                .minusWeeks(8)
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(7)
                 .atStartOfDay(ZoneOffset.UTC).toInstant();
 
         // 1. Founder + org (UTC keeps week math trivial).
-        User founder = userService.createUser("seed-founder@example.com", "seed-founder-sub", "Seed Founder", null);
+        User founder = userService.createUser("seed-founder@example.com",
+                MOCK_GOOGLE_PREFIX + "seed-founder-sub", "Seed Founder", null);
         Organization org = organizationService.createOrganization("Seed Org", "seed-org", "UTC", founder);
         OrganizationMembership founderMembership = membershipRepository
                 .findByOrganizationId(org.getId()).stream()
@@ -134,23 +148,35 @@ public class DevDataSeeder implements ApplicationRunner {
         members.add(founderMembership);
         for (int i = 1; i < scale.users(); i++) {
             String email = String.format("seed-u%03d@example.com", i);
-            User u = userService.createUser(email, "seed-sub-" + i, "Seed User " + i, null);
+            User u = userService.createUser(email, MOCK_GOOGLE_PREFIX + "seed-sub-" + i, "Seed User " + i, null);
             Role role = i <= managers ? Role.manager : Role.employee;
+            Department dept = departments.get(i % departments.size());
             OrganizationMembership m = OrganizationMembership.builder()
                     .user(u)
                     .organization(org)
                     .role(role)
-                    .primaryDepartmentId(departments.get(i % departments.size()).getId())
+                    .primaryDepartmentId(dept.getId())
                     .maxDailyWorkMinutes(480)
                     .invitationStatus(InvitationStatus.ACCEPTED)
                     .acceptedAt(Instant.now())
                     .build();
-            members.add(membershipRepository.save(m));
+            membershipRepository.save(m);
+            if (role == Role.manager) {
+                // Managers must manage a department to see its sector report,
+                // approval queue and members.
+                managerDepartmentRepository.save(ManagerDepartment.builder()
+                        .id(new ManagerDepartment.ManagerDepartmentId(m.getId(), dept.getId()))
+                        .membership(m)
+                        .department(dept)
+                        .build());
+            }
+            members.add(m);
         }
 
         // 4. Projects (service seeds default columns) + assignments.
         List<Project> projects = new ArrayList<>();
         List<OrganizationMembership> assignable = members.subList(1, members.size());
+        java.util.Map<UUID, List<Project>> assignedProjects = new java.util.HashMap<>();
         for (int i = 0; i < scale.projects(); i++) {
             Department dept = departments.get(i % departments.size());
             OrganizationMembership pm = members.get(1 + (i % managers));
@@ -169,6 +195,7 @@ public class DevDataSeeder implements ApplicationRunner {
                 } catch (IllegalArgumentException alreadyAssigned) {
                     // deterministic overlap across projects; ignore duplicates
                 }
+                assignedProjects.computeIfAbsent(assignee.getId(), k -> new ArrayList<>()).add(p);
             }
         }
 
@@ -277,10 +304,14 @@ public class DevDataSeeder implements ApplicationRunner {
         int dayEndMin = large ? 0 : 30;
         List<TimeEntry> entryBatch = new ArrayList<>();
         long entryCount = 0;
+        java.util.Set<UUID> membersWithEntries = new java.util.HashSet<>();
         for (OrganizationMembership m : members) {
-            List<Project> mine = projects.stream()
-                    .filter(p -> p.getDepartment() != null)
-                    .toList();
+            // Only projects the member is assigned to, so the timesheet and
+            // reports can resolve project names (unseen projects render blank).
+            List<Project> mine = new ArrayList<>(assignedProjects.getOrDefault(m.getId(), List.of()));
+            if (mine.isEmpty()) {
+                continue; // no readable project for this member
+            }
             for (int day = 0; day < 56; day++) {
                 LocalDate date = LocalDate.ofInstant(baseMonday, ZoneOffset.UTC).plusDays(day);
                 if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
@@ -317,6 +348,7 @@ public class DevDataSeeder implements ApplicationRunner {
                             .build();
                     entryBatch.add(te);
                     entryCount++;
+                    membersWithEntries.add(m.getId());
                     cursor = end.plus(5 + rng.nextInt(16), ChronoUnit.MINUTES);
                     if (entryBatch.size() >= 1000) {
                         timeEntryRepository.saveAll(entryBatch);
@@ -330,7 +362,12 @@ public class DevDataSeeder implements ApplicationRunner {
         }
 
         // 8. Timesheet periods: canonical weeks via service, mixed lifecycle.
+        // Only for members with entries, so no empty 0h weeks clutter the grid
+        // or the approval queue.
         for (OrganizationMembership m : members) {
+            if (!membersWithEntries.contains(m.getId())) {
+                continue;
+            }
             SecurityUser su = SecurityUser.builder()
                     .id(m.getUser().getId()).email(m.getUser().getEmail())
                     .activeOrganizationId(org.getId()).role(m.getRole()).build();

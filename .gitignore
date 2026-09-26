@@ -53,6 +53,19 @@ app/dist/
 vite.config.js
 vite.config.d.ts
 
+### Documentation site ###
+docs/site/node_modules/
+docs/site/dist/
+docs/site/.tsbuild/
+docs/site/.env
+docs/site/.env.local
+docs/site/.env.*.local
+docs/site/public/docs/
+docs/site/public/llms.txt
+docs/site/public/llms-full.txt
+docs/site/test-results/
+docs/site/playwright-report/
+
 ### Devcontainer JDK (local JDK) ###
 .devcontainer/jdk/
 
