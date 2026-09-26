@@ -51,8 +51,28 @@ public class OidcCodeExchangeService {
                 ? microsoft.tenantId()
                 : "common";
         this.mockEnabled = mock != null && mock.enabled();
-        this.mockGoogleTokenUrl = mock != null ? tokenUrl(mock.googleIssuer()) : null;
-        this.mockMicrosoftTokenUrl = mock != null ? tokenUrl(mock.microsoftIssuer()) : null;
+        this.mockGoogleTokenUrl = mock != null
+                ? tokenUrl(mock.googleIssuer(), mock.googleJwksUri())
+                : null;
+        this.mockMicrosoftTokenUrl = mock != null
+                ? tokenUrl(mock.microsoftIssuer(), mock.microsoftJwksUri())
+                : null;
+    }
+
+    /**
+     * Token endpoint for the mock server. Derived from the JWKS URI (same
+     * origin, {@code /token} instead of {@code /jwks}) because the issuer
+     * claim carries no port while the proxy serves a non-standard one.
+     * Falls back to issuer + {@code /token}.
+     */
+    private static String tokenUrl(String issuer, String jwksUri) {
+        if (jwksUri != null && jwksUri.endsWith("/jwks")) {
+            return jwksUri.substring(0, jwksUri.length() - "/jwks".length()) + "/token";
+        }
+        if (issuer == null || issuer.isBlank()) {
+            return null;
+        }
+        return issuer.endsWith("/") ? issuer + "token" : issuer + "/token";
     }
 
     OidcCodeExchangeService(RestClient restClient, String googleClientId, String googleClientSecret,
@@ -67,13 +87,6 @@ public class OidcCodeExchangeService {
         this.mockEnabled = mockEnabled;
         this.mockGoogleTokenUrl = mockGoogleTokenUrl;
         this.mockMicrosoftTokenUrl = mockMicrosoftTokenUrl;
-    }
-
-    private static String tokenUrl(String issuer) {
-        if (issuer == null || issuer.isBlank()) {
-            return null;
-        }
-        return issuer.endsWith("/") ? issuer + "token" : issuer + "/token";
     }
 
     public String exchangeForIdToken(OidcProvider provider, String code, String codeVerifier, String redirectUri) {
