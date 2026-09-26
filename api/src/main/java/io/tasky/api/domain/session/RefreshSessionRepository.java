@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +16,7 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from RefreshSession s where s.tokenHash = :tokenHash")
-    Optional<RefreshSession> findByTokenHashForUpdate(String tokenHash);
+    Optional<RefreshSession> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 
     List<RefreshSession> findByUserId(UUID userId);
     List<RefreshSession> findByFamilyId(UUID familyId);

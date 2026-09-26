@@ -62,9 +62,30 @@ public class RefreshSessionService {
     }
 
     public RefreshResult rotate(String rawToken, String ip) {
+        // Step 1 (no locks): wipe paths must never run while holding a row
+        // lock, otherwise the REQUIRES_NEW bulk wipe self-deadlocks.
+        RefreshSession probe = sessionRepository.findByTokenHash(hash(rawToken))
+                .orElseThrow(() -> new SecurityException("Invalid refresh session"));
+        if (probe.getRevokedAt() != null) {
+            if (probe.getReplacedBy() != null) {
+                metrics.refreshReused();
+                revokeFamilyCommitted(probe.getFamilyId());
+            }
+            throw new SecurityException("Refresh session has been revoked");
+        }
+        if (probe.getFamilyExpiresAt().isBefore(Instant.now())) {
+            revokeFamilyCommitted(probe.getFamilyId());
+            throw new SecurityException("Refresh session family has expired");
+        }
+        if (probe.getExpiresAt().isBefore(Instant.now())) {
+            revokeFamilyCommitted(probe.getFamilyId());
+            throw new SecurityException("Refresh session has expired");
+        }
+
+        // Step 2 (locked): re-verify after acquiring the lock; the loser of a
+        // concurrent rotation blocks here, then takes the reuse path.
         RefreshSession session = sessionRepository.findByTokenHashForUpdate(hash(rawToken))
                 .orElseThrow(() -> new SecurityException("Invalid refresh session"));
-
         if (session.getRevokedAt() != null) {
             if (session.getReplacedBy() != null) {
                 metrics.refreshReused();
@@ -72,12 +93,8 @@ public class RefreshSessionService {
             }
             throw new SecurityException("Refresh session has been revoked");
         }
-        if (session.getFamilyExpiresAt().isBefore(Instant.now())) {
-            revokeFamilyCommitted(session.getFamilyId());
-            throw new SecurityException("Refresh session family has expired");
-        }
-        if (session.getExpiresAt().isBefore(Instant.now())) {
-            revokeFamilyCommitted(session.getFamilyId());
+        if (session.getFamilyExpiresAt().isBefore(Instant.now())
+                || session.getExpiresAt().isBefore(Instant.now())) {
             throw new SecurityException("Refresh session has expired");
         }
         User user = userRepository.findById(session.getUser().getId())
@@ -119,6 +136,23 @@ public class RefreshSessionService {
     }
 
     public RefreshResult switchOrg(String rawToken, Organization org, String ip) {
+        // Step 1 (no locks): see rotate() — wipe paths must not hold row locks.
+        RefreshSession probe = sessionRepository.findByTokenHash(hash(rawToken))
+                .orElseThrow(() -> new SecurityException("Invalid refresh session"));
+        if (probe.getRevokedAt() != null) {
+            if (probe.getReplacedBy() != null) {
+                metrics.refreshReused();
+                revokeFamilyCommitted(probe.getFamilyId());
+            }
+            throw new SecurityException("Invalid refresh session");
+        }
+        if (probe.getFamilyExpiresAt().isBefore(Instant.now())
+                || probe.getExpiresAt().isBefore(Instant.now())) {
+            revokeFamilyCommitted(probe.getFamilyId());
+            throw new SecurityException("Invalid refresh session");
+        }
+
+        // Step 2 (locked): re-verify, then mutate.
         RefreshSession session = sessionRepository.findByTokenHashForUpdate(hash(rawToken))
                 .orElseThrow(() -> new SecurityException("Invalid refresh session"));
         if (session.getRevokedAt() != null) {
@@ -130,7 +164,6 @@ public class RefreshSessionService {
         }
         if (session.getFamilyExpiresAt().isBefore(Instant.now())
                 || session.getExpiresAt().isBefore(Instant.now())) {
-            revokeFamilyCommitted(session.getFamilyId());
             throw new SecurityException("Invalid refresh session");
         }
 
