@@ -156,7 +156,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       authVersion += 1
       set({ isLoading: true })
       try {
-        const data = await apiClient.post<AuthResponse>('/auth/oidc/code', { provider, code, code_verifier: codeVerifier })
+        const data = await apiClient.post<AuthResponse>('/auth/oidc/code', {
+          provider,
+          code,
+          codeVerifier,
+          redirectUri: `${window.location.origin}/`,
+        })
         handleAuthResponse(data)
       } catch (err) {
         set({ isLoading: false })

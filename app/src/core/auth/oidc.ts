@@ -16,7 +16,7 @@ interface AuthorizeOptions {
   useCodeFlow?: boolean
 }
 
-export function buildAuthorizeUrl(options: AuthorizeOptions): string {
+export async function buildAuthorizeUrl(options: AuthorizeOptions): Promise<string> {
   const useCodeFlow = options.useCodeFlow ?? true
   const params = new URLSearchParams({
     client_id: options.clientId,
@@ -27,9 +27,9 @@ export function buildAuthorizeUrl(options: AuthorizeOptions): string {
   })
 
   if (useCodeFlow) {
-    const { codeVerifier, codeChallenge } = generatePkcePair()
+    const codeVerifier = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
     window.sessionStorage.setItem(PKCE_STORAGE_KEY, codeVerifier)
-    params.set('code_challenge', codeChallenge)
+    params.set('code_challenge', await pkceChallenge(codeVerifier))
     params.set('code_challenge_method', 'S256')
     const state = crypto.randomUUID()
     params.set('state', state)
@@ -46,10 +46,12 @@ function redirectRoot(): string {
   return `${window.location.origin}/`
 }
 
-function generatePkcePair(): { codeVerifier: string; codeChallenge: string } {
-  const codeVerifier = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
-  const codeChallenge = btoa(codeVerifier).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
-  return { codeVerifier, codeChallenge }
+async function pkceChallenge(codeVerifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier))
+  const bytes = new Uint8Array(digest)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
 function rememberProvider(provider: OidcProvider): void {
@@ -72,14 +74,14 @@ function clearPkce(): void {
   window.sessionStorage.removeItem('tasky-oidc-state')
 }
 
-export function startMicrosoftLogin(): void {
+export async function startMicrosoftLogin(): Promise<void> {
   const clientId = getConfig().microsoftClientId
   if (!clientId) {
     console.error('MICROSOFT_CLIENT_ID is not configured')
     return
   }
   rememberProvider('MICROSOFT')
-  window.location.href = buildAuthorizeUrl({
+  window.location.href = await buildAuthorizeUrl({
     baseUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     clientId,
     redirectUri: redirectRoot(),
@@ -87,7 +89,7 @@ export function startMicrosoftLogin(): void {
   })
 }
 
-export function startMockLogin(provider: 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'): void {
+export async function startMockLogin(provider: 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'): Promise<void> {
   const config = getConfig()
   if (config.mockOAuth2Enabled !== 'true') {
     console.error('Mock OIDC is disabled')
@@ -95,7 +97,7 @@ export function startMockLogin(provider: 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'): void
   }
   const tenant = provider === 'MOCK_GOOGLE' ? MOCK_GOOGLE_TENANT : MOCK_MICROSOFT_TENANT
   rememberProvider(provider)
-  window.location.href = buildAuthorizeUrl({
+  window.location.href = await buildAuthorizeUrl({
     baseUrl: `${config.mockOAuth2Url.replace(/\/$/, '')}/${tenant}/authorize`,
     clientId: 'tasky-dev',
     redirectUri: redirectRoot(),
@@ -105,10 +107,6 @@ export function startMockLogin(provider: 'MOCK_GOOGLE' | 'MOCK_MICROSOFT'): void
 
 export async function exchangeOidcToken(provider: OidcProvider, idToken: string): Promise<AuthResponse> {
   return apiClient.post<AuthResponse>('/auth/oidc', { provider, idToken })
-}
-
-export async function exchangeOidcCode(provider: OidcProvider, code: string, codeVerifier: string): Promise<AuthResponse> {
-  return apiClient.post<AuthResponse>('/auth/oidc/code', { provider, code, code_verifier: codeVerifier })
 }
 
 export async function handleOidcCallback(): Promise<boolean> {
