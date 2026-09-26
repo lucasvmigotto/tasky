@@ -87,6 +87,18 @@ class MockOidcTokenVerifierTest {
     }
 
     @Test
+    void codeFlowTokenWithoutEmail_synthesizesMockAddress() throws Exception {
+        // mock-oauth2-server code-flow id_tokens carry sub/iss/exp only.
+        String token = OidcTestTokens.mint(key, GOOGLE_ISSUER, "any-client",
+                Map.of(), Instant.now().plusSeconds(300));
+
+        OidcTokenPayload payload = verifier().verify(OidcProvider.MOCK_GOOGLE, token);
+
+        assertThat(payload.email()).isEqualTo("subject-1@mock.invalid");
+        assertThat(payload.subjectKey()).isEqualTo("mock-google:subject-1");
+    }
+
+    @Test
     void nonMockProvider_rejected() throws Exception {
         String token = OidcTestTokens.mint(key, GOOGLE_ISSUER, "any-client",
                 OidcTestTokens.claims("x@example.com", "X"), Instant.now().plusSeconds(300));

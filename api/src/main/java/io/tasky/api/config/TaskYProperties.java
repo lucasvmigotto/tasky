@@ -27,11 +27,13 @@ public record TaskYProperties(
     ) {}
 
     public record Google(
-            String clientId
+            String clientId,
+            String clientSecret
     ) {}
 
     public record Microsoft(
             String clientId,
+            String clientSecret,
             String tenantId
     ) {}
 
