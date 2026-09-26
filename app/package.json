@@ -65,6 +65,8 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "@axe-core/playwright": "^4.8.0",
+    "vitest-axe": "^0.1.0",
     "jsdom": "^25.0.0",
     "msw": "^2.0.0",
     "tailwindcss": "^4.0.0",
