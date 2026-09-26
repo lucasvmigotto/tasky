@@ -97,8 +97,18 @@ Tracked workflows:
 | `.github/workflows/quality.yml` | Backend/frontend gates, dependency review, Gitleaks, CodeQL, container scans, and SBOM artifacts |
 | `.github/workflows/api-ci.yml` | API test, idempotent version tag/release, image push, SBOM/provenance |
 | `.github/workflows/app-ci.yml` | Frozen install, app test, idempotent version tag/release, image push, SBOM/provenance |
+| `.github/workflows/docs-ci.yml` | Docs site lint/typecheck/test/e2e, image push, Cloudflare R2 deploy |
+| `.github/workflows/dockerhub-readme.yml` | Publishes `dockerhub.README.md` as the Docker Hub repository description |
 
-There are no separate `api-cd.yml` or `app-cd.yml` workflows. Release workflows require `DOCKER_HUB_USERNAME` and `DOCKER_HUB_PAT`; GHCR uses `GITHUB_TOKEN`. Protected environments and deployment/rollback automation are not configured here.
+There are no separate `api-cd.yml` or `app-cd.yml` workflows. All images live in a single `tasky` repository per registry, separated by tag prefix:
+
+| Image | Tag pattern | Registries |
+|---|---|---|
+| API | `api-<x.y.z>` (`api-latest`) | `${{ github.repository_owner }}/tasky`, `ghcr.io/<repo>` |
+| App | `app-<x.y.z>` (`app-latest`) | same |
+| Docs | `docs-<x.y.z>` (`docs-latest`) | same |
+
+Release workflows use `DOCKER_HUB_PAT` (the Docker Hub account matching the repository owner) and GHCR uses `GITHUB_TOKEN`. Protected environments and deployment/rollback automation are not configured here.
 
 ## Backup And Restore
 

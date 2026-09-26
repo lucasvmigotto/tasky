@@ -39,6 +39,8 @@ and writes PNGs to `public/screenshots/`. It needs:
 - Container: `Containerfile` (Bun build → pinned nginx runtime). Build with
   the docs/site directory as context:
   `podman build -f docs/site/Containerfile docs/site`.
+  CI publishes it as `tasky:docs-<version>` (and `docs-latest`) in the
+  shared `<owner>/tasky` repositories on Docker Hub and GHCR.
 - Cloudflare R2: `.github/workflows/docs-ci.yml` builds and syncs `dist/`
   (hashed assets immutable; HTML/`llms.txt`/`.md` no-cache; `.md` served as
   `text/markdown`). Configure the repository **variables**
