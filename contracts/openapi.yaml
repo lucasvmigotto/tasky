@@ -4,9 +4,9 @@ info:
   version: v0
   description: 'TaskY API — canonical contract generated from springdoc on a dev-profile boot (Observed). Regenerate: boot
     api with dev profile, GET /api-docs, convert to YAML.'
-  x-generated: 2026-09-26, branch docs/introspec
+  x-generated: 2026-09-26, feat OIDC code exchange + timer e2e
 servers:
-- url: http://127.0.0.1:8080
+- url: http://localhost:8080
   description: Generated server url
 paths:
   /api/v1/time-entries/{entryId}:
@@ -5323,6 +5323,9 @@ components:
         codeVerifier:
           type: string
           minLength: 1
+        redirectUri:
+          type: string
+          minLength: 1
       required:
       - provider
     AuthRequest:
@@ -5697,13 +5700,13 @@ components:
         organizationId:
           type: string
           format: uuid
+        submittedAt:
+          type: string
+          format: date-time
         periodStart:
           type: string
           format: date-time
         periodEnd:
-          type: string
-          format: date-time
-        submittedAt:
           type: string
           format: date-time
         membershipId:

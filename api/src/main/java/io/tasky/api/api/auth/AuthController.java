@@ -11,6 +11,7 @@ import io.tasky.api.security.GoogleTokenVerifier;
 import io.tasky.api.security.JwtTokenProvider;
 import io.tasky.api.security.MicrosoftTokenVerifier;
 import io.tasky.api.security.MockOidcTokenVerifier;
+import io.tasky.api.security.OidcCodeExchangeService;
 import io.tasky.api.security.OidcProvider;
 import io.tasky.api.security.OidcTokenPayload;
 import io.tasky.api.security.SecurityUser;
@@ -44,6 +45,7 @@ public class AuthController {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final MicrosoftTokenVerifier microsoftTokenVerifier;
     private final MockOidcTokenVerifier mockOidcTokenVerifier;
+    private final OidcCodeExchangeService oidcCodeExchangeService;
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final OrganizationMembershipRepository membershipRepository;
@@ -86,29 +88,26 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         // Exchange authorization code for tokens at provider's token endpoint
-        OidcTokenPayload payload = exchangeCodeForTokens(request.provider(), request.code(), request.codeVerifier());
+        OidcTokenPayload payload = exchangeCodeForTokens(
+                request.provider(), request.code(), request.codeVerifier(), request.redirectUri());
         return completeLogin(payload.email(), payload.subjectKey(), payload.name(), payload.picture(),
                 httpRequest, httpResponse);
     }
 
-    private OidcTokenPayload exchangeCodeForTokens(OidcProvider provider, String code, String codeVerifier) {
+    private OidcTokenPayload exchangeCodeForTokens(
+            OidcProvider provider, String code, String codeVerifier, String redirectUri) {
         return switch (provider) {
-            case GOOGLE -> exchangeCodeWithGoogle(code, codeVerifier);
-            case MICROSOFT -> exchangeCodeWithMicrosoft(code, codeVerifier);
-            case MOCK_GOOGLE, MOCK_MICROSOFT -> mockOidcTokenVerifier.verify(provider, code); // mock uses id_token directly in test
+            case GOOGLE -> {
+                String idToken = oidcCodeExchangeService.exchangeForIdToken(
+                        provider, code, codeVerifier, redirectUri);
+                var google = googleTokenVerifier.verify(idToken);
+                yield new OidcTokenPayload(google.sub(), google.email(), google.name(), google.picture());
+            }
+            case MICROSOFT -> microsoftTokenVerifier.verify(oidcCodeExchangeService.exchangeForIdToken(
+                    provider, code, codeVerifier, redirectUri));
+            case MOCK_GOOGLE, MOCK_MICROSOFT -> mockOidcTokenVerifier.verify(provider,
+                    oidcCodeExchangeService.exchangeForIdToken(provider, code, codeVerifier, redirectUri));
         };
-    }
-
-    private OidcTokenPayload exchangeCodeWithGoogle(String code, String codeVerifier) {
-        // Exchange authorization code for tokens with Google
-        // Implementation would use RestClient to call Google's token endpoint
-        throw new UnsupportedOperationException("Google code exchange not yet implemented");
-    }
-
-    private OidcTokenPayload exchangeCodeWithMicrosoft(String code, String codeVerifier) {
-        // Exchange authorization code for tokens with Microsoft
-        // Implementation would use RestClient to call Microsoft's token endpoint
-        throw new UnsupportedOperationException("Microsoft code exchange not yet implemented");
     }
 
     private ResponseEntity<AuthResponse> completeLogin(

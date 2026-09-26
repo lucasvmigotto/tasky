@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:timer": "VITE_API_URL=http://localhost:8080 VITE_MOCK_OAUTH2_ENABLED=true VITE_MOCK_OAUTH2_URL=http://localhost:48080 bun run build && E2E_API_URL=http://localhost:8080 E2E_BASE_URL=http://localhost:5173 playwright test timer.spec.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

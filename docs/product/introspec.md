@@ -40,11 +40,24 @@
 - `tasky.recurrence.*` scheduler keys are absent from config — the
   60s recurrence schedule is always default.
 
+## Findings round (fixed 2026-09-26, uncommitted on dev)
+
+1. A11y violations (missing `<main>` landmark + `<h1>` on login screen;
+   test raced SPA boot) → fixed: semantic `<main>`, plain `h1`,
+   a11y spec waits for `main` before analyzing. 3/3 green.
+2. Admin founder invisible in own sector report (dept scope only matches
+   `primaryDepartmentId`) → `PermissionService` admin scope now always
+   includes the actor; covered by `PermissionServiceTest`.
+3. No period submit/approve UI → `PeriodBar` + `ApprovalQueue` on
+   `TimesheetPage` (open/submit/reopen/close, approve/reject+comment),
+   6 vitest cases, full loop in `timer.spec.ts` (3/3 green).
+
 ## Confirmation round (decided 2026-09-26)
 
 1. Merged into `dev` — yes.
-2. OIDC code-flow stubs → scheduled (tracked as Planned in
-   `specs/001-authentication/spec.md`).
-3. E2E timer flows → queued (tracked as Planned in
-   `specs/008-time-tracking/spec.md`).
+2. OIDC code-flow stubs → DELIVERED 2026-09-26
+   (`OidcCodeExchangeService`, real Google/Microsoft redemption +
+   mock redemption; snake_case→camelCase + S256-PKCE frontend fixes).
+3. E2E timer flows → DELIVERED 2026-09-26 (`app/e2e/timer.spec.ts`,
+   two-user journey, green in ~6s).
 4. `.env.example` → already exists and covers all compose vars; no action.

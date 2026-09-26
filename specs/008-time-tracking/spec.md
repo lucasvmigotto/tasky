@@ -29,5 +29,10 @@
 
 ## Planned
 
-- E2E timer flows (start→pause→stop→timesheet→report) with mock tokens;
-  offline pause queue.
+- Offline pause queue.
+
+Note: E2E timer flow delivered as `app/e2e/timer.spec.ts`
+(`test:e2e:timer`): mock-OIDC login as founder, seed org/depts/project,
+invite employee (auto-accept), second-context login, timer
+start→pause→resume→stop, timesheet row, reports description, period
+submit. Period submit stays API-level — no submit UI exists.

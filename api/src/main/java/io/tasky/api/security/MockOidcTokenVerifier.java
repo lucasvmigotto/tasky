@@ -72,13 +72,16 @@ public class MockOidcTokenVerifier {
         } catch (JwtException e) {
             throw new SecurityException("Invalid mock ID token", e);
         }
-        Object verified = jwt.getClaims().get("email_verified");
-        if (!Boolean.parseBoolean(String.valueOf(verified))) {
-            throw new SecurityException("Mock email is not verified");
-        }
         String email = jwt.getClaimAsString("email");
         if (email == null || email.isBlank()) {
-            throw new SecurityException("Mock token has no email");
+            // Code-flow tokens from mock-oauth2-server carry no email claim —
+            // synthesize a non-routable one from sub (dev-only, mock-only).
+            email = jwt.getSubject() + "@mock.invalid";
+        } else {
+            Object verified = jwt.getClaims().get("email_verified");
+            if (!Boolean.parseBoolean(String.valueOf(verified))) {
+                throw new SecurityException("Mock email is not verified");
+            }
         }
         String namespace = provider == OidcProvider.MOCK_GOOGLE ? "mock-google:" : "mock-microsoft:";
         return new OidcTokenPayload(

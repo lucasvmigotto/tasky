@@ -19,3 +19,8 @@
 ## Planned
 
 - Batch queue UI (multi-select); partial-apply semantics decision record.
+
+Note: period lifecycle UI delivered 2026-09-26 as
+`TimesheetPage` → `PeriodBar` (open/submit/reopen/close + status badge)
+and `ApprovalQueue` (manager/admin approve + reject with mandatory
+comment), 6 vitest cases, covered end-to-end in `timer.spec.ts`.
