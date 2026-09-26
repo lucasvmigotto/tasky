@@ -7,6 +7,10 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
+    // Only for the backend-backed timer profile when the local mkcert CA
+    // is not installed (`mkcert -install`): the mock-OIDC proxy serves a
+    // locally-trusted cert that stock browsers reject.
+    ignoreHTTPSErrors: process.env.E2E_INSECURE_TLS === 'true',
   },
   webServer: process.env.E2E_NO_SERVER
     ? undefined

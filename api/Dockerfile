@@ -21,6 +21,9 @@ WORKDIR /app
 
 COPY --from=builder --chown=appuser:appuser /app/api/build/libs/*.jar app.jar
 
+COPY --chown=appuser:appuser api/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 USER appuser
 
 EXPOSE 8080
@@ -28,6 +31,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
     CMD curl -sf http://localhost:8080/actuator/health || exit 1
 
-ENTRYPOINT [ "java" ]
+ENTRYPOINT [ "/app/docker-entrypoint.sh" ]
 
 CMD [ "-jar", "app.jar" ]

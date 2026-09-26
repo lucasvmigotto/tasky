@@ -2,7 +2,8 @@
 
 ## Estado do roadmap
 
-Consulte `docs/ROADMAP_STATUS.md` antes de iniciar qualquer trabalho.
+Consulte `docs/product/introspec.md` e `specs/` — `docs/ROADMAP_STATUS.md` foi
+removido por estar desatualizado (descrevia o modelo antigo pré-V37).
 
 ## Rodar localmente
 
@@ -41,7 +42,8 @@ bun run build
 - LGPD: `docs/governance/lgpd.md`.
 - Acessibilidade: `docs/quality/accessibility.md`.
 - Testes de seguranca: `docs/quality/security-test-matrix.md`.
-- Limitacoes conhecidas: `docs/limitations.md`.
+- Limitacoes conhecidas e lacunas ativas: `specs/012-documents-files/spec.md`
+  (secao Planned) e `docs/product/introspec.md`.
 
 ## Convenções
 

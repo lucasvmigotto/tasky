@@ -19,3 +19,6 @@
 ## Planned
 
 - Antivirus/ICAP scanning hook; S3 path verification runbook.
+- Local-disk uploads are not covered by PostgreSQL backup/restore
+  (carried forward from the former `docs/limitations.md`); measure RPO/RTO
+  before relying on the backup runbook for blobs.

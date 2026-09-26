@@ -40,7 +40,6 @@ describe('MySectorPage', () => {
       activeOrg: { id: 'org-1', name: 'Órgão', slug: 'orgao', role: 'manager', timezone: 'America/Sao_Paulo', workWeekStartsOn: 1 },
       isAuthenticated: true,
       isLoading: false,
-      isDemo: false,
     })
   })
 
