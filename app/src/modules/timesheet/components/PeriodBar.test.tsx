@@ -26,7 +26,6 @@ function seedAuth() {
     activeOrg: { ...ORG },
     isAuthenticated: true,
     isLoading: false,
-    isDemo: false,
   })
 }
 

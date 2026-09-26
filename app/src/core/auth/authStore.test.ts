@@ -14,7 +14,6 @@ describe('authStore session restoration', () => {
       activeOrg: null,
       isAuthenticated: false,
       isLoading: true,
-      isDemo: false,
     })
   })
 

@@ -16,7 +16,6 @@ describe('AdminMembersPage organizational placement', () => {
       activeOrg: { id: 'org-1', name: 'Órgão', slug: 'orgao', role: 'admin', timezone: 'America/Sao_Paulo', workWeekStartsOn: 1 },
       isAuthenticated: true,
       isLoading: false,
-      isDemo: false,
     })
   })
 

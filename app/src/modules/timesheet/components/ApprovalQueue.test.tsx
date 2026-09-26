@@ -24,7 +24,6 @@ function seedAuth(role: 'manager' | 'employee') {
     activeOrg: org,
     isAuthenticated: true,
     isLoading: false,
-    isDemo: false,
   })
 }
 

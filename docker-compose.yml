@@ -25,10 +25,10 @@ services:
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
       MOCK_OAUTH2_ENABLED: ${MOCK_OAUTH2_ENABLED:-true}
-      MOCK_OAUTH2_GOOGLE_ISSUER: ${MOCK_OAUTH2_GOOGLE_ISSUER:-http://localhost:48080/tasky-google-mock}
-      MOCK_OAUTH2_MICROSOFT_ISSUER: ${MOCK_OAUTH2_MICROSOFT_ISSUER:-http://localhost:48080/tasky-microsoft-mock}
-      MOCK_OAUTH2_GOOGLE_JWKS_URI: ${MOCK_OAUTH2_GOOGLE_JWKS_URI:-http://mock-oauth2:8080/tasky-google-mock/jwks}
-      MOCK_OAUTH2_MICROSOFT_JWKS_URI: ${MOCK_OAUTH2_MICROSOFT_JWKS_URI:-http://mock-oauth2:8080/tasky-microsoft-mock/jwks}
+      MOCK_OAUTH2_GOOGLE_ISSUER: ${MOCK_OAUTH2_GOOGLE_ISSUER:-https://localhost/tasky-google-mock}
+      MOCK_OAUTH2_MICROSOFT_ISSUER: ${MOCK_OAUTH2_MICROSOFT_ISSUER:-https://localhost/tasky-microsoft-mock}
+      MOCK_OAUTH2_GOOGLE_JWKS_URI: ${MOCK_OAUTH2_GOOGLE_JWKS_URI:-https://localhost:48443/tasky-google-mock/jwks}
+      MOCK_OAUTH2_MICROSOFT_JWKS_URI: ${MOCK_OAUTH2_MICROSOFT_JWKS_URI:-https://localhost:48443/tasky-microsoft-mock/jwks}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MINIO_ENDPOINT: http://minio:9000
@@ -39,6 +39,7 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     volumes:
       - tasky-uploads:/app/data
+      - ./certs:/certs:ro
     tmpfs:
       - /tmp
     depends_on:
@@ -49,6 +50,8 @@ services:
       minio:
         condition: service_healthy
       mock-oauth2:
+        condition: service_started
+      mock-oauth2-proxy:
         condition: service_started
     deploy:
       resources:
@@ -65,11 +68,10 @@ services:
     environment:
       NGINX_ENVSUBST_FILTER: API_UPSTREAM
       API_UPSTREAM: http://api:8080
-      DEMO_MODE: ${DEMO_MODE:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MOCK_OAUTH2_ENABLED: ${MOCK_OAUTH2_ENABLED:-true}
-      MOCK_OAUTH2_URL: ${MOCK_OAUTH2_URL:-http://localhost:48080}
+      MOCK_OAUTH2_URL: ${MOCK_OAUTH2_URL:-https://localhost:48443}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       api:
@@ -162,6 +164,21 @@ services:
       - ./mock-oauth2-server/config.json:/app/config.json:ro
     environment:
       HOSTNAME: localhost
+    restart: unless-stopped
+
+  mock-oauth2-proxy:
+    # TLS terminator for the mock IdP (development only). Generate certs with
+    # ./scripts/gen-mock-tls.sh before first use.
+    image: docker.io/library/nginx:stable-alpine@sha256:8f84ed99befc3891b8f329c5c202785278a2cfb7c25107d57fb2a134a3117433
+    container_name: tasky-mock-oauth2-proxy
+    ports:
+      - "${MOCK_OAUTH2_TLS_BIND_ADDRESS:-127.0.0.1}:${MOCK_OAUTH2_TLS_PORT:-48443}:443"
+    volumes:
+      - ./mock-oauth2-proxy/nginx.mock-oidc.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/certs:ro
+    depends_on:
+      mock-oauth2:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
