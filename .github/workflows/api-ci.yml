@@ -71,7 +71,7 @@ jobs:
       - name: Log in to Docker Hub Container registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.DOCKER_HUB_PAT }}
 
       - name: Log in to GitHub Container registry
@@ -86,8 +86,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-api
-            ghcr.io/${{ github.repository }}-api
+            ${{ github.repository_owner }}/tasky
+            ghcr.io/${{ github.repository }}
 
       - name: Build and push Docker image
         id: push
@@ -100,15 +100,15 @@ jobs:
           provenance: mode=max
           labels: ${{ steps.meta.outputs.labels }}
           tags: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-api:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}-api:${{ steps.version.outputs.version }}
-            ${{ secrets.DOCKER_HUB_USERNAME }}/tasky-api:latest
-            ghcr.io/${{ github.repository }}-api:latest
+            ${{ github.repository_owner }}/tasky:api-${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:api-${{ steps.version.outputs.version }}
+            ${{ github.repository_owner }}/tasky:api-latest
+            ghcr.io/${{ github.repository }}:api-latest
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v3
         with:
-          subject-name: ghcr.io/${{ github.repository }}-api
+          subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}
 
   release-artifact:

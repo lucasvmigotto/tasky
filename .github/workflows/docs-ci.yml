@@ -71,6 +71,70 @@ jobs:
           path: docs/site/dist
           retention-days: 7
 
+  image:
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="$(jq -r '.version' docs/site/package.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub Container registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
+
+      - name: Log in to GitHub Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ github.repository_owner }}/tasky
+            ghcr.io/${{ github.repository }}
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: docs/site
+          file: docs/site/Containerfile
+          push: true
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            DOCS_APP_VERSION=${{ steps.version.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ github.repository_owner }}/tasky:docs-${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:docs-${{ steps.version.outputs.version }}
+            ${{ github.repository_owner }}/tasky:docs-latest
+            ghcr.io/${{ github.repository }}:docs-latest
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+
   deploy:
     needs: verify
     if: github.ref == 'refs/heads/main'
