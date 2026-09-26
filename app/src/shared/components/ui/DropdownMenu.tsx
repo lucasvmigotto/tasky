@@ -151,8 +151,8 @@ function DropdownMenuContent({ children, className, align = 'center', ...props }
         className,
         open ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-1 scale-98'
       )}
-      style={{ top: position.top, left: position.left, minWidth: position.minWidth }}
-      {...(props as Record<string, unknown)}>
+style={{ top: position.top, left: position.left, minWidth: position.minWidth }}
+      {...(props as Record<string, unknown>)}
     >
       {children}
     </div>,

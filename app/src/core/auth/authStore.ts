@@ -17,6 +17,7 @@ function resetTenantState() {
 type AuthActions = {
   loginWithGoogle: (idToken: string) => Promise<void>
   loginWithOidc: (provider: OidcProvider, idToken: string) => Promise<void>
+  loginWithOidcCode: (provider: OidcProvider, code: string, codeVerifier: string) => Promise<void>
   loginWithDemo: () => Promise<void>
   refreshToken: () => Promise<string | null>
   setActiveOrg: (org: OrgInfo) => Promise<void>
@@ -144,6 +145,18 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => {
       set({ isLoading: true })
       try {
         const data = await apiClient.post<AuthResponse>('/auth/oidc', { provider, idToken })
+        handleAuthResponse(data)
+      } catch (err) {
+        set({ isLoading: false })
+        throw err
+      }
+    },
+
+    loginWithOidcCode: async (provider: OidcProvider, code: string, codeVerifier: string) => {
+      authVersion += 1
+      set({ isLoading: true })
+      try {
+        const data = await apiClient.post<AuthResponse>('/auth/oidc/code', { provider, code, code_verifier: codeVerifier })
         handleAuthResponse(data)
       } catch (err) {
         set({ isLoading: false })

@@ -197,7 +197,7 @@ function CollaboratorReport() {
         <div className="flex items-center gap-2">
           <Select
             value={exportFormat}
-            onValueChange={setExportFormat}
+            onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx' | 'pdf')}
             className="w-[160px]"
             options={[
               { value: 'csv', label: 'CSV' },
@@ -436,11 +436,11 @@ function ManagerReport() {
 
   return (
     <motion.div className="flex flex-col gap-6" variants={containerVariants} initial="hidden" animate="visible">
-      <PageHeader title="Relatório do Setor" description="Semana da equipe: horas e produtividade">
+<PageHeader title="Relatório do Setor" description="Semana da equipe: horas e produtividade">
         <div className="flex items-center gap-2">
           <Select
             value={exportFormat}
-            onValueChange={setExportFormat}
+            onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx' | 'pdf')}
             className="w-[160px]"
             options={[
               { value: 'csv', label: 'CSV' },
