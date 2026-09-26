@@ -32,7 +32,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 p-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 p-4">
       {/* Grid de fundo */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMSIvPjwvZz48L2c+PC9zdmc+')] bg-repeat" />
 
@@ -64,15 +64,10 @@ export default function LoginPage() {
             <Clock className="size-8 text-white" />
           </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-            className="text-4xl font-bold tracking-tight"
-          >
+          <h1 className="text-4xl font-bold tracking-tight">
             <span className="bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent">Task</span>
             <span className="text-zinc-100">Y</span>
-          </motion.h1>
+          </h1>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -219,6 +214,6 @@ export default function LoginPage() {
           © {new Date().getFullYear()} TaskY
         </motion.p>
       </motion.div>
-    </div>
+    </main>
   )
 }
