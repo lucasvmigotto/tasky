@@ -1,0 +1,15 @@
+# Deny-by-default. Context is docs/site/ (see Containerfile).
+*
+!package.json
+!bun.lock
+!index.html
+!tsconfig.json
+!tsconfig.node.json
+!vite.config.ts
+!vitest.config.ts
+!biome.json
+!src/**
+!public/**
+!scripts/**
+!nginx.conf
+!Containerfile
