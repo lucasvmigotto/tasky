@@ -41,4 +41,8 @@ and writes PNGs to `public/screenshots/`. It needs:
   `podman build -f docs/site/Containerfile docs/site`.
 - Cloudflare R2: `.github/workflows/docs-ci.yml` builds and syncs `dist/`
   (hashed assets immutable; HTML/`llms.txt`/`.md` no-cache; `.md` served as
-  `text/markdown`). Credentials come from repository Variables/Secrets.
+  `text/markdown`). Configure the repository **variables**
+  `CLOUDFLARE_R2_ENDPOINT_S3_CLIENT` (S3 API endpoint, `https://…`) and
+  `CLOUDFLARE_R2_BUCKET_ID`, plus the **variables** `CLOUDFLARE_R2_ACCOUNT_ID`
+  (access key id) and **secret** `CLOUDFLARE_R2_ACCOUNT_SECRET` (access key).
+  Without credentials the deploy job warns and skips.

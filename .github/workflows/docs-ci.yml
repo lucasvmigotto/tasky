@@ -77,8 +77,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     environment: docs
+    env:
+      AWS_ACCESS_KEY_ID: ${{ vars.CLOUDFLARE_R2_ACCOUNT_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_SECRET }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: "true"
+      R2_ENDPOINT: ${{ vars.CLOUDFLARE_R2_ENDPOINT_S3_CLIENT }}
+      R2_BUCKET: ${{ vars.CLOUDFLARE_R2_BUCKET_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -90,42 +96,39 @@ jobs:
         run: bun install --frozen-lockfile && bun run build
         working-directory: docs/site
 
-      - name: Validate R2 endpoint
-        env:
-          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+      - name: Check R2 credentials
+        id: creds
         run: |
-          if [ -z "$R2_ENDPOINT" ]; then echo "R2_ENDPOINT variable is required" >&2; exit 1; fi
-          case "$R2_ENDPOINT" in https://*) ;; *) echo "R2_ENDPOINT must be https" >&2; exit 1;; esac
+          if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::R2 credentials not configured — skipping deploy"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Configure AWS credentials (R2)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws-region: auto
+      - name: Validate R2 endpoint
+        if: steps.creds.outputs.present == 'true'
+        run: |
+          if [ -z "$R2_ENDPOINT" ]; then echo "::error::CLOUDFLARE_R2_ENDPOINT_S3_CLIENT repo variable is not set"; exit 1; fi
+          case "$R2_ENDPOINT" in https://*) ;; *) echo "::error::CLOUDFLARE_R2_ENDPOINT_S3_CLIENT must start with https:// (got: $R2_ENDPOINT)"; exit 1;; esac
+          if [ -z "$R2_BUCKET" ]; then echo "::error::CLOUDFLARE_R2_BUCKET_ID repo variable is not set"; exit 1; fi
 
       - name: Sync hashed assets (immutable)
-        env:
-          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
-          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        if: steps.creds.outputs.present == 'true'
         run: |
           aws s3 sync docs/site/dist/assets "s3://$R2_BUCKET/assets" \
             --endpoint-url "$R2_ENDPOINT" --delete \
             --cache-control "public, max-age=31536000, immutable"
 
       - name: Sync screenshots (long-lived)
-        env:
-          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
-          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        if: steps.creds.outputs.present == 'true'
         run: |
           aws s3 sync docs/site/dist/screenshots "s3://$R2_BUCKET/screenshots" \
             --endpoint-url "$R2_ENDPOINT" \
             --cache-control "public, max-age=604800"
 
       - name: Sync Markdown (LLM output, no-cache, text/markdown)
-        env:
-          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
-          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        if: steps.creds.outputs.present == 'true'
         run: |
           aws s3 sync docs/site/dist/docs "s3://$R2_BUCKET/docs" \
             --endpoint-url "$R2_ENDPOINT" --delete \
@@ -133,9 +136,7 @@ jobs:
             --cache-control "no-cache"
 
       - name: Sync entry files and llms (no-cache)
-        env:
-          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
-          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        if: steps.creds.outputs.present == 'true'
         run: |
           aws s3 cp docs/site/dist/index.html "s3://$R2_BUCKET/index.html" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/html; charset=utf-8" --cache-control "no-cache"
@@ -145,3 +146,5 @@ jobs:
             --endpoint-url "$R2_ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "no-cache"
           aws s3 cp docs/site/dist/favicon.svg "s3://$R2_BUCKET/favicon.svg" \
             --endpoint-url "$R2_ENDPOINT" --content-type "image/svg+xml" --cache-control "public, max-age=86400"
+          aws s3 cp docs/site/dist/og-image.png "s3://$R2_BUCKET/og-image.png" \
+            --endpoint-url "$R2_ENDPOINT" --content-type "image/png" --cache-control "public, max-age=86400"
