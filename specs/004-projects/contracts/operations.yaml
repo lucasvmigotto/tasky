@@ -1,0 +1,6 @@
+# 004 — Project operations
+- POST /api/v1/departments/{deptId}/projects | GET /api/v1/organizations/{orgId}/projects
+- GET/PUT/DELETE /api/v1/projects/{projectId}
+- GET/POST /api/v1/projects/{projectId}/assignments | DELETE .../{membershipId}
+- GET/POST /api/v1/projects/{projectId}/cross-department-access | DELETE .../{departmentId}
+- GET/POST /api/v1/projects/{projectId}/columns | PUT .../{columnId} | PATCH .../reorder | DELETE .../{columnId}

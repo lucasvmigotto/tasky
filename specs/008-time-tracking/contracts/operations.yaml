@@ -1,0 +1,5 @@
+# 008 — Time operations
+- POST /api/v1/time-entries | POST .../timer/start | POST .../manual
+- GET ...?from&to&projectId&membershipId&page&size | GET .../running | GET .../org
+- PATCH .../{entryId}/{stop,pause,resume,submit,approve,reject}
+- PUT .../{entryId} (expectedVersion) | DELETE .../{entryId}

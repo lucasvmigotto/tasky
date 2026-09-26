@@ -1,0 +1,6465 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+  description: 'TaskY API — canonical contract generated from springdoc on a dev-profile boot (Observed). Regenerate: boot
+    api with dev profile, GET /api-docs, convert to YAML.'
+  x-generated: 2026-09-26, branch docs/introspec
+servers:
+- url: http://127.0.0.1:8080
+  description: Generated server url
+paths:
+  /api/v1/time-entries/{entryId}:
+    put:
+      tags:
+      - time-entry-controller
+      operationId: update
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTimeEntryRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+    delete:
+      tags:
+      - time-entry-controller
+      operationId: delete
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/requests/{requestId}:
+    get:
+      tags:
+      - internal-request-controller
+      operationId: get
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+    put:
+      tags:
+      - internal-request-controller
+      operationId: update_1
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInternalRequestRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+    delete:
+      tags:
+      - internal-request-controller
+      operationId: delete_1
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/projects/{projectId}:
+    get:
+      tags:
+      - project-controller
+      operationId: get_1
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+    put:
+      tags:
+      - project-controller
+      operationId: update_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+    delete:
+      tags:
+      - project-controller
+      operationId: delete_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/projects/{projectId}/columns/{columnId}:
+    put:
+      tags:
+      - project-column-controller
+      operationId: update_3
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: columnId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectColumnRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProjectColumnResponse'
+    delete:
+      tags:
+      - project-column-controller
+      operationId: delete_3
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: columnId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/organizations/{orgId}/settings/{key}:
+    put:
+      tags:
+      - settings-controller
+      operationId: updateOrganizationSetting
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+  /api/v1/organizations/{orgId}/memberships/{membershipId}/settings:
+    put:
+      tags:
+      - membership-controller
+      operationId: updateSettings
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMembershipSettingsRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+  /api/v1/organizations/{orgId}/departments/{deptId}:
+    put:
+      tags:
+      - department-controller
+      operationId: update_4
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDepartmentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DepartmentResponse'
+    delete:
+      tags:
+      - department-controller
+      operationId: delete_4
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/notifications/preferences:
+    get:
+      tags:
+      - notification-controller
+      operationId: preferences
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+    put:
+      tags:
+      - notification-controller
+      operationId: updatePreferences
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferencesRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+  /api/v1/documents/{documentId}:
+    get:
+      tags:
+      - document-controller
+      operationId: get_2
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+    put:
+      tags:
+      - document-controller
+      operationId: update_5
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDocumentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+    delete:
+      tags:
+      - document-controller
+      operationId: delete_5
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/departments/{deptId}/member-types/{memberTypeId}:
+    put:
+      tags:
+      - member-type-controller
+      operationId: update_6
+      parameters:
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: memberTypeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberTypeRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MemberTypeResponse'
+    delete:
+      tags:
+      - member-type-controller
+      operationId: delete_6
+      parameters:
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: memberTypeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/capacity/schedules/{scheduleId}:
+    get:
+      tags:
+      - capacity-controller
+      operationId: getSchedule
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+    put:
+      tags:
+      - capacity-controller
+      operationId: updateSchedule
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkScheduleRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+    delete:
+      tags:
+      - capacity-controller
+      operationId: deleteSchedule
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/capacity/leave/{leaveId}:
+    get:
+      tags:
+      - capacity-controller
+      operationId: getLeave
+      parameters:
+      - name: leaveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipLeavePeriodResponse'
+    put:
+      tags:
+      - capacity-controller
+      operationId: updateLeave
+      parameters:
+      - name: leaveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMembershipLeaveRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipLeavePeriodResponse'
+    delete:
+      tags:
+      - capacity-controller
+      operationId: deleteLeave
+      parameters:
+      - name: leaveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/admin/settings/{key}:
+    put:
+      tags:
+      - settings-controller
+      operationId: updateGlobalSetting
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+  /api/v1/activities/{activityId}:
+    get:
+      tags:
+      - activity-controller
+      operationId: getById
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+    put:
+      tags:
+      - activity-controller
+      operationId: update_7
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivityRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+    delete:
+      tags:
+      - activity-controller
+      operationId: delete_7
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/timesheets/periods:
+    get:
+      tags:
+      - timesheet-controller
+      operationId: list
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimesheetPeriodResponse'
+    post:
+      tags:
+      - timesheet-controller
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTimesheetPeriodRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimesheetPeriodResponse'
+  /api/v1/timesheets/periods/{periodId}/submit:
+    post:
+      tags:
+      - timesheet-controller
+      operationId: submit
+      parameters:
+      - name: periodId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimesheetPeriodResponse'
+  /api/v1/timesheets/periods/{periodId}/reopen:
+    post:
+      tags:
+      - timesheet-controller
+      operationId: reopen
+      parameters:
+      - name: periodId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimesheetPeriodResponse'
+  /api/v1/timesheets/periods/{periodId}/close:
+    post:
+      tags:
+      - timesheet-controller
+      operationId: close
+      parameters:
+      - name: periodId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimesheetPeriodResponse'
+  /api/v1/timesheets/periods/reject:
+    post:
+      tags:
+      - timesheet-controller
+      operationId: reject
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectTimesheetPeriodsRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimesheetPeriodResponse'
+  /api/v1/timesheets/periods/approve:
+    post:
+      tags:
+      - timesheet-controller
+      operationId: approve
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveTimesheetPeriodsRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimesheetPeriodResponse'
+  /api/v1/time-entries:
+    get:
+      tags:
+      - time-entry-controller
+      operationId: list_1
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1000
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseTimeEntryResponse'
+    post:
+      tags:
+      - time-entry-controller
+      operationId: start
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTimeEntryRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/timer/start:
+    post:
+      tags:
+      - time-entry-controller
+      operationId: startTimer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTimeEntryRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/manual:
+    post:
+      tags:
+      - time-entry-controller
+      operationId: manual
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualTimeEntryRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/requests:
+    get:
+      tags:
+      - internal-request-controller
+      operationId: list_2
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: priority
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: assigneeId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: responsibleDepartmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: mine
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseInternalRequestResponse'
+    post:
+      tags:
+      - internal-request-controller
+      operationId: create_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInternalRequestRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+  /api/v1/requests/{requestId}/tasks:
+    get:
+      tags:
+      - internal-request-controller
+      operationId: tasks
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityResponse'
+    post:
+      tags:
+      - internal-request-controller
+      operationId: createTasks
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequestTasksRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityResponse'
+  /api/v1/requests/{requestId}/convert-to-project:
+    post:
+      tags:
+      - internal-request-controller
+      operationId: convertToProject
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConvertRequestToProjectRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+  /api/v1/requests/{requestId}/comments:
+    get:
+      tags:
+      - internal-request-controller
+      operationId: comments
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RequestCommentResponse'
+    post:
+      tags:
+      - internal-request-controller
+      operationId: addComment
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequestCommentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RequestCommentResponse'
+  /api/v1/reports/saved:
+    get:
+      tags:
+      - report-controller
+      operationId: listSavedReports
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SavedReportResponse'
+    post:
+      tags:
+      - report-controller
+      operationId: createSavedReport
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSavedReportRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SavedReportResponse'
+  /api/v1/reports/exports:
+    get:
+      tags:
+      - report-controller
+      operationId: createExportJobLegacy
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+      deprecated: true
+    post:
+      tags:
+      - report-controller
+      operationId: createExportJob
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExportJobRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+  /api/v1/projects/{projectId}/cross-department-access:
+    get:
+      tags:
+      - cross-department-access-controller
+      operationId: list_3
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CrossDepartmentAccessResponse'
+    post:
+      tags:
+      - cross-department-access-controller
+      operationId: grant
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+                format: uuid
+        required: true
+      responses:
+        '200':
+          description: OK
+  /api/v1/projects/{projectId}/columns:
+    get:
+      tags:
+      - project-column-controller
+      operationId: list_4
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectColumnResponse'
+    post:
+      tags:
+      - project-column-controller
+      operationId: create_2
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectColumnRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProjectColumnResponse'
+  /api/v1/projects/{projectId}/assignments:
+    get:
+      tags:
+      - project-assignment-controller
+      operationId: list_5
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectAssignmentResponse'
+    post:
+      tags:
+      - project-assignment-controller
+      operationId: assign
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+                format: uuid
+        required: true
+      responses:
+        '200':
+          description: OK
+  /api/v1/projects/{projectId}/activities:
+    get:
+      tags:
+      - activity-controller
+      operationId: listByProject
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityResponse'
+    post:
+      tags:
+      - activity-controller
+      operationId: create_3
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+  /api/v1/projects/{projectId}/activities/reorder:
+    post:
+      tags:
+      - activity-controller
+      operationId: reorder
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderActivitiesRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityResponse'
+  /api/v1/organizations:
+    post:
+      tags:
+      - organization-controller
+      operationId: create_4
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/OrganizationResponse'
+  /api/v1/organizations/{orgId}/memberships/invite:
+    post:
+      tags:
+      - membership-controller
+      operationId: invite
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipInvitationResponse'
+  /api/v1/organizations/{orgId}/departments:
+    get:
+      tags:
+      - department-controller
+      operationId: list_6
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DepartmentResponse'
+    post:
+      tags:
+      - department-controller
+      operationId: create_5
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDepartmentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DepartmentResponse'
+  /api/v1/files:
+    post:
+      tags:
+      - file-controller
+      operationId: upload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/StoredFileResponse'
+  /api/v1/documents:
+    get:
+      tags:
+      - document-controller
+      operationId: list_7
+      parameters:
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: requestId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: activityId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentResponse'
+    post:
+      tags:
+      - document-controller
+      operationId: create_6
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+  /api/v1/documents/{documentId}/restore/{versionId}:
+    post:
+      tags:
+      - document-controller
+      operationId: restore
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+  /api/v1/documents/{documentId}/attachments:
+    get:
+      tags:
+      - document-controller
+      operationId: attachments
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentAttachmentResponse'
+    post:
+      tags:
+      - document-controller
+      operationId: addAttachment
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDocumentAttachmentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DocumentAttachmentResponse'
+  /api/v1/departments/{deptId}/projects:
+    post:
+      tags:
+      - project-controller
+      operationId: create_7
+      parameters:
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+  /api/v1/departments/{deptId}/member-types:
+    get:
+      tags:
+      - member-type-controller
+      operationId: list_8
+      parameters:
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberTypeResponse'
+    post:
+      tags:
+      - member-type-controller
+      operationId: create_8
+      parameters:
+      - name: deptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemberTypeRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MemberTypeResponse'
+  /api/v1/capacity/schedules:
+    get:
+      tags:
+      - capacity-controller
+      operationId: listSchedules
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkScheduleResponse'
+    post:
+      tags:
+      - capacity-controller
+      operationId: createSchedule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkScheduleRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/WorkScheduleResponse'
+  /api/v1/capacity/members/{membershipId}/schedules:
+    get:
+      tags:
+      - capacity-controller
+      operationId: listPlacements
+      parameters:
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipWorkScheduleResponse'
+    post:
+      tags:
+      - capacity-controller
+      operationId: assignSchedule
+      parameters:
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignWorkScheduleRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipWorkScheduleResponse'
+  /api/v1/capacity/leave:
+    get:
+      tags:
+      - capacity-controller
+      operationId: listLeave
+      parameters:
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipLeavePeriodResponse'
+    post:
+      tags:
+      - capacity-controller
+      operationId: createLeave
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMembershipLeaveRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipLeavePeriodResponse'
+  /api/v1/capacity/holidays:
+    get:
+      tags:
+      - capacity-controller
+      operationId: listHolidays
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizationHolidayResponse'
+    post:
+      tags:
+      - capacity-controller
+      operationId: createHoliday
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationHolidayRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/OrganizationHolidayResponse'
+  /api/v1/auth/switch-org:
+    post:
+      tags:
+      - auth-controller
+      operationId: switchOrg
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchOrgRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SwitchOrgResponse'
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - auth-controller
+      operationId: refresh
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+  /api/v1/auth/oidc:
+    post:
+      tags:
+      - auth-controller
+      operationId: loginWithOidc
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcAuthRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/v1/auth/oidc/code:
+    post:
+      tags:
+      - auth-controller
+      operationId: loginWithOidcCode
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcCodeRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - auth-controller
+      operationId: logout
+      responses:
+        '200':
+          description: OK
+  /api/v1/auth/google:
+    post:
+      tags:
+      - auth-controller
+      operationId: loginWithGoogle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/v1/activity-templates/{templateId}/use:
+    post:
+      tags:
+      - activity-template-controller
+      operationId: use
+      parameters:
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UseActivityTemplateRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/GeneratedActivityResponse'
+  /api/v1/activities/{childId}/dependencies:
+    post:
+      tags:
+      - activity-controller
+      operationId: addDependency
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDependencyRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+  /api/v1/activities/{activityId}/templates:
+    post:
+      tags:
+      - activity-template-controller
+      operationId: create_9
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityTemplateRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityTemplateResponse'
+  /api/v1/activities/{activityId}/comments:
+    get:
+      tags:
+      - activity-controller
+      operationId: comments_1
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityCommentResponse'
+    post:
+      tags:
+      - activity-controller
+      operationId: addComment_1
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityCommentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityCommentResponse'
+  /api/v1/activities/{activityId}/checklist:
+    get:
+      tags:
+      - activity-controller
+      operationId: checklist
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityChecklistItemResponse'
+    post:
+      tags:
+      - activity-controller
+      operationId: addChecklistItem
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityChecklistItemRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityChecklistItemResponse'
+  /api/v1/activities/{activityId}/attachments:
+    get:
+      tags:
+      - activity-controller
+      operationId: attachments_1
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityAttachmentResponse'
+    post:
+      tags:
+      - activity-controller
+      operationId: addAttachment_1
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityAttachmentRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityAttachmentResponse'
+  /api/v1/time-entries/{entryId}/submit:
+    patch:
+      tags:
+      - time-entry-controller
+      operationId: submit_1
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/{entryId}/stop:
+    patch:
+      tags:
+      - time-entry-controller
+      operationId: stop
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/{entryId}/resume:
+    patch:
+      tags:
+      - time-entry-controller
+      operationId: resume
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/{entryId}/reject:
+    patch:
+      tags:
+      - time-entry-controller
+      operationId: reject_1
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectTimeEntryRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/{entryId}/pause:
+    patch:
+      tags:
+      - time-entry-controller
+      operationId: pause
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/{entryId}/approve:
+    patch:
+      tags:
+      - time-entry-controller
+      operationId: approve_1
+      parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/requests/{requestId}/status:
+    patch:
+      tags:
+      - internal-request-controller
+      operationId: changeStatus
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRequestStatusRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+  /api/v1/requests/{requestId}/link-project:
+    patch:
+      tags:
+      - internal-request-controller
+      operationId: linkProject
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkRequestProjectRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+  /api/v1/requests/{requestId}/link-activity:
+    patch:
+      tags:
+      - internal-request-controller
+      operationId: linkActivity
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkRequestActivityRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+  /api/v1/requests/{requestId}/assign:
+    patch:
+      tags:
+      - internal-request-controller
+      operationId: assign_1
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequestRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InternalRequestResponse'
+  /api/v1/projects/{projectId}/columns/reorder:
+    patch:
+      tags:
+      - project-column-controller
+      operationId: reorder_1
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderProjectColumnsRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectColumnResponse'
+  /api/v1/organizations/{orgId}/memberships/{membershipId}/role:
+    patch:
+      tags:
+      - membership-controller
+      operationId: changeRole
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRoleRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+  /api/v1/organizations/{orgId}/memberships/{membershipId}/revoke-invitation:
+    patch:
+      tags:
+      - membership-controller
+      operationId: revokeInvitation
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/notifications/{id}/read:
+    patch:
+      tags:
+      - notification-controller
+      operationId: read
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+  /api/v1/notifications/read-all:
+    patch:
+      tags:
+      - notification-controller
+      operationId: readAll
+      responses:
+        '200':
+          description: OK
+  /api/v1/activities/{activityId}/move:
+    patch:
+      tags:
+      - activity-controller
+      operationId: move
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveActivityRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+  /api/v1/activities/{activityId}/checklist/{itemId}:
+    delete:
+      tags:
+      - activity-controller
+      operationId: deleteChecklistItem
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+    patch:
+      tags:
+      - activity-controller
+      operationId: toggleChecklistItem
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActivityChecklistItemResponse'
+  /api/v1/timesheets/periods/approval-queue:
+    get:
+      tags:
+      - timesheet-controller
+      operationId: approvalQueue
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimesheetPeriodQueueItem'
+  /api/v1/time-entries/running:
+    get:
+      tags:
+      - time-entry-controller
+      operationId: running
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/TimeEntryResponse'
+  /api/v1/time-entries/org:
+    get:
+      tags:
+      - time-entry-controller
+      operationId: listOrg
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1000
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseTimeEntryResponse'
+  /api/v1/search:
+    get:
+      tags:
+      - search-controller
+      operationId: search
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SearchResultResponse'
+  /api/v1/reports/workload:
+    get:
+      tags:
+      - report-controller
+      operationId: workload
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkloadMemberResponse'
+  /api/v1/reports/summary:
+    get:
+      tags:
+      - report-controller
+      operationId: summary
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ReportSummaryResponse'
+  /api/v1/reports/saved/{reportId}:
+    get:
+      tags:
+      - report-controller
+      operationId: getSavedReport
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SavedReportResponse'
+  /api/v1/reports/groupings/billable:
+    get:
+      tags:
+      - report-controller
+      operationId: billableGrouping
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BillableGroupResponse'
+  /api/v1/reports/groupings/approval:
+    get:
+      tags:
+      - report-controller
+      operationId: approvalGrouping
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApprovalGroupResponse'
+  /api/v1/reports/financials/projects:
+    get:
+      tags:
+      - report-controller
+      operationId: projectFinancials
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectFinancialResponse'
+  /api/v1/reports/financials/members:
+    get:
+      tags:
+      - report-controller
+      operationId: memberFinancials
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberFinancialResponse'
+  /api/v1/reports/financials/departments:
+    get:
+      tags:
+      - report-controller
+      operationId: departmentFinancials
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DepartmentFinancialResponse'
+  /api/v1/reports/financials/activities:
+    get:
+      tags:
+      - report-controller
+      operationId: activityFinancials
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityFinancialResponse'
+  /api/v1/reports/exports/{jobId}:
+    get:
+      tags:
+      - report-controller
+      operationId: getExportJob
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+  /api/v1/reports/exports/{jobId}/download:
+    get:
+      tags:
+      - report-controller
+      operationId: downloadExportJob
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: string
+  /api/v1/reports/detailed:
+    get:
+      tags:
+      - report-controller
+      operationId: detailed
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportDetailedRow'
+  /api/v1/reports/detailed/page:
+    get:
+      tags:
+      - report-controller
+      operationId: detailedPage
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseReportDetailedRow'
+  /api/v1/projects/{projectId}/activity-templates:
+    get:
+      tags:
+      - activity-template-controller
+      operationId: list_9
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityTemplateResponse'
+  /api/v1/privacy/me/export:
+    get:
+      tags:
+      - privacy-controller
+      operationId: exportMe
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DataExportResponse'
+  /api/v1/organizations/{orgId}/settings:
+    get:
+      tags:
+      - settings-controller
+      operationId: organizationSettings
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+  /api/v1/organizations/{orgId}/projects:
+    get:
+      tags:
+      - project-controller
+      operationId: listByOrganization
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectResponse'
+  /api/v1/organizations/{orgId}/memberships:
+    get:
+      tags:
+      - membership-controller
+      operationId: list_10
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipResponse'
+  /api/v1/organizations/{orgId}/memberships/invitations:
+    get:
+      tags:
+      - membership-controller
+      operationId: invitations
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipInvitationResponse'
+  /api/v1/notifications:
+    get:
+      tags:
+      - notification-controller
+      operationId: list_11
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponse'
+  /api/v1/notifications/unread-count:
+    get:
+      tags:
+      - notification-controller
+      operationId: unread
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                  format: int64
+  /api/v1/me/sector:
+    get:
+      tags:
+      - sector-overview-controller
+      operationId: getOverview
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SectorOverviewResponse'
+  /api/v1/files/{fileId}:
+    get:
+      tags:
+      - file-controller
+      operationId: download
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: byte
+    delete:
+      tags:
+      - file-controller
+      operationId: delete_8
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/documents/{documentId}/versions:
+    get:
+      tags:
+      - document-controller
+      operationId: versions
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentVersionResponse'
+  /api/v1/documents/{documentId}/export:
+    get:
+      tags:
+      - document-controller
+      operationId: export
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+                format: byte
+  /api/v1/capacity/members:
+    get:
+      tags:
+      - capacity-controller
+      operationId: members
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberCapacityResponse'
+  /api/v1/auth/me:
+    get:
+      tags:
+      - auth-controller
+      operationId: me
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SecurityUser'
+  /api/v1/audit-events:
+    get:
+      tags:
+      - audit-controller
+      operationId: list_12
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseAuditEventResponse'
+  /api/v1/admin/settings:
+    get:
+      tags:
+      - settings-controller
+      operationId: globalSettings
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+  /api/v1/activities:
+    get:
+      tags:
+      - activity-controller
+      operationId: query
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: assignedTo
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: projectId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1000
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginatedResponseActivityResponse'
+  /api/v1/activities/{activityId}/mention-candidates:
+    get:
+      tags:
+      - activity-controller
+      operationId: mentionCandidates
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityMentionResponse'
+  /api/v1/activities/{activityId}/feed:
+    get:
+      tags:
+      - activity-controller
+      operationId: feed
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityFeedResponse'
+  /api/v1/requests/{requestId}/comments/{commentId}:
+    delete:
+      tags:
+      - internal-request-controller
+      operationId: deleteComment
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/projects/{projectId}/cross-department-access/{departmentId}:
+    delete:
+      tags:
+      - cross-department-access-controller
+      operationId: remove
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: departmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/projects/{projectId}/assignments/{membershipId}:
+    delete:
+      tags:
+      - project-assignment-controller
+      operationId: remove_1
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/organizations/{orgId}/memberships/{membershipId}:
+    delete:
+      tags:
+      - membership-controller
+      operationId: remove_2
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/documents/{documentId}/attachments/{attachmentId}:
+    delete:
+      tags:
+      - document-controller
+      operationId: removeAttachment
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/capacity/members/{membershipId}/schedules/{placementId}:
+    delete:
+      tags:
+      - capacity-controller
+      operationId: removePlacement
+      parameters:
+      - name: membershipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: placementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/capacity/holidays/{holidayId}:
+    delete:
+      tags:
+      - capacity-controller
+      operationId: deleteHoliday
+      parameters:
+      - name: holidayId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/activities/{childId}/dependencies/{parentId}:
+    delete:
+      tags:
+      - activity-controller
+      operationId: removeDependency
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: parentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/activities/{activityId}/comments/{commentId}:
+    delete:
+      tags:
+      - activity-controller
+      operationId: deleteComment_1
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+  /api/v1/activities/{activityId}/attachments/{attachmentId}:
+    delete:
+      tags:
+      - activity-controller
+      operationId: deleteAttachment
+      parameters:
+      - name: activityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    UpdateTimeEntryRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        glpiTicketId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        billable:
+          type: boolean
+        expectedVersion:
+          type: integer
+          format: int64
+    TimeEntryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        glpiTicketId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        durationSeconds:
+          type: integer
+          format: int64
+        pausedSeconds:
+          type: integer
+          format: int64
+        pausedAt:
+          type: string
+          format: date-time
+        approvalStatus:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - APPROVED
+          - REJECTED
+          - LOCKED
+        submittedAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: string
+          format: date-time
+        approvedBy:
+          type: string
+          format: uuid
+        rejectionComment:
+          type: string
+        billingRateSnapshot:
+          type: number
+        costRateSnapshot:
+          type: number
+        billable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    UpdateInternalRequestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        description:
+          type: string
+          maxLength: 5000
+          minLength: 0
+        glpiTicketId:
+          type: string
+          maxLength: 64
+          minLength: 0
+        priority:
+          type: string
+        responsibleDepartmentId:
+          type: string
+          format: uuid
+        assigneeMembershipId:
+          type: string
+          format: uuid
+        assigneeMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        desiredDueDate:
+          type: string
+          format: date-time
+    InternalRequestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        requestKey:
+          type: string
+        glpiTicketId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        requesterMembershipId:
+          type: string
+          format: uuid
+        requestingDepartmentId:
+          type: string
+          format: uuid
+        responsibleDepartmentId:
+          type: string
+          format: uuid
+        assigneeMembershipId:
+          type: string
+          format: uuid
+        assigneeMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        desiredDueDate:
+          type: string
+          format: date-time
+        projectId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        completedAt:
+          type: string
+          format: date-time
+        canceledAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        managerMembershipId:
+          type: string
+          format: uuid
+        hourlyRate:
+          type: number
+        estimatedSeconds:
+          type: integer
+          format: int64
+        budgetSeconds:
+          type: integer
+          format: int64
+        budgetAmount:
+          type: number
+        isActive:
+          type: boolean
+        expectedVersion:
+          type: integer
+          format: int64
+    ProjectResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        departmentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        managerMembershipId:
+          type: string
+          format: uuid
+        hourlyRate:
+          type: number
+        estimatedSeconds:
+          type: integer
+          format: int64
+        budgetSeconds:
+          type: integer
+          format: int64
+        budgetAmount:
+          type: number
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    UpdateProjectColumnRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        lifecycleStatus:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - IN_TESTING
+          - DONE
+          - BLOCKED
+          - CANCELED
+        position:
+          type: integer
+          format: int32
+    ProjectColumnResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        position:
+          type: integer
+          format: int32
+        color:
+          type: string
+        lifecycleStatus:
+          type: string
+    UpdateSettingRequest:
+      type: object
+      properties:
+        value:
+          type: string
+        clear:
+          type: string
+          pattern: true|false
+    SettingValue:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        valueType:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+        value:
+          type: string
+        isSet:
+          type: boolean
+        isOverride:
+          type: boolean
+    SettingsGroup:
+      type: object
+      properties:
+        name:
+          type: string
+        settings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingValue'
+    SettingsResponse:
+      type: object
+      properties:
+        scope:
+          type: string
+        orgId:
+          type: string
+          format: uuid
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsGroup'
+    UpdateMembershipSettingsRequest:
+      type: object
+      properties:
+        customUsername:
+          type: string
+        maxDailyWorkMinutes:
+          type: integer
+          format: int32
+          maximum: 1440
+          minimum: 1
+        timezone:
+          type: string
+        memberTypeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    MemberTypeRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    MembershipResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+        customUsername:
+          type: string
+        maxDailyWorkMinutes:
+          type: integer
+          format: int32
+        primaryDepartmentId:
+          type: string
+          format: uuid
+        memberTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberTypeRef'
+        timezone:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CreateDepartmentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+    DepartmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    NotificationPreferenceValue:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - ACTIVITY_DUE_SOON
+          - ACTIVITY_OVERDUE
+          - ACTIVITY_MENTION
+          - OPEN_TIMER
+          - TIME_ENTRY_PENDING_APPROVAL
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - type
+    NotificationPreferencesRequest:
+      type: object
+      properties:
+        preferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationPreferenceValue'
+      required:
+      - preferences
+    NotificationPreferencesResponse:
+      type: object
+      properties:
+        preferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationPreferenceValue'
+    UpdateDocumentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        contentMd:
+          type: string
+          maxLength: 200000
+          minLength: 0
+        changelog:
+          type: string
+          maxLength: 255
+          minLength: 0
+    DocumentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        slug:
+          type: string
+        contentMd:
+          type: string
+        status:
+          type: string
+        authorMembershipId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        version:
+          type: integer
+          format: int32
+        attachmentCount:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateMemberTypeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        isActive:
+          type: boolean
+    MemberTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        departmentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateWorkScheduleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        isDefault:
+          type: boolean
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDayRequest'
+    WorkScheduleDayRequest:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+          format: int32
+          maximum: 7
+          minimum: 1
+        isWorkDay:
+          type: boolean
+        startTime:
+          type: string
+          example: '14:30:00'
+        endTime:
+          type: string
+          example: '14:30:00'
+    WorkScheduleDayResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        dayOfWeek:
+          type: integer
+          format: int32
+        isWorkDay:
+          type: boolean
+        startTime:
+          type: string
+          example: '14:30:00'
+        endTime:
+          type: string
+          example: '14:30:00'
+    WorkScheduleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        isDefault:
+          type: boolean
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDayResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateMembershipLeaveRequest:
+      type: object
+      properties:
+        leaveType:
+          type: string
+          enum:
+          - VACATION
+          - SICK
+          - PARENTAL
+          - UNPAID
+          - OTHER
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - APPROVED
+          - REJECTED
+        note:
+          type: string
+    MembershipLeavePeriodResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        leaveType:
+          type: string
+          enum:
+          - VACATION
+          - SICK
+          - PARENTAL
+          - UNPAID
+          - OTHER
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - APPROVED
+          - REJECTED
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    UpdateActivityRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        weight:
+          type: integer
+          format: int32
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        assignedToMembershipId:
+          type: string
+          format: uuid
+        parentActivityId:
+          type: string
+          format: uuid
+        estimatedSeconds:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - IN_TESTING
+          - DONE
+          - BLOCKED
+          - CANCELED
+        position:
+          type: integer
+          format: int32
+        taskType:
+          type: string
+          enum:
+          - TASK
+          - BUG
+          - IMPROVEMENT
+          - SUPPORT
+          - MEETING
+          - MILESTONE
+        priority:
+          type: string
+          enum:
+          - LOW
+          - NORMAL
+          - HIGH
+          - URGENT
+        dueDate:
+          type: string
+          format: date-time
+        expectedVersion:
+          type: integer
+          format: int64
+        assigneeMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    ActivityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        parentActivityId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        weight:
+          type: integer
+          format: int32
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - IN_TESTING
+          - DONE
+          - BLOCKED
+          - CANCELED
+        taskType:
+          type: string
+          enum:
+          - TASK
+          - BUG
+          - IMPROVEMENT
+          - SUPPORT
+          - MEETING
+          - MILESTONE
+        priority:
+          type: string
+          enum:
+          - LOW
+          - NORMAL
+          - HIGH
+          - URGENT
+        dueDate:
+          type: string
+          format: date-time
+        position:
+          type: integer
+          format: int32
+        completedAt:
+          type: string
+          format: date-time
+        estimatedSeconds:
+          type: integer
+          format: int64
+        createdBy:
+          type: string
+          format: uuid
+        assignedTo:
+          type: string
+          format: uuid
+        assigneeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        parentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        checklistTotal:
+          type: integer
+          format: int32
+        checklistCompleted:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    CreateTimesheetPeriodRequest:
+      type: object
+      properties:
+        periodStart:
+          type: string
+          format: date-time
+      required:
+      - periodStart
+    TimesheetPeriodResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - APPROVED
+          - REJECTED
+          - LOCKED
+        submittedAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: string
+          format: date-time
+        approvedBy:
+          type: string
+          format: uuid
+        rejectionComment:
+          type: string
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    RejectTimesheetPeriodsRequest:
+      type: object
+      properties:
+        periodIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        comment:
+          type: string
+          minLength: 1
+    ApproveTimesheetPeriodsRequest:
+      type: object
+      properties:
+        periodIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+    StartTimeEntryRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        glpiTicketId:
+          type: string
+        billable:
+          type: boolean
+    ManualTimeEntryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        projectId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        glpiTicketId:
+          type: string
+        billable:
+          type: boolean
+      required:
+      - endTime
+      - startTime
+    CreateInternalRequestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        description:
+          type: string
+          maxLength: 5000
+          minLength: 0
+        glpiTicketId:
+          type: string
+          maxLength: 64
+          minLength: 0
+        priority:
+          type: string
+        requestingDepartmentId:
+          type: string
+          format: uuid
+        responsibleDepartmentId:
+          type: string
+          format: uuid
+        desiredDueDate:
+          type: string
+          format: date-time
+        assigneeMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    CreateRequestTasksRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskItem'
+          minItems: 1
+    TaskItem:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        description:
+          type: string
+          maxLength: 5000
+          minLength: 0
+        priority:
+          type: string
+          enum:
+          - LOW
+          - NORMAL
+          - HIGH
+          - URGENT
+        weight:
+          type: integer
+          format: int32
+        estimatedSeconds:
+          type: integer
+          format: int64
+        dueDate:
+          type: string
+          format: date-time
+        assigneeMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    ConvertRequestToProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 0
+        description:
+          type: string
+          maxLength: 5000
+          minLength: 0
+    CreateRequestCommentRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          maxLength: 5000
+          minLength: 0
+    RequestCommentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        authorMembershipId:
+          type: string
+          format: uuid
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CreateSavedReportRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 150
+          minLength: 0
+        description:
+          type: string
+        params:
+          type: object
+          additionalProperties:
+            type: object
+    SavedReportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        params:
+          type: object
+          additionalProperties:
+            type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    CreateExportJobRequest:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        projectId:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        format:
+          type: string
+    ExportJobResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        format:
+          type: string
+        downloadUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    CreateProjectColumnRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        color:
+          type: string
+        lifecycleStatus:
+          type: string
+      required:
+      - lifecycleStatus
+    CreateActivityRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        weight:
+          type: integer
+          format: int32
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        assignedToMembershipId:
+          type: string
+          format: uuid
+        parentActivityId:
+          type: string
+          format: uuid
+        estimatedSeconds:
+          type: integer
+          format: int64
+        parentActivityIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        taskType:
+          type: string
+          enum:
+          - TASK
+          - BUG
+          - IMPROVEMENT
+          - SUPPORT
+          - MEETING
+          - MILESTONE
+        priority:
+          type: string
+          enum:
+          - LOW
+          - NORMAL
+          - HIGH
+          - URGENT
+        dueDate:
+          type: string
+          format: date-time
+        assigneeMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - assignedToMembershipId
+      - endDatetime
+      - startDatetime
+    ReorderActivitiesRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - IN_TESTING
+          - DONE
+          - BLOCKED
+          - CANCELED
+        activityIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+      required:
+      - status
+    CreateOrganizationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+        timezone:
+          type: string
+    OrganizationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        timezone:
+          type: string
+        workWeekStartsOn:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+    InviteRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          minLength: 1
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+        departmentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        memberTypeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - role
+    MembershipInvitationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+        primaryDepartmentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - REVOKED
+          - EXPIRED
+        invitedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        acceptedAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+    StoredFileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        url:
+          type: string
+    CreateDocumentRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+        contentMd:
+          type: string
+          maxLength: 200000
+          minLength: 0
+    AddDocumentAttachmentRequest:
+      type: object
+      properties:
+        storedFileId:
+          type: string
+          format: uuid
+      required:
+      - storedFileId
+    DocumentAttachmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        url:
+          type: string
+        uploadedByMembershipId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    CreateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        color:
+          type: string
+        managerMembershipId:
+          type: string
+          format: uuid
+        hourlyRate:
+          type: number
+        estimatedSeconds:
+          type: integer
+          format: int64
+        budgetSeconds:
+          type: integer
+          format: int64
+        budgetAmount:
+          type: number
+    CreateMemberTypeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        isActive:
+          type: boolean
+    CreateWorkScheduleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        isDefault:
+          type: boolean
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkScheduleDayRequest'
+    AssignWorkScheduleRequest:
+      type: object
+      properties:
+        scheduleId:
+          type: string
+          format: uuid
+        effectiveFrom:
+          type: string
+          format: date
+        effectiveTo:
+          type: string
+          format: date
+      required:
+      - effectiveFrom
+      - scheduleId
+    MembershipWorkScheduleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        scheduleId:
+          type: string
+          format: uuid
+        effectiveFrom:
+          type: string
+          format: date
+        effectiveTo:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+    CreateMembershipLeaveRequest:
+      type: object
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        leaveType:
+          type: string
+          enum:
+          - VACATION
+          - SICK
+          - PARENTAL
+          - UNPAID
+          - OTHER
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - APPROVED
+          - REJECTED
+        note:
+          type: string
+      required:
+      - endDate
+      - startDate
+    CreateOrganizationHolidayRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        holidayDate:
+          type: string
+          format: date
+        isRecurringYearly:
+          type: boolean
+      required:
+      - holidayDate
+    OrganizationHolidayResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        holidayDate:
+          type: string
+          format: date
+        isRecurringYearly:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    SwitchOrgRequest:
+      type: object
+      properties:
+        orgId:
+          type: string
+          format: uuid
+      required:
+      - orgId
+    OrgInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        role:
+          type: string
+        timezone:
+          type: string
+        workWeekStartsOn:
+          type: integer
+          format: int32
+    SwitchOrgResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        org:
+          $ref: '#/components/schemas/OrgInfo'
+    RefreshResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserInfo'
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrgInfo'
+        activeOrganizationId:
+          type: string
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+    OidcAuthRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - GOOGLE
+          - MICROSOFT
+          - MOCK_GOOGLE
+          - MOCK_MICROSOFT
+        idToken:
+          type: string
+          minLength: 1
+      required:
+      - provider
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserInfo'
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrgInfo'
+    OidcCodeRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - GOOGLE
+          - MICROSOFT
+          - MOCK_GOOGLE
+          - MOCK_MICROSOFT
+        code:
+          type: string
+          minLength: 1
+        codeVerifier:
+          type: string
+          minLength: 1
+      required:
+      - provider
+    AuthRequest:
+      type: object
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+    UseActivityTemplateRequest:
+      type: object
+      properties:
+        occurrenceAt:
+          type: string
+          format: date-time
+      required:
+      - occurrenceAt
+    GeneratedActivityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+    AddDependencyRequest:
+      type: object
+      properties:
+        parentActivityId:
+          type: string
+          format: uuid
+      required:
+      - parentActivityId
+    CreateActivityTemplateRequest:
+      type: object
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        recurrence:
+          $ref: '#/components/schemas/RecurrenceRequest'
+    RecurrenceRequest:
+      type: object
+      properties:
+        frequency:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+        interval:
+          type: integer
+          format: int32
+          minimum: 1
+        timezone:
+          type: string
+          minLength: 1
+        nextOccurrence:
+          type: string
+          format: date-time
+      required:
+      - frequency
+      - nextOccurrence
+    ActivityTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: integer
+          format: int32
+        title:
+          type: string
+        description:
+          type: string
+        weight:
+          type: integer
+          format: int32
+        durationSeconds:
+          type: integer
+          format: int64
+        estimatedSeconds:
+          type: integer
+          format: int64
+        assignedToMembershipId:
+          type: string
+          format: uuid
+        recurrence:
+          $ref: '#/components/schemas/RecurrenceResponse'
+        createdAt:
+          type: string
+          format: date-time
+    RecurrenceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        frequency:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+        interval:
+          type: integer
+          format: int32
+        timezone:
+          type: string
+        nextOccurrence:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+    CreateActivityCommentRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          maxLength: 4000
+          minLength: 0
+        mentionMembershipIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+          minItems: 0
+    ActivityCommentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        authorMembershipId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        content:
+          type: string
+        deleted:
+          type: boolean
+        canDelete:
+          type: boolean
+        mentions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityMentionResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ActivityMentionResponse:
+      type: object
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+    CreateActivityChecklistItemRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          minLength: 0
+    ActivityChecklistItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        completed:
+          type: boolean
+        position:
+          type: integer
+          format: int32
+        completedBy:
+          type: string
+          format: uuid
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    CreateActivityAttachmentRequest:
+      type: object
+      properties:
+        fileName:
+          type: string
+          minLength: 1
+        contentType:
+          type: string
+          minLength: 1
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        url:
+          type: string
+        storedFileId:
+          type: string
+          format: uuid
+    ActivityAttachmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        uploadedByMembershipId:
+          type: string
+          format: uuid
+        uploadedByName:
+          type: string
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        url:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    RejectTimeEntryRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+    ChangeRequestStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+    LinkRequestProjectRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+    LinkRequestActivityRequest:
+      type: object
+      properties:
+        activityId:
+          type: string
+          format: uuid
+    AssignRequestRequest:
+      type: object
+      properties:
+        assigneeMembershipId:
+          type: string
+          format: uuid
+    ReorderProjectColumnsRequest:
+      type: object
+      properties:
+        columnIds:
+          type: array
+          items:
+            type: string
+    ChangeRoleRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+        departmentId:
+          type: string
+          format: uuid
+        memberTypeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - role
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+          format: uuid
+        readAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    MoveActivityRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - IN_TESTING
+          - DONE
+          - BLOCKED
+          - CANCELED
+        columnId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          format: int32
+        expectedVersion:
+          type: integer
+          format: int64
+    TimesheetPeriodQueueItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        totalSeconds:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        entryCount:
+          type: integer
+          format: int64
+        organizationId:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+        membershipId:
+          type: string
+          format: uuid
+        billableSeconds:
+          type: integer
+          format: int64
+        ownerUsername:
+          type: string
+        ownerDisplayName:
+          type: string
+    PaginatedResponseTimeEntryResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeEntryResponse'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+    SearchResultResponse:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        subtitle:
+          type: string
+        url:
+          type: string
+    PaginatedResponseInternalRequestResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/InternalRequestResponse'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+    WorkloadMemberResponse:
+      type: object
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        capacitySeconds:
+          type: integer
+          format: int64
+        estimatedSeconds:
+          type: integer
+          format: int64
+        actualSeconds:
+          type: integer
+          format: int64
+        utilizationPercent:
+          type: number
+          format: double
+    MemberProductivityPoint:
+      type: object
+      properties:
+        name:
+          type: string
+        hours:
+          type: number
+          format: double
+        activities:
+          type: integer
+          format: int64
+    ProjectHoursPoint:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        project:
+          type: string
+        color:
+          type: string
+        hours:
+          type: number
+          format: double
+    ReportSummaryResponse:
+      type: object
+      properties:
+        weeklyHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklyHoursPoint'
+        projectHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectHoursPoint'
+        memberProductivity:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberProductivityPoint'
+        dailyAverage:
+          type: number
+          format: double
+        totalHours:
+          type: number
+          format: double
+        totalActivities:
+          type: integer
+          format: int64
+        billableHours:
+          type: number
+          format: double
+        nonBillableHours:
+          type: number
+          format: double
+        estimatedSeconds:
+          type: integer
+          format: int64
+        actualSeconds:
+          type: integer
+          format: int64
+        remainingSeconds:
+          type: integer
+          format: int64
+        progressPercent:
+          type: number
+          format: double
+        revenue:
+          type: number
+          format: double
+        cost:
+          type: number
+          format: double
+        margin:
+          type: number
+          format: double
+    WeeklyHoursPoint:
+      type: object
+      properties:
+        day:
+          type: string
+        hours:
+          type: number
+          format: double
+    BillableGroupResponse:
+      type: object
+      properties:
+        billable:
+          type: boolean
+        seconds:
+          type: integer
+          format: int64
+        entries:
+          type: integer
+          format: int64
+    ApprovalGroupResponse:
+      type: object
+      properties:
+        approvalStatus:
+          type: string
+        seconds:
+          type: integer
+          format: int64
+        entries:
+          type: integer
+          format: int64
+    ProjectFinancialResponse:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        estimatedSeconds:
+          type: integer
+          format: int64
+        actualApprovedSeconds:
+          type: integer
+          format: int64
+        actualNotApprovedSeconds:
+          type: integer
+          format: int64
+        remainingSeconds:
+          type: integer
+          format: int64
+        progressPercent:
+          type: number
+          format: double
+        budgetSeconds:
+          type: integer
+          format: int64
+        budgetAmount:
+          type: number
+        cost:
+          type: number
+        revenue:
+          type: number
+        margin:
+          type: number
+    MemberFinancialResponse:
+      type: object
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        memberName:
+          type: string
+        estimatedSeconds:
+          type: integer
+          format: int64
+        actualApprovedSeconds:
+          type: integer
+          format: int64
+        actualNotApprovedSeconds:
+          type: integer
+          format: int64
+        remainingSeconds:
+          type: integer
+          format: int64
+        progressPercent:
+          type: number
+          format: double
+        cost:
+          type: number
+        revenue:
+          type: number
+        margin:
+          type: number
+    DepartmentFinancialResponse:
+      type: object
+      properties:
+        departmentId:
+          type: string
+          format: uuid
+        departmentName:
+          type: string
+        estimatedSeconds:
+          type: integer
+          format: int64
+        actualApprovedSeconds:
+          type: integer
+          format: int64
+        actualNotApprovedSeconds:
+          type: integer
+          format: int64
+        remainingSeconds:
+          type: integer
+          format: int64
+        progressPercent:
+          type: number
+          format: double
+        cost:
+          type: number
+        revenue:
+          type: number
+        margin:
+          type: number
+    ActivityFinancialResponse:
+      type: object
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        activityTitle:
+          type: string
+        estimatedSeconds:
+          type: integer
+          format: int64
+        actualApprovedSeconds:
+          type: integer
+          format: int64
+        actualNotApprovedSeconds:
+          type: integer
+          format: int64
+        remainingSeconds:
+          type: integer
+          format: int64
+        progressPercent:
+          type: number
+          format: double
+        cost:
+          type: number
+        revenue:
+          type: number
+        margin:
+          type: number
+    ReportDetailedRow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        projectColor:
+          type: string
+        glpiTicketId:
+          type: string
+        memberName:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        hours:
+          type: number
+          format: double
+        approvalStatus:
+          type: string
+        revenue:
+          type: number
+          format: double
+        cost:
+          type: number
+          format: double
+        margin:
+          type: number
+          format: double
+        billable:
+          type: boolean
+    PaginatedResponseReportDetailedRow:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportDetailedRow'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+    CrossDepartmentAccessResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        departmentId:
+          type: string
+          format: uuid
+        grantedBy:
+          type: string
+          format: uuid
+        grantedAt:
+          type: string
+          format: date-time
+    ProjectAssignmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        assignedAt:
+          type: string
+          format: date-time
+    DataExportResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/ExportData'
+    ExportData:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserData'
+        memberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/MembershipData'
+        timeEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeEntryData'
+    MembershipData:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+    TimeEntryData:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        durationSeconds:
+          type: integer
+          format: int64
+    UserData:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        username:
+          type: string
+    ActivitySummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - IN_TESTING
+          - DONE
+          - BLOCKED
+          - CANCELED
+        priority:
+          type: string
+          enum:
+          - LOW
+          - NORMAL
+          - HIGH
+          - URGENT
+        dueDate:
+          type: string
+          format: date-time
+        assignedTo:
+          type: string
+          format: uuid
+        assigneeName:
+          type: string
+    DepartmentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    MemberSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+        departmentId:
+          type: string
+          format: uuid
+        openActivities:
+          type: integer
+          format: int64
+        estimatedSeconds:
+          type: integer
+          format: int64
+    ProjectSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        departmentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        active:
+          type: boolean
+    SectorOverviewResponse:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+        departments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepartmentSummary'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberSummary'
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectSummary'
+        activityCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivitySummary'
+    DocumentVersionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        versionNo:
+          type: integer
+          format: int32
+        contentMd:
+          type: string
+        changelog:
+          type: string
+        createdByMembershipId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    MemberCapacityResponse:
+      type: object
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        availableSeconds:
+          type: integer
+          format: int64
+        plannedSeconds:
+          type: integer
+          format: int64
+        actualSeconds:
+          type: integer
+          format: int64
+        remainingCapacitySeconds:
+          type: integer
+          format: int64
+        utilization:
+          type: number
+          format: double
+        overloadSeconds:
+          type: integer
+          format: int64
+    SecurityUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        username:
+          type: string
+        activeOrganizationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+          - super_admin
+          - admin
+          - manager
+          - employee
+    AuditEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        actorUserId:
+          type: string
+          format: uuid
+        actorMembershipId:
+          type: string
+          format: uuid
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+          format: uuid
+        action:
+          type: string
+        beforeData:
+          type: string
+        afterData:
+          type: string
+        requestId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    PaginatedResponseAuditEventResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEventResponse'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+    PaginatedResponseActivityResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityResponse'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        number:
+          type: integer
+          format: int32
+    ActivityFeedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - COMMENT_CREATED
+          - COMMENT_DELETED
+          - ASSIGNEE_CHANGED
+          - STATUS_CHANGED
+          - DUE_DATE_CHANGED
+        actorMembershipId:
+          type: string
+          format: uuid
+        actorDisplayName:
+          type: string
+        actorAvatarUrl:
+          type: string
+        commentId:
+          type: string
+          format: uuid
+        commentContent:
+          type: string
+        commentDeleted:
+          type: boolean
+        canDelete:
+          type: boolean
+        mentions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityMentionResponse'
+        oldValue:
+          type: string
+        newValue:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
