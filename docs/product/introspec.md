@@ -40,11 +40,11 @@
 - `tasky.recurrence.*` scheduler keys are absent from config — the
   60s recurrence schedule is always default.
 
-## Confirmation round (open)
+## Confirmation round (decided 2026-09-26)
 
-1. Push deferred as the merge/entity simplifications — confirm before
-   merging `docs/introspec` into `dev`?
-2. OIDC code-flow stubs: accept as Planned, or schedule real exchange?
-3. E2E timer flows: accept gap, or add to next work batch?
-4. `.env` scratch convention: keep gitignored-local, or add
-   `.env.example`?
+1. Merged into `dev` — yes.
+2. OIDC code-flow stubs → scheduled (tracked as Planned in
+   `specs/001-authentication/spec.md`).
+3. E2E timer flows → queued (tracked as Planned in
+   `specs/008-time-tracking/spec.md`).
+4. `.env.example` → already exists and covers all compose vars; no action.
