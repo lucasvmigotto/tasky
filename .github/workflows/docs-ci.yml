@@ -53,6 +53,9 @@ jobs:
       - name: Build (emits dist + llms output)
         run: bun run build
         working-directory: docs/site
+        env:
+          VITE_APP_SITE_NAME: ${{ vars.VITE_APP_SITE_NAME }}
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
 
       - name: Install Playwright browsers
         run: bunx playwright install chromium --with-deps
@@ -159,6 +162,9 @@ jobs:
       - name: Install and build
         run: bun install --frozen-lockfile && bun run build
         working-directory: docs/site
+        env:
+          VITE_APP_SITE_NAME: ${{ vars.VITE_APP_SITE_NAME }}
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
 
       - name: Check R2 credentials
         id: creds
@@ -177,24 +183,27 @@ jobs:
           case "$R2_ENDPOINT" in https://*) ;; *) echo "::error::CLOUDFLARE_R2_ENDPOINT_S3_CLIENT must start with https:// (got: $R2_ENDPOINT)"; exit 1;; esac
           if [ -z "$R2_BUCKET" ]; then echo "::error::CLOUDFLARE_R2_BUCKET_ID repo variable is not set"; exit 1; fi
 
+      # Prefix-scoped deploy into the shared docs-hub bucket (ADR 0001).
+      # NEVER sync with --delete on the bucket root — that would wipe
+      # the other apps' prefixes and the landing.
       - name: Sync hashed assets (immutable)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 sync docs/site/dist/assets "s3://$R2_BUCKET/assets" \
+          aws s3 sync docs/site/dist/assets "s3://$R2_BUCKET/tasky/assets" \
             --endpoint-url "$R2_ENDPOINT" --delete \
             --cache-control "public, max-age=31536000, immutable"
 
       - name: Sync screenshots (long-lived)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 sync docs/site/dist/screenshots "s3://$R2_BUCKET/screenshots" \
+          aws s3 sync docs/site/dist/screenshots "s3://$R2_BUCKET/tasky/screenshots" \
             --endpoint-url "$R2_ENDPOINT" \
             --cache-control "public, max-age=604800"
 
       - name: Sync Markdown (LLM output, no-cache, text/markdown)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 sync docs/site/dist/docs "s3://$R2_BUCKET/docs" \
+          aws s3 sync docs/site/dist/docs "s3://$R2_BUCKET/tasky/docs" \
             --endpoint-url "$R2_ENDPOINT" --delete \
             --content-type "text/markdown; charset=utf-8" \
             --cache-control "no-cache"
@@ -202,13 +211,13 @@ jobs:
       - name: Sync entry files and llms (no-cache)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 cp docs/site/dist/index.html "s3://$R2_BUCKET/index.html" \
+          aws s3 cp docs/site/dist/index.html "s3://$R2_BUCKET/tasky/index.html" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/html; charset=utf-8" --cache-control "no-cache"
-          aws s3 cp docs/site/dist/llms.txt "s3://$R2_BUCKET/llms.txt" \
+          aws s3 cp docs/site/dist/llms.txt "s3://$R2_BUCKET/tasky/llms.txt" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "no-cache"
-          aws s3 cp docs/site/dist/llms-full.txt "s3://$R2_BUCKET/llms-full.txt" \
+          aws s3 cp docs/site/dist/llms-full.txt "s3://$R2_BUCKET/tasky/llms-full.txt" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "no-cache"
-          aws s3 cp docs/site/dist/favicon.svg "s3://$R2_BUCKET/favicon.svg" \
+          aws s3 cp docs/site/dist/favicon.svg "s3://$R2_BUCKET/tasky/favicon.svg" \
             --endpoint-url "$R2_ENDPOINT" --content-type "image/svg+xml" --cache-control "public, max-age=86400"
-          aws s3 cp docs/site/dist/og-image.png "s3://$R2_BUCKET/og-image.png" \
+          aws s3 cp docs/site/dist/og-image.png "s3://$R2_BUCKET/tasky/og-image.png" \
             --endpoint-url "$R2_ENDPOINT" --content-type "image/png" --cache-control "public, max-age=86400"

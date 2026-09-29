@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => {
   generateLlmsOutput(SERVED_DIR)
 
   return {
-    base: './',
+    base: '/tasky/',
     publicDir: SERVED_DIR,
     plugins: [react(), tailwindcss(), brandingPlugin(siteName, siteUrl)],
     define: {
