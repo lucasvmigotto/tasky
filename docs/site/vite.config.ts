@@ -62,7 +62,10 @@ export default defineConfig(({ mode }) => {
   generateLlmsOutput(SERVED_DIR)
 
   return {
-    base: '/tasky/',
+    // Deployed under the docs-hub prefix /<repo>/ (ADR 0001 in lucas/docs).
+    // CI sets VITE_BASE_PATH from github.event.repository.name; the local
+    // default keeps `vite preview` and e2e at the same path as production.
+    base: process.env.VITE_BASE_PATH ?? '/tasky/',
     publicDir: SERVED_DIR,
     plugins: [react(), tailwindcss(), brandingPlugin(siteName, siteUrl)],
     define: {

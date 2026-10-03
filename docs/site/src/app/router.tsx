@@ -34,7 +34,9 @@ const router = createHashRouter(
     },
   ],
   {
-    basename: '/tasky',
+    // Matches the docs-hub prefix (ADR 0001 in lucas/docs); derived from the
+    // Vite base so it tracks VITE_BASE_PATH.
+    basename: import.meta.env.BASE_URL.replace(/\/$/, ''),
   },
 )
 
