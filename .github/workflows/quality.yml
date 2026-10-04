@@ -3,7 +3,7 @@ name: quality
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
 
 permissions:
   contents: read
@@ -131,7 +131,9 @@ jobs:
           tags: ${{ matrix.image }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
-      - uses: aquasecurity/trivy-action@0.28.0
+      # Pinned to v0.36.0 (immutable commit): the pre-incident `0.28.0` tag was
+      # removed and all tags now carry the `v` prefix.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ matrix.image }}
           format: table
