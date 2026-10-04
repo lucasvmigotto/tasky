@@ -73,46 +73,98 @@ async function main() {
     // trust it system-wide, or accept the bypass here.
     ignoreHTTPSErrors: true,
   })
-  const page = await context.newPage()
   const shots = selectedShots()
-  const wanted = new Set(shots.map((s) => s.name))
+  // `login` is captured separately (not in SHOTS), so an explicit
+  // TASKY_SHOTS=login must still trigger it; otherwise capture it whenever the
+  // full set runs.
+  const captureLogin =
+    !process.env.TASKY_SHOTS ||
+    process.env.TASKY_SHOTS.split(',')
+      .map((s) => s.trim())
+      .includes('login')
 
-  // Login screen first (public, no session needed).
-  if (wanted.has('login') || !process.env.TASKY_SHOTS) {
-    await page.goto(`${APP}/login`)
-    await page.waitForTimeout(800)
-    await page.screenshot({ path: resolve(OUT, 'login.png') })
+  // Login screen first (public, no session needed). The documentation image
+  // must show the real sign-in options (Google + Microsoft) and not the
+  // local mock panel, so this shot uses its own page with the runtime config
+  // overridden: both client IDs present, mock buttons hidden. The harness
+  // still needs the mock provider to log in, so the authenticated screens use
+  // a separate page without the override.
+  if (captureLogin) {
+    const loginPage = await context.newPage()
+    // The served `runtime-config.js` assigns window.__TASKY_CONFIG__ after any
+    // init script, so the override must replace the response itself. Rewrite
+    // it on the fly: both client IDs present, mock buttons hidden. Only this
+    // page is affected; the authenticated screens keep the real config.
+    await loginPage.route('**/runtime-config.js', async (route) => {
+      const response = await route.fetch()
+      const body = await response.text()
+      const patched = body
+        .replace(
+          /GOOGLE_CLIENT_ID: '[^']*'/,
+          "GOOGLE_CLIENT_ID: 'tasky-docs-google.apps.googleusercontent.com'",
+        )
+        .replace(/MICROSOFT_CLIENT_ID: '[^']*'/, "MICROSOFT_CLIENT_ID: 'tasky-docs-microsoft-client-id'")
+        .replace(/MOCK_OAUTH2_ENABLED: '[^']*'/, "MOCK_OAUTH2_ENABLED: 'false'")
+      await route.fulfill({ response, body: patched })
+    })
+    await loginPage.goto(`${APP}/login`)
+    await loginPage.waitForTimeout(800)
+    await loginPage.screenshot({ path: resolve(OUT, 'login.png') })
+    await loginPage.close()
     console.log('captured login.png')
   }
 
-  await mockLogin(page)
+  if (shots.length > 0) {
+    const page = await context.newPage()
+    await mockLogin(page)
 
-  for (const shot of shots) {
-    await page.goto(`${APP}${shot.path}`)
-    // Wait for the SPA's data queries to settle, then a short paint margin.
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(shot.wait ?? 1000)
-    // Route guards redirect unauthorized pages; skip instead of capturing a redirect.
-    const landed = new URL(page.url()).pathname
-    if (!landed.startsWith(shot.path.split('?')[0])) {
-      console.warn(`skip ${shot.name}: redirected to ${landed} (role not permitted)`)
-      continue
+    for (const shot of shots) {
+      await page.goto(`${APP}${shot.path}`)
+      // Wait for the SPA's data queries to settle, then a short paint margin.
+      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForTimeout(shot.wait ?? 1000)
+      // Route guards redirect unauthorized pages; skip instead of capturing a redirect.
+      const landed = new URL(page.url()).pathname
+      if (!landed.startsWith(shot.path.split('?')[0])) {
+        console.warn(`skip ${shot.name}: redirected to ${landed} (role not permitted)`)
+        continue
+      }
+      const error = page.getByText(/Algo deu errado|Something went wrong/i)
+      if (await error.count()) {
+        console.warn(`skip ${shot.name}: page error state`)
+        continue
+      }
+      if (shot.name === 'approval-queue') {
+        // The queue sits below the timesheet grid inside a scrollable region;
+        // the document itself does not scroll, so bring the section into view
+        // by scrolling its nearest scrollable ancestor.
+        await page
+          .getByText('Aprovações pendentes')
+          .first()
+          .scrollIntoViewIfNeeded()
+          .catch(() => {})
+        await page.evaluate(() => {
+          const heading = Array.from(document.querySelectorAll('*')).find(
+            (el) => el.textContent?.trim() === 'Aprovações pendentes',
+          )
+          let node: HTMLElement | null = heading as HTMLElement | null
+          while (node) {
+            const style = getComputedStyle(node)
+            const scrollable =
+              (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+              node.scrollHeight > node.clientHeight
+            if (scrollable) {
+              node.scrollTop = node.scrollHeight
+              break
+            }
+            node = node.parentElement
+          }
+        })
+        await page.waitForTimeout(600)
+      }
+      await page.screenshot({ path: resolve(OUT, `${shot.name}.png`), fullPage: shot.fullPage ?? false })
+      console.log(`captured ${shot.name}.png`)
     }
-    const error = page.getByText(/Algo deu errado|Something went wrong/i)
-    if (await error.count()) {
-      console.warn(`skip ${shot.name}: page error state`)
-      continue
-    }
-    if (shot.name === 'approval-queue') {
-      // Bring the queue into view (it sits below the timesheet grid).
-      await page
-        .getByText('Aprovações pendentes')
-        .scrollIntoViewIfNeeded()
-        .catch(() => {})
-      await page.waitForTimeout(400)
-    }
-    await page.screenshot({ path: resolve(OUT, `${shot.name}.png`), fullPage: shot.fullPage ?? false })
-    console.log(`captured ${shot.name}.png`)
   }
 
   await context.close()

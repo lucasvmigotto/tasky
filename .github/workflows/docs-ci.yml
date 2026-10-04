@@ -53,16 +53,33 @@ jobs:
       - name: Build (emits dist + llms output)
         run: bun run build
         working-directory: docs/site
+        env:
+          VITE_APP_SITE_NAME: tasky
+          VITE_SITE_URL: https://docs.lucasvmigotto.me/${{ github.event.repository.name }}
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - name: Install Playwright browsers
         run: bunx playwright install chromium --with-deps
         working-directory: docs/site
 
+      # Playwright's webServer starts `vite preview` against the production
+      # build (base path /tasky/), so the e2e run needs no external server.
       - name: e2e smoke (serves the production build)
-        run: E2E_NO_SERVER=1 bunx playwright test
+        run: bunx playwright test
         working-directory: docs/site
         env:
-          E2E_NO_SERVER: "1"
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: Guard prefix-scoped R2 deploy
+        run: |
+          # Fitness function (ADR 0001 in lucas/docs): every R2 sync/cp must be
+          # prefix-scoped, so a project can never wipe the shared bucket root.
+          bad=$(grep -nE '^[[:space:]]+aws s3 (sync|cp)' .github/workflows/docs-ci.yml | grep -v 'R2_PREFIX' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::root-scoped R2 target detected — every deploy must use \$R2_PREFIX"
+            echo "$bad"
+            exit 1
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -110,6 +127,9 @@ jobs:
             ${{ github.repository_owner }}/tasky
             ghcr.io/${{ github.repository }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@v6
@@ -149,6 +169,9 @@ jobs:
       AWS_EC2_METADATA_DISABLED: "true"
       R2_ENDPOINT: ${{ vars.CLOUDFLARE_R2_ENDPOINT_S3_CLIENT }}
       R2_BUCKET: ${{ vars.CLOUDFLARE_R2_BUCKET_ID }}
+      # Per-project prefix in the shared docs-hub bucket (ADR 0001). The slug
+      # is the repository name — no per-repo configuration, cannot drift.
+      R2_PREFIX: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v4
 
@@ -159,6 +182,10 @@ jobs:
       - name: Install and build
         run: bun install --frozen-lockfile && bun run build
         working-directory: docs/site
+        env:
+          VITE_APP_SITE_NAME: tasky
+          VITE_SITE_URL: https://docs.lucasvmigotto.me/${{ github.event.repository.name }}
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - name: Check R2 credentials
         id: creds
@@ -170,31 +197,35 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate R2 endpoint
+      - name: Validate R2 configuration
         if: steps.creds.outputs.present == 'true'
         run: |
           if [ -z "$R2_ENDPOINT" ]; then echo "::error::CLOUDFLARE_R2_ENDPOINT_S3_CLIENT repo variable is not set"; exit 1; fi
           case "$R2_ENDPOINT" in https://*) ;; *) echo "::error::CLOUDFLARE_R2_ENDPOINT_S3_CLIENT must start with https:// (got: $R2_ENDPOINT)"; exit 1;; esac
           if [ -z "$R2_BUCKET" ]; then echo "::error::CLOUDFLARE_R2_BUCKET_ID repo variable is not set"; exit 1; fi
+          case "$R2_PREFIX" in /*/) ;; *) echo "::error::R2_PREFIX must look like /<slug>/ (got: '$R2_PREFIX')"; exit 1;; esac
 
+      # Prefix-scoped deploy into the shared docs-hub bucket (ADR 0001).
+      # NEVER sync with --delete on the bucket root — that would wipe
+      # the other apps' prefixes and the landing.
       - name: Sync hashed assets (immutable)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 sync docs/site/dist/assets "s3://$R2_BUCKET/assets" \
+          aws s3 sync docs/site/dist/assets "s3://$R2_BUCKET${R2_PREFIX}assets" \
             --endpoint-url "$R2_ENDPOINT" --delete \
             --cache-control "public, max-age=31536000, immutable"
 
       - name: Sync screenshots (long-lived)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 sync docs/site/dist/screenshots "s3://$R2_BUCKET/screenshots" \
+          aws s3 sync docs/site/dist/screenshots "s3://$R2_BUCKET${R2_PREFIX}screenshots" \
             --endpoint-url "$R2_ENDPOINT" \
             --cache-control "public, max-age=604800"
 
       - name: Sync Markdown (LLM output, no-cache, text/markdown)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 sync docs/site/dist/docs "s3://$R2_BUCKET/docs" \
+          aws s3 sync docs/site/dist/docs "s3://$R2_BUCKET${R2_PREFIX}docs" \
             --endpoint-url "$R2_ENDPOINT" --delete \
             --content-type "text/markdown; charset=utf-8" \
             --cache-control "no-cache"
@@ -202,13 +233,13 @@ jobs:
       - name: Sync entry files and llms (no-cache)
         if: steps.creds.outputs.present == 'true'
         run: |
-          aws s3 cp docs/site/dist/index.html "s3://$R2_BUCKET/index.html" \
+          aws s3 cp docs/site/dist/index.html "s3://$R2_BUCKET${R2_PREFIX}index.html" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/html; charset=utf-8" --cache-control "no-cache"
-          aws s3 cp docs/site/dist/llms.txt "s3://$R2_BUCKET/llms.txt" \
+          aws s3 cp docs/site/dist/llms.txt "s3://$R2_BUCKET${R2_PREFIX}llms.txt" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "no-cache"
-          aws s3 cp docs/site/dist/llms-full.txt "s3://$R2_BUCKET/llms-full.txt" \
+          aws s3 cp docs/site/dist/llms-full.txt "s3://$R2_BUCKET${R2_PREFIX}llms-full.txt" \
             --endpoint-url "$R2_ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "no-cache"
-          aws s3 cp docs/site/dist/favicon.svg "s3://$R2_BUCKET/favicon.svg" \
+          aws s3 cp docs/site/dist/favicon.svg "s3://$R2_BUCKET${R2_PREFIX}favicon.svg" \
             --endpoint-url "$R2_ENDPOINT" --content-type "image/svg+xml" --cache-control "public, max-age=86400"
-          aws s3 cp docs/site/dist/og-image.png "s3://$R2_BUCKET/og-image.png" \
+          aws s3 cp docs/site/dist/og-image.png "s3://$R2_BUCKET${R2_PREFIX}og-image.png" \
             --endpoint-url "$R2_ENDPOINT" --content-type "image/png" --cache-control "public, max-age=86400"
