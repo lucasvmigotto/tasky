@@ -45,6 +45,15 @@ No CVE in this set is accepted as risk; none are required to be recorded
 "not affected" beyond the rescans below. Any that survive after the steps
 will be re-triaged with `file:line` call-site evidence or escalated.
 
+**Resolved.** After steps 1–3 the API image scans **0 HIGH / 0 CRITICAL**
+(was 56 HIGH / 7 CRITICAL). The families that needed versions beyond Boot
+4.0.8's own BOM — Tomcat (`11.0.25`) and Jackson 3.x (`3.1.7`) — are pinned
+as BOM property overrides (`ext['tomcat.version']`,
+`ext['jackson-bom.version']`) in the root `build.gradle`; Jackson 2.x
+(`2.21.7`) is a `resolutionStrategy` constraint because it is not managed by
+the Boot BOM.
+
+
 ## EOL table
 
 | Component | Current | Status | Target |
@@ -93,18 +102,36 @@ thin for a changed family, add a characterization test before Step 2.
 
 ## Before/after (filled in at close-out)
 
+Measured with trivy against the built API image. "Before" is the CI job
+(`trivy v0.36.0`); "after" is a local scan (`trivy v0.75.0`) — the scanners
+and their DBs differ, so treat the before/after as the same trajectory, not
+an identical measurement. CI is authoritative on the next push.
+
 | Metric | Before | After |
 |---|---|---|
-| HIGH/CRITICAL (API image) | 56 HIGH, 7 CRIT (trivy v0.36.0) | _pending_ |
-| Spring Boot | 4.0.6 | _pending_ |
-| Tomcat / Netty / Spring Framework | 11.0.21 / 4.2.12 / 7.0.7 | _pending_ |
-| Jackson (2.x / 3.x) | 2.21.2 / 3.1.2 | _pending_ |
-| API tests | 131 green | _pending_ |
+| HIGH (API image) | 56 | **0** |
+| CRITICAL (API image) | 7 | **0** |
+| MEDIUM / LOW (informational) | n/a | 40 / 4 |
+| Spring Boot | 4.0.6 | **4.0.8** |
+| Tomcat (embed) | 11.0.21 | **11.0.25** |
+| Netty | 4.2.12.Final | **4.2.17.Final** |
+| Spring Framework | 7.0.7 | **7.0.9** |
+| Jackson 2.x (`com.fasterxml`) | 2.21.2 | **2.21.7** |
+| Jackson 3.x (`tools.jackson`) | 3.1.2 | **3.1.7** |
+| JRE base | temurin 25-jre (Ubuntu 24.04) | temurin 25-jre (Ubuntu 26.04, ssl 3.5.5-1ubuntu3.7) |
+| API tests | 131 green | **131 green** |
+| API image size | ~501 MB | 501 MB |
 
-## Open question for the user
+Remaining MEDIUM/LOW findings are below the CI gate
+(`severity: HIGH,CRITICAL`) and are the usual JRE/service surface; they are
+left for a routine base-image refresh rather than pinned here.
 
-Step 2 crosses the `patch` boundary only in the "minor bumps outside the
-declared range" sense if Boot 4.0.8 is considered outside `4.0.6`; it is a
-same-line patch release, so it is within `patch`. Steps 1–3 change no
-application code. Confirm the level and whether to proceed step by step
-with a merge after each.
+## Findings for project:refactor
+
+None. Every change was a version or base-image edit within `patch`; no
+application code changed and no behavior changed (131 tests identical).
+
+## Next retrofit
+
+Re-run when the JRE base image or the Spring Boot 4.0.x line advances, or
+at the next quarterly scan — whichever comes first.
