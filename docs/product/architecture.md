@@ -51,7 +51,7 @@ separate approach (out of scope of the file).
 | Layer | Technology | Evidence |
 |---|---|---|
 | Backend language/build | Java 25 toolchain, Gradle 9.0.0 | [OBSERVED: `api/build.gradle:10-14`, `gradle/wrapper/gradle-wrapper.properties:4`] |
-| Backend framework | Spring Boot 4.0.6 (web, data-jpa, security, oauth2-resource-server, validation, data-redis, actuator, flyway) | [OBSERVED: `api/build.gradle:21-36`] |
+| Backend framework | Spring Boot 4.0.8, with Tomcat 11.0.25 and Jackson 3.1.7 pinned (web, data-jpa, security, oauth2-resource-server, validation, data-redis, actuator, flyway) | [OBSERVED: `build.gradle:1-14`, `api/build.gradle:21-36`] |
 | AuthN/Z | Spring Security stateless JWT HS256 + OIDC verifiers + `PermissionService(@Component("access"))` | [OBSERVED: `api/src/main/java/io/tasky/api/security/`] |
 | Persistence | Spring Data JPA, Hibernate, Flyway, PostgreSQL 18 | [OBSERVED: `application.yml:7-31`, migrations V1–V48] |
 | Cache | Spring Cache + Redis (JSON values, 30s TTL, fail-open handler) | [OBSERVED: `api/src/main/java/io/tasky/api/config/CacheConfig.java`] |

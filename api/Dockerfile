@@ -1,4 +1,4 @@
-FROM docker.io/library/eclipse-temurin:25-jdk@sha256:97014c4b396021f9ddb7d592a7dbedb0c4e4215c29e03dc01c393558aefb71c2 AS builder
+FROM docker.io/library/eclipse-temurin:25-jdk@sha256:791193f8d46fe8afeb6360433dd057b88850a78ed440e3d57d2e6340994dd24b AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN --mount=type=bind,source=gradlew,target=gradlew \
     --mount=type=bind,source=api/src,target=api/src \
     ./gradlew :api:build --no-daemon -x test
 
-FROM docker.io/library/eclipse-temurin:25-jre@sha256:bb036ed6cfdc57e3da7c22634d15f1b840d2caf76183861c80e81ca4b5104abb
+FROM docker.io/library/eclipse-temurin:25-jre@sha256:bcc1a99b4bc676717bdc9841c363072ce10e3f34462c4017f7df08e730f485b0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \

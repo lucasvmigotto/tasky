@@ -57,3 +57,18 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// Jackson 2.x comes transitively from azure-core, not the Boot 4 BOM (which
+// manages the tools.jackson 3.x line). The dependency-management plugin pins
+// core/databind to 2.21.5, so force the patched 2.21.7 that clears the
+// remaining CVEs — same 2.21 API, no code changes. jackson-annotations ships
+// on its own 2.21 version line and must not be forced to 2.21.7 (it does not
+// exist), so only core and databind are pinned.
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == 'com.fasterxml.jackson.core'
+                && (requested.name == 'jackson-core' || requested.name == 'jackson-databind')) {
+            useVersion('2.21.7')
+        }
+    }
+}
