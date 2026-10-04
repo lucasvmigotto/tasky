@@ -26,7 +26,7 @@ Spring Boot API (:8080, non-root appuser)
 [OBSERVED: `docker-compose.yml:6-171`; `app/nginx.conf.template:61-72`;
 `api/Dockerfile:13-33`; `app/Dockerfile:25-52`.]
 
-Single dev-only Compose stack (`api, app, wal-init, db, redis, minio,
+Single dev-only Compose stack (`api, app, wal-init, db, redis,
 mock-oauth2`) [OBSERVED: `docker-compose.yml:1-2`]. Production uses a
 separate approach (out of scope of the file).
 

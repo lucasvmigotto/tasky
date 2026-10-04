@@ -18,7 +18,7 @@
 
 ## Environments & data
 
-- Dev: single `docker-compose.yml` (api/app/db/redis/minio/mock-oauth2),
+- Dev: single `docker-compose.yml` (api/app/db/redis/mock-oauth2),
   dev-only. Tests: Testcontainers ephemeral PG; frontend MSW absolute-URL
   handlers; uploads isolated to `/tmp/tasky-test-uploads` in tests.
 - No committed fixtures with secrets; `.env` is gitignored scratch.
