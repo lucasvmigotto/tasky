@@ -2,3 +2,11 @@ plugins {
     id 'org.springframework.boot' version '4.0.8' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
 }
+
+// Same-line patch overrides on the Spring Boot 4.0.8 BOM. Boot ships Tomcat
+// 11.0.24 and Jackson 3.1.5, but the container scan needs 11.0.25 and 3.1.7
+// for the CVEs fixed there. These properties are honored by the BOM importer.
+subprojects {
+    ext['tomcat.version'] = '11.0.25'
+    ext['jackson-bom.version'] = '3.1.7'
+}
