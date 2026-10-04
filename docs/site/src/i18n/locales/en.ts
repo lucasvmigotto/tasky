@@ -180,7 +180,7 @@ podman compose up -d --build`,
             },
             {
               kind: 'p',
-              text: 'The single development stack starts api, app, db (PostgreSQL 18), redis, minio and mock-oauth2 behind a TLS proxy (NGINX). The app is at http://localhost:5173 and the API at http://localhost:8080.',
+              text: 'The single development stack starts api, app, db (PostgreSQL 18), redis and mock-oauth2 behind a TLS proxy (NGINX). The app is at http://localhost:5173 and the API at http://localhost:8080.',
             },
           ],
         },

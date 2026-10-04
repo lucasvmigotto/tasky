@@ -74,11 +74,16 @@ jobs:
           if [ -z "$REMOTE_SHA" ]; then
             git tag "$TAG" "$GITHUB_SHA"
             git push origin "$TAG"
-          elif [ "$REMOTE_SHA" != "$GITHUB_SHA" ]; then
-            echo "Tag $TAG already points to $REMOTE_SHA, not $GITHUB_SHA" >&2
-            exit 1
-          else
+          elif [ "$REMOTE_SHA" = "$GITHUB_SHA" ]; then
             echo "Tag $TAG already points to this commit"
+          elif git merge-base --is-ancestor "$REMOTE_SHA" "$GITHUB_SHA"; then
+            # The version was already released on an earlier commit and this
+            # promotion moves the branch forward without a version bump, so the
+            # tag cannot move. Keep the released tag and let the image publish.
+            echo "Tag $TAG already released at $REMOTE_SHA; not moving it"
+          else
+            echo "Tag $TAG points to $REMOTE_SHA, which is not an ancestor of $GITHUB_SHA" >&2
+            exit 1
           fi
 
   build-and-push:

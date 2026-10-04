@@ -185,7 +185,7 @@ podman compose up -d --build`,
             },
             {
               kind: 'p',
-              text: 'A pilha única de desenvolvimento sobe api, app, db (PostgreSQL 18), redis, minio e o mock-oauth2 atrás de um proxy TLS (NGINX). O app fica em http://localhost:5173 e a API em http://localhost:8080.',
+              text: 'A pilha única de desenvolvimento sobe api, app, db (PostgreSQL 18), redis e o mock-oauth2 atrás de um proxy TLS (NGINX). O app fica em http://localhost:5173 e a API em http://localhost:8080.',
             },
           ],
         },
