@@ -24,6 +24,10 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 
 FROM docker.io/library/nginx:${NGINX_VERSION}@sha256:ef8676b33d681f272ba429b27658bdd7e640963279714c96bddf1dc76307f7b6
 
+# Apply Alpine security patches on top of the pinned digest (expat, pcre2).
+# A digest refresh within stable-alpine does not always carry them.
+RUN apk upgrade --no-cache
+
 ARG API_UPSTREAM=http://api:8080
 ENV API_UPSTREAM=${API_UPSTREAM}
 ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
