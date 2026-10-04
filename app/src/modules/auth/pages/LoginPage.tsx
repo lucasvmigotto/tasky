@@ -8,7 +8,6 @@ import { startGoogleLogin } from '@/core/auth/googleOAuth'
 import { startMicrosoftLogin, startMockLogin } from '@/core/auth/oidc'
 import { ROUTES } from '@/core/config/routes'
 
-const hasMicrosoft = getConfig().microsoftClientId !== ''
 const mockEnabled = getConfig().mockOAuth2Enabled === 'true'
 
 export default function LoginPage() {
@@ -104,21 +103,19 @@ export default function LoginPage() {
                   </svg>
                   Entrar com Google
                 </button>
-                {hasMicrosoft && (
-                  <button
-                    type="button"
-                    onClick={startMicrosoftLogin}
-                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-800/50 px-5 py-3 text-sm font-medium text-zinc-300 shadow-sm transition-all duration-200 hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100"
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                      <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022" />
-                      <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00" />
-                      <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF" />
-                      <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900" />
-                    </svg>
-                    Entrar com Microsoft
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={startMicrosoftLogin}
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-800/50 px-5 py-3 text-sm font-medium text-zinc-300 shadow-sm transition-all duration-200 hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022" />
+                    <path d="M22 2h-9.4v9.4H22V2z" fill="#7FBA00" />
+                    <path d="M11.4 12.6H2V22h9.4v-9.4z" fill="#00A4EF" />
+                    <path d="M22 12.6h-9.4V22H22v-9.4z" fill="#FFB900" />
+                  </svg>
+                  Entrar com Microsoft
+                </button>
                 {mockEnabled && (
                   <div className="flex flex-col gap-2 rounded-xl border border-dashed border-zinc-800 p-3">
                     <p className="text-center text-xs text-zinc-600">Ambiente local (mock)</p>
