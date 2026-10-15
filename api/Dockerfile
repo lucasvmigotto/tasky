@@ -12,9 +12,13 @@ RUN --mount=type=bind,source=gradlew,target=gradlew \
 
 FROM docker.io/library/eclipse-temurin:25-jre@sha256:bcc1a99b4bc676717bdc9841c363072ce10e3f34462c4017f7df08e730f485b0
 
+# The Ubuntu base ships pebble (its service manager, not a dpkg package);
+# the JVM runs as PID 1 here and never uses it, so it goes, along with the
+# Go stdlib CVEs it carries (CVE-2026-78667, -78669, -97031).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/bin/pebble \
     && useradd --create-home --shell /bin/false appuser
 
 WORKDIR /app

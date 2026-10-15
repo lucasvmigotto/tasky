@@ -17,6 +17,15 @@ describe('navigation', () => {
     expect(screen.getAllByRole('link', { name: 'Arquitetura' }).length).toBeGreaterThan(0)
   })
 
+  it('shows each version in the footer, linked to its tag', () => {
+    renderPage('overview')
+    expect(screen.getByTitle('Versions')).toHaveTextContent('app@v1.2.0 · api@v1.2.0 · docs@v1.0.0')
+    expect(screen.getByRole('link', { name: 'api@v1.2.0' })).toHaveAttribute(
+      'href',
+      'https://github.com/lucasvmigotto/tasky/tree/api-1.2.0',
+    )
+  })
+
   it('switches language and re-labels the UI', async () => {
     const user = userEvent.setup()
     renderPage('overview')
