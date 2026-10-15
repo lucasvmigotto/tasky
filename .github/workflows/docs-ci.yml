@@ -14,6 +14,12 @@ on:
       - "docs/site/**"
       - "docs/product/**"
       - "specs/**"
+  # Redeploy once App CI / API CI have tagged app-X.Y.Z / api-X.Y.Z, so the
+  # footer links the release tags instead of the untagged commit.
+  workflow_run:
+    workflows: ["App CI", "API CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -24,11 +30,14 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git tag --points-at HEAD: the footer's versions and links
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -90,7 +99,7 @@ jobs:
 
   image:
     needs: verify
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -157,7 +166,7 @@ jobs:
 
   deploy:
     needs: verify
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -174,6 +183,8 @@ jobs:
       R2_PREFIX: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git tag --points-at HEAD: the footer's versions and links
 
       - uses: oven-sh/setup-bun@v2
         with:

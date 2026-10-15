@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { cpSync, readFileSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { URL, fileURLToPath } from 'node:url'
@@ -5,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { type Plugin, defineConfig, loadEnv } from 'vite'
 import { generateLlmsOutput } from './scripts/build-llms'
+import { type Part, footerVersions } from './scripts/footer-versions'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 
@@ -34,6 +36,53 @@ function resolveVersion(): string {
     const own = JSON.parse(readFileSync(resolve(here, 'package.json'), 'utf8'))
     return String(own.version)
   }
+}
+
+function read(path: string): string | null {
+  try {
+    return readFileSync(resolve(here, '..', '..', path), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+function git(...args: string[]): string {
+  try {
+    return execFileSync('git', ['-C', resolve(here, '..', '..'), ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The footer's versions: app (app/package.json) and api (api/build.gradle),
+ * released as `app-X.Y.Z` / `api-X.Y.Z` by their CI, then the docs site's
+ * own. A part whose manifest is outside the build context (the
+ * Containerfile) is left out; without git, nothing is linked.
+ */
+function resolveFooterVersions() {
+  const parts: Part[] = []
+  const app = read('app/package.json')
+  if (app) {
+    const version = String(JSON.parse(app).version)
+    parts.push({ name: 'app', version, tag: `app-${version}` })
+  }
+  const api = read('api/build.gradle')?.match(/^version\s*=\s*'([^']+)'/m)?.[1]
+  if (api) parts.push({ name: 'api', version: api, tag: `api-${api}` })
+  const own = JSON.parse(readFileSync(resolve(here, 'package.json'), 'utf8'))
+  return footerVersions({
+    repoUrl: 'https://github.com/lucasvmigotto/tasky',
+    parts,
+    docsVersion: String(own.version),
+    docsPath: 'docs/site',
+    git: {
+      tagsAtHead: git('tag', '--points-at', 'HEAD').split('\n').filter(Boolean),
+      sha: git('rev-parse', 'HEAD'),
+    },
+  })
 }
 
 /**
@@ -70,6 +119,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), brandingPlugin(siteName, siteUrl)],
     define: {
       __APP_VERSION__: JSON.stringify(resolveVersion()),
+      __VERSIONS__: JSON.stringify(resolveFooterVersions()),
     },
     build: {
       outDir: 'dist',

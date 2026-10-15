@@ -320,7 +320,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-7xl px-4 py-6 text-xs text-muted-foreground">
           <p>{content.ui.footerNote}</p>
           <p className="mt-1">
-            TaskY v{VERSION} · {new Date().getFullYear()}
+            TaskY{' '}
+            <span title="Versions">
+              {__VERSIONS__.map((v, i) => (
+                <span key={v.name}>
+                  {i > 0 && ' · '}
+                  {v.href ? (
+                    <a href={v.href} rel="noreferrer" className="hover:text-foreground">
+                      {v.label}
+                    </a>
+                  ) : (
+                    v.label
+                  )}
+                </span>
+              ))}
+            </span>{' '}
+            · {new Date().getFullYear()}
           </p>
         </div>
       </footer>
